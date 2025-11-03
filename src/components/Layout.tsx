@@ -20,6 +20,7 @@ export function Layout({ children }: LayoutProps) {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(null);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -56,7 +57,7 @@ export function Layout({ children }: LayoutProps) {
                 <span className="absolute top-1 right-1 h-2 w-2 bg-destructive rounded-full" />
               </Button>
               
-              <Popover>
+              <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2">
                     <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
@@ -105,7 +106,10 @@ export function Layout({ children }: LayoutProps) {
                       <Button
                         variant="ghost"
                         className="w-full justify-start text-destructive hover:text-destructive"
-                        onClick={signOut}
+                        onClick={async () => {
+                          setIsPopoverOpen(false);
+                          await signOut();
+                        }}
                       >
                         <LogOut className="h-4 w-4 mr-2" />
                         Log out
