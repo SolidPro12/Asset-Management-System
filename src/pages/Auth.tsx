@@ -193,7 +193,7 @@ const Auth = () => {
                 <Package className="h-8 w-8 text-primary-foreground" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold">Solidpro Asset Manager</CardTitle>
+            <CardTitle className="text-2xl font-bold">Solidpro Asset Management</CardTitle>
             <CardDescription>
               Manage your company assets efficiently
             </CardDescription>
@@ -212,7 +212,7 @@ const Auth = () => {
                     <Input
                       id="login-email"
                       type="email"
-                      placeholder="name@solidpro.com"
+                      placeholder="name@solidpro-es.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -285,7 +285,7 @@ const Auth = () => {
                     <Input
                       id="signup-email"
                       type="email"
-                      placeholder="name@solidpro.com"
+                      placeholder="name@solidpro-es.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -298,7 +298,7 @@ const Auth = () => {
                       <Input
                         id="signup-password"
                         type={showPassword ? 'text' : 'password'}
-                        placeholder="Create a password (min 6 characters)"
+                        placeholder="Create a password (min 8 characters)"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
