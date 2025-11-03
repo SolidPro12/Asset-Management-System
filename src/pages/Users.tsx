@@ -81,8 +81,7 @@ const Users = () => {
       );
 
       setUsers(usersWithRoles);
-    } catch (error) {
-      console.error('Error fetching users:', error);
+    } catch (error: any) {
       toast({
         title: 'Error',
         description: 'Failed to load users',
@@ -95,13 +94,11 @@ const Users = () => {
 
   const updateUserRole = async (userId: string, newRole: string) => {
     try {
-      // Delete existing role
-      await supabase.from('user_roles').delete().eq('user_id', userId);
-
-      // Insert new role
-      const { error } = await supabase
-        .from('user_roles')
-        .insert([{ user_id: userId, role: newRole as any }]);
+      // Use secure database function with server-side validation
+      const { error } = await supabase.rpc('update_user_role', {
+        target_user_id: userId,
+        new_role: newRole as any
+      });
 
       if (error) throw error;
 
@@ -111,11 +108,10 @@ const Users = () => {
       });
 
       fetchUsers();
-    } catch (error) {
-      console.error('Error updating user role:', error);
+    } catch (error: any) {
       toast({
         title: 'Error',
-        description: 'Failed to update user role',
+        description: error.message || 'Failed to update user role',
         variant: 'destructive',
       });
     }

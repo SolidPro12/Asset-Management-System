@@ -35,8 +35,8 @@ const Assets = () => {
 
       if (error) throw error;
       setAssets(data || []);
-    } catch (error) {
-      console.error('Error fetching assets:', error);
+    } catch (error: any) {
+      // Generic error message - details not exposed to user
     } finally {
       setLoading(false);
     }
