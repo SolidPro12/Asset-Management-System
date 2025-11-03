@@ -58,20 +58,19 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border p-4">
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-sidebar-primary rounded-lg">
-            <Package className="h-5 w-5 text-sidebar-primary-foreground" />
+      <SidebarHeader className="border-b border-sidebar-border px-3 py-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-sidebar-primary rounded-lg -ml-1">
+            <Package className="h-4 w-4 text-sidebar-primary-foreground" />
           </div>
           {state === 'expanded' && (
-            <div>
+            <div className="flex flex-col">
               <h2 className="text-sm font-semibold text-sidebar-foreground">Solidpro</h2>
-              <p className="text-xs text-sidebar-foreground/60">Asset Manager</p>
+              <p className="text-xs text-sidebar-foreground/60">Asset Management</p>
             </div>
           )}
         </div>
       </SidebarHeader>
-
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
