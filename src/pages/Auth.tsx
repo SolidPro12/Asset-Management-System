@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Package } from 'lucide-react';
+import { z } from 'zod';
 import {
   Carousel,
   CarouselContent,
@@ -65,30 +66,41 @@ const Auth = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const validatePassword = (password: string) => {
-    return password.length >= 6;
-  };
+  // Comprehensive validation schemas
+  const authSchema = z.object({
+    email: z.string()
+      .trim()
+      .email('Invalid email address')
+      .max(255, 'Email must be less than 255 characters'),
+    password: z.string()
+      .min(8, 'Password must be at least 8 characters')
+      .max(128, 'Password must be less than 128 characters')
+      .regex(/[A-Z]/, 'Password must contain an uppercase letter')
+      .regex(/[a-z]/, 'Password must contain a lowercase letter')
+      .regex(/[0-9]/, 'Password must contain a number'),
+    fullName: z.string()
+      .trim()
+      .min(2, 'Name must be at least 2 characters')
+      .max(100, 'Name must be less than 100 characters')
+      .regex(/^[a-zA-Z\s'-]+$/, 'Name contains invalid characters')
+      .optional(),
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateEmail(email)) {
-      toast.error('Please enter a valid email address');
-      return;
-    }
+    // Validate inputs with comprehensive schema
+    const validationData = {
+      email,
+      password,
+      ...((!isLogin) && { fullName }),
+    };
 
-    if (!validatePassword(password)) {
-      toast.error('Password must be at least 6 characters long');
-      return;
-    }
-
-    if (!isLogin && !fullName.trim()) {
-      toast.error('Please enter your full name');
+    const result = authSchema.safeParse(validationData);
+    
+    if (!result.success) {
+      const firstError = result.error.errors[0];
+      toast.error(firstError.message);
       return;
     }
 

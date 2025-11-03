@@ -68,8 +68,8 @@ const Dashboard = () => {
           inProgressRequests,
         }));
       }
-    } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
+    } catch (error: any) {
+      // Generic error message - details not exposed to user
     } finally {
       setLoading(false);
     }
