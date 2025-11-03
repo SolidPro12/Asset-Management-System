@@ -17,10 +17,10 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 217 91% 60%;
+    --primary: 220 68% 38%;
     --primary-foreground: 0 0% 100%;
     
-    --primary-glow: 217 91% 70%;
+    --primary-glow: 220 68% 50%;
 
     --secondary: 214 32% 91%;
     --secondary-foreground: 222 47% 11%;
@@ -28,7 +28,7 @@ All colors MUST be HSL.
     --muted: 214 32% 91%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 217 91% 60%;
+    --accent: 220 68% 38%;
     --accent-foreground: 0 0% 100%;
 
     --success: 142 76% 36%;
@@ -42,18 +42,18 @@ All colors MUST be HSL.
 
     --border: 214 32% 88%;
     --input: 214 32% 88%;
-    --ring: 217 91% 60%;
+    --ring: 220 68% 38%;
 
     --radius: 0.75rem;
 
     --sidebar-background: 222 47% 11%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary: 220 68% 38%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 215 28% 17%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 215 28% 17%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-ring: 220 68% 38%;
 
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -75,7 +75,7 @@ All colors MUST be HSL.
     --popover: 215 28% 17%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 217 91% 60%;
+    --primary: 220 68% 48%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 215 28% 17%;
@@ -84,7 +84,7 @@ All colors MUST be HSL.
     --muted: 215 28% 17%;
     --muted-foreground: 215 20% 65%;
 
-    --accent: 217 91% 60%;
+    --accent: 220 68% 48%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 63% 31%;
@@ -92,16 +92,16 @@ All colors MUST be HSL.
 
     --border: 215 28% 17%;
     --input: 215 28% 17%;
-    --ring: 217 91% 60%;
+    --ring: 220 68% 48%;
     
     --sidebar-background: 215 28% 14%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary: 220 68% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 215 28% 20%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 215 28% 20%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-ring: 220 68% 48%;
   }
 }
 
