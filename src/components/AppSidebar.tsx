@@ -1,5 +1,6 @@
-import { Home, Package, FileText, History, Wrench, Users, LogOut } from 'lucide-react';
+import { Home, Package, FileText, History, Wrench, Users } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import {
   Sidebar,
   SidebarContent,
@@ -10,28 +11,50 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
-  SidebarFooter,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const menuItems = [
-  { title: 'Dashboard', url: '/', icon: Home },
-  { title: 'Assets', url: '/assets', icon: Package },
-  { title: 'Requests', url: '/requests', icon: FileText },
-  { title: 'History', url: '/history', icon: History },
-  { title: 'Service Records', url: '/service', icon: Wrench },
-  { title: 'Users', url: '/users', icon: Users },
+  { title: 'Dashboard', url: '/', icon: Home, requiredRole: null },
+  { title: 'Assets', url: '/assets', icon: Package, requiredRole: null },
+  { title: 'Requests', url: '/requests', icon: FileText, requiredRole: null },
+  { title: 'History', url: '/history', icon: History, requiredRole: null },
+  { title: 'Service Records', url: '/service', icon: Wrench, requiredRole: null },
+  { title: 'Users', url: '/users', icon: Users, requiredRole: 'super_admin' },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { user } = useAuth();
+  const [userRole, setUserRole] = useState<string | null>(null);
   const currentPath = location.pathname;
 
+  useEffect(() => {
+    if (user) {
+      checkUserRole();
+    }
+  }, [user]);
+
+  const checkUserRole = async () => {
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    setUserRole(data?.role || null);
+  };
+
   const isActive = (path: string) => currentPath === path;
+
+  const visibleMenuItems = menuItems.filter(
+    (item) => !item.requiredRole || item.requiredRole === userRole
+  );
 
   return (
     <Sidebar collapsible="icon">
@@ -54,7 +77,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {visibleMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)}>
                     <NavLink to={item.url}>
@@ -68,17 +91,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
-      <SidebarFooter className="border-t border-sidebar-border p-4">
-        <Button
-          variant="ghost"
-          className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-          onClick={signOut}
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          {state === 'expanded' && <span>Logout</span>}
-        </Button>
-      </SidebarFooter>
     </Sidebar>
   );
 }

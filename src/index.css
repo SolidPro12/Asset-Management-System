@@ -46,13 +46,13 @@ All colors MUST be HSL.
 
     --radius: 0.75rem;
 
-    --sidebar-background: 222 47% 11%;
+    --sidebar-background: 220 74% 35%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 220 68% 38%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 28% 17%;
+    --sidebar-accent: 220 74% 30%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 215 28% 17%;
+    --sidebar-border: 220 74% 30%;
     --sidebar-ring: 220 68% 38%;
 
     /* Shadows */
@@ -94,13 +94,13 @@ All colors MUST be HSL.
     --input: 215 28% 17%;
     --ring: 220 68% 48%;
     
-    --sidebar-background: 215 28% 14%;
+    --sidebar-background: 220 74% 32%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 220 68% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 28% 20%;
+    --sidebar-accent: 220 74% 28%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 215 28% 20%;
+    --sidebar-border: 220 74% 28%;
     --sidebar-ring: 220 68% 48%;
   }
 }
