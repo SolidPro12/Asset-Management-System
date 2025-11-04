@@ -201,9 +201,17 @@ const Users = () => {
     if (!selectedUser) return;
 
     try {
-      const { error } = await supabase.auth.admin.deleteUser(selectedUser.id);
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (error) throw error;
+      const response = await supabase.functions.invoke('delete-user', {
+        body: { userId: selectedUser.id },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`
+        }
+      });
+
+      if (response.error) throw response.error;
+      if (response.data?.error) throw new Error(response.data.error);
 
       toast({
         title: 'Success',
