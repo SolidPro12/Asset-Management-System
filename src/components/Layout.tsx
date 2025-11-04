@@ -40,7 +40,7 @@ export function Layout({ children }: LayoutProps) {
     setProfile(data);
   };
 
-  const getRoleDisplayName = (role: string) => {
+  const getRoleDisplayName = (role?: string) => {
     switch (role) {
       case 'super_admin':
         return 'Super Admin';
@@ -54,6 +54,9 @@ export function Layout({ children }: LayoutProps) {
         return 'User';
     }
   };
+
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || (user?.email ? user.email.split('@')[0] : 'User');
+  const roleLabel = getRoleDisplayName(profile?.user_roles?.[0]?.role);
 
   return (
     <SidebarProvider>
@@ -77,12 +80,10 @@ export function Layout({ children }: LayoutProps) {
                   <Button variant="ghost" className="flex items-center gap-2 h-auto py-2">
                     <div className="text-left">
                       <p className="text-sm font-semibold text-foreground">
-                        {profile?.user_roles?.[0]?.role 
-                          ? getRoleDisplayName(profile.user_roles[0].role)
-                          : 'User'}
+                        {displayName}
                       </p>
-                      <p className="text-xs text-muted-foreground hidden md:block">
-                        {profile?.full_name || 'User'}
+                      <p className="text-xs text-muted-foreground">
+                        {roleLabel}
                       </p>
                     </div>
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -92,19 +93,20 @@ export function Layout({ children }: LayoutProps) {
                   <div className="p-4 space-y-3">
                     <div className="space-y-1">
                       <p className="text-base font-semibold text-foreground">
-                        {profile?.full_name || 'User'}
+                        {displayName}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {profile?.email}
+                        {profile?.email || user?.email}
                       </p>
-                      {profile?.user_roles?.[0]?.role && (
-                        <div className="flex items-center gap-2 mt-2">
-                          <Shield className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">
-                            {getRoleDisplayName(profile.user_roles[0].role)}
-                          </span>
-                        </div>
-                      )}
+
+                      {/* Always show role directly under email */}
+                      <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                        <Shield className="h-4 w-4 text-muted-foreground" />
+                        <span>{roleLabel}</span>
+                      </p>
+
+                      {/* If you still want the separate block only when roles exist, keep the conditional too.
+                          The line above ensures role always appears under the email. */}
                     </div>
                     
                     <div className="border-t pt-3 space-y-1">

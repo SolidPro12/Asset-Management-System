@@ -158,7 +158,7 @@ const Auth = () => {
             </div>
 
             {/* Non-clickable indicators */}
-            <div className="flex justify-center gap-2 mt-8 absolute bottom-6 left-0 right-0">
+            <div className="flex justify-center gap-2 mt-4">
               {carouselSlides.map((_, index) => (
                 <div
                   key={index}
@@ -168,8 +168,7 @@ const Auth = () => {
               ))}
             </div>
           </div>
-
-          <p className="mt-12 text-white/80 text-center">
+          <p className="mt-6 text-white/80 text-center">
             Streamline your management<br />with precision and ease
           </p>
         </div>
