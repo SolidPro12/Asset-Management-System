@@ -1,4 +1,3 @@
-// ...existing code...
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -325,4 +324,3 @@ const Auth = () => {
 };
 
 export default Auth;
-// ...existing code...
