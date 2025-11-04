@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
-import { Bell, User, LogOut, Settings } from 'lucide-react';
+import { Bell, User, LogOut, Settings, Shield, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -40,6 +40,21 @@ export function Layout({ children }: LayoutProps) {
     setProfile(data);
   };
 
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'super_admin':
+        return 'Super Admin';
+      case 'admin':
+        return 'Admin';
+      case 'financer':
+        return 'Finance Admin';
+      case 'hr':
+        return 'HR';
+      default:
+        return 'User';
+    }
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
@@ -59,53 +74,65 @@ export function Layout({ children }: LayoutProps) {
               
               <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-                      <User className="h-4 w-4 text-primary-foreground" />
+                  <Button variant="ghost" className="flex items-center gap-2 h-auto py-2">
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-foreground">
+                        {profile?.user_roles?.[0]?.role 
+                          ? getRoleDisplayName(profile.user_roles[0].role)
+                          : 'User'}
+                      </p>
+                      <p className="text-xs text-muted-foreground hidden md:block">
+                        {profile?.full_name || 'User'}
+                      </p>
                     </div>
-                    <div className="text-left hidden md:block">
-                      <p className="text-sm font-medium">{profile?.full_name || 'User'}</p>
-                      <p className="text-xs text-muted-foreground">{profile?.email}</p>
-                    </div>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-64" align="end">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
-                        <User className="h-6 w-6 text-primary-foreground" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium">{profile?.full_name}</p>
-                        <p className="text-sm text-muted-foreground">{profile?.email}</p>
-                        {profile?.user_roles?.[0]?.role && (
-                          <p className="text-xs text-muted-foreground capitalize mt-1">
-                            {profile.user_roles[0].role.replace('_', ' ')}
-                          </p>
-                        )}
-                      </div>
+                <PopoverContent className="w-72 p-0" align="end">
+                  <div className="p-4 space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-base font-semibold text-foreground">
+                        {profile?.full_name || 'User'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {profile?.email}
+                      </p>
+                      {profile?.user_roles?.[0]?.role && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <Shield className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">
+                            {getRoleDisplayName(profile.user_roles[0].role)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     
-                    <div className="border-t pt-2 space-y-1">
+                    <div className="border-t pt-3 space-y-1">
                       <Button
                         variant="ghost"
-                        className="w-full justify-start"
-                        onClick={() => navigate('/profile')}
+                        className="w-full justify-start text-sm h-9"
+                        onClick={() => {
+                          setIsPopoverOpen(false);
+                          navigate('/profile');
+                        }}
                       >
                         <User className="h-4 w-4 mr-2" />
                         Profile
                       </Button>
                       <Button
                         variant="ghost"
-                        className="w-full justify-start"
-                        onClick={() => navigate('/settings')}
+                        className="w-full justify-start text-sm h-9"
+                        onClick={() => {
+                          setIsPopoverOpen(false);
+                          navigate('/settings');
+                        }}
                       >
                         <Settings className="h-4 w-4 mr-2" />
                         Settings
                       </Button>
                       <Button
                         variant="ghost"
-                        className="w-full justify-start text-destructive hover:text-destructive"
+                        className="w-full justify-start text-sm h-9 text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={async () => {
                           setIsPopoverOpen(false);
                           await signOut();
