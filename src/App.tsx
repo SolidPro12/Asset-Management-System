@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Assets from "./pages/Assets";
+import Users from "./pages/Users";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -92,10 +93,7 @@ const App = () => (
               path="/users"
               element={
                 <ProtectedRoute>
-                  <div className="text-center py-12">
-                    <h2 className="text-2xl font-bold mb-2">User Management</h2>
-                    <p className="text-muted-foreground">Coming soon</p>
-                  </div>
+                  <Users />
                 </ProtectedRoute>
               }
             />
