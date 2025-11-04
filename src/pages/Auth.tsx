@@ -36,7 +36,7 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [Name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -51,49 +51,58 @@ const Auth = () => {
     }
   }, [user, navigate]);
 
-  // Auto-advance carousel (2 seconds)
+  // ✅ Restore Remember Me Values
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("savedEmail");
+    const savedPassword = localStorage.getItem("savedPassword");
+
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+    if (savedPassword) {
+      setPassword(savedPassword);
+    }
+  }, []);
+
+  // Carousel auto play
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % carouselSlides.length);
-    }, 2000); // changed to 2000ms (2s)
+    }, 2000);
     return () => clearInterval(interval);
   }, []);
 
-  // Comprehensive validation schemas
   const authSchema = z.object({
     email: z.string()
       .trim()
       .email('Invalid email address')
-      .max(255, 'Email must be less than 255 characters'),
+      .max(255),
     password: z.string()
       .min(8, 'Password must be at least 8 characters')
-      .max(128, 'Password must be less than 128 characters')
+      .max(128)
       .regex(/[A-Z]/, 'Password must contain an uppercase letter')
       .regex(/[a-z]/, 'Password must contain a lowercase letter')
       .regex(/[0-9]/, 'Password must contain a number'),
-    fullName: z.string()
+    Name: z.string()
       .trim()
       .min(2, 'Name must be at least 2 characters')
-      .max(100, 'Name must be less than 100 characters')
-      .regex(/^[a-zA-Z\s'-]+$/, 'Name contains invalid characters')
+      .max(100)
       .optional(),
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate inputs with comprehensive schema
-    const validationData = {
+
+    const data = {
       email,
       password,
-      ...((!isLogin) && { fullName }),
+      ...(!isLogin && { Name }),
     };
 
-    const result = authSchema.safeParse(validationData);
-    
+    const result = authSchema.safeParse(data);
     if (!result.success) {
-      const firstError = result.error.errors[0];
-      toast.error(firstError.message);
+      toast.error(result.error.errors[0].message);
       return;
     }
 
@@ -102,26 +111,24 @@ const Auth = () => {
     try {
       if (isLogin) {
         const { error } = await signIn(email, password);
-        if (error) {
-          if (error.message.includes('Invalid login credentials')) {
-            toast.error('Invalid email or password');
+        if (!error) {
+          // ✅ Save or Clear Remember Me
+          if (rememberMe) {
+            localStorage.setItem("savedEmail", email);
+            localStorage.setItem("savedPassword", password);
           } else {
-            toast.error(error.message);
+            localStorage.removeItem("savedEmail");
+            localStorage.removeItem("savedPassword");
           }
-        } else {
+
           toast.success('Welcome back!');
+        } else {
+          toast.error(error.message.includes('Invalid login credentials') ? 'Invalid email or password' : error.message);
         }
       } else {
-        const { error } = await signUp(email, password, fullName);
-        if (error) {
-          if (error.message.includes('already registered')) {
-            toast.error('This email is already registered');
-          } else {
-            toast.error(error.message);
-          }
-        } else {
-          toast.success('Account created successfully!');
-        }
+        const { error } = await signUp(email, password, Name);
+        if (error) toast.error(error.message.includes('already registered') ? 'This email is already registered' : error.message);
+        else toast.success('Account created successfully!');
       }
     } finally {
       setLoading(false);
@@ -130,7 +137,6 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Autoplay Carousel */}
       <div className="hidden lg:flex lg:w-1/2 bg-primary relative overflow-hidden">
         <div className="w-full h-full flex flex-col items-center justify-center p-12 text-white">
           <h1 className="text-4xl font-bold mb-12 text-center">Asset Management</h1>
@@ -144,11 +150,7 @@ const Auth = () => {
                 <div key={index} className="flex-shrink-0 w-full px-4">
                   <div className="flex flex-col items-center text-center space-y-6">
                     <div className="w-full h-80 flex items-center justify-center">
-                      <img
-                        src={slide.image}
-                        alt={slide.title}
-                        className="max-h-full object-contain rounded-lg"
-                      />
+                      <img src={slide.image} alt={slide.title} className="max-h-full object-contain rounded-lg" />
                     </div>
                     <h2 className="text-2xl font-semibold">{slide.title}</h2>
                     <p className="text-lg text-white/90 max-w-md">{slide.description}</p>
@@ -157,7 +159,6 @@ const Auth = () => {
               ))}
             </div>
 
-            {/* Non-clickable indicators */}
             <div className="flex justify-center gap-2 mt-4">
               {carouselSlides.map((_, index) => (
                 <div
@@ -168,13 +169,13 @@ const Auth = () => {
               ))}
             </div>
           </div>
+
           <p className="mt-6 text-white/80 text-center">
             Streamline your management<br />with precision and ease
           </p>
         </div>
       </div>
 
-      {/* Right Side - Login/Signup Card */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-background">
         <Card className="w-full max-w-md shadow-lg">
           <CardHeader className="space-y-1 text-center">
@@ -194,13 +195,13 @@ const Auth = () => {
                 <TabsTrigger value="login">Login</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
-              
+
+              {/* LOGIN */}
               <TabsContent value="login" className="space-y-4">
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
+                    <Label>Email</Label>
                     <Input
-                      id="login-email"
                       type="email"
                       placeholder="name@solidpro-es.com"
                       value={email}
@@ -208,12 +209,11 @@ const Auth = () => {
                       required
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
-                    <Label htmlFor="login-password">Password</Label>
+                    <Label>Password</Label>
                     <div className="relative">
                       <Input
-                        id="login-password"
                         type={showPassword ? 'text' : 'password'}
                         placeholder="Enter your password"
                         value={password}
@@ -224,13 +224,13 @@ const Auth = () => {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        className="absolute inset-y-0 right-2 flex items-center px-1 hover:bg-transparent"
                         onClick={() => setShowPassword(!showPassword)}
                       >
                         {showPassword ? (
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
-                        ) : (
                           <Eye className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
                         )}
                       </Button>
                     </div>
@@ -242,10 +242,7 @@ const Auth = () => {
                       checked={rememberMe}
                       onCheckedChange={(checked) => setRememberMe(checked === true)}
                     />
-                    <label
-                      htmlFor="remember"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
+                    <label htmlFor="remember" className="text-sm font-medium cursor-pointer">
                       Remember password
                     </label>
                   </div>
@@ -255,25 +252,24 @@ const Auth = () => {
                   </Button>
                 </form>
               </TabsContent>
-              
+
+              {/* SIGNUP */}
               <TabsContent value="signup" className="space-y-4">
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-name">Full Name</Label>
+                    <Label>Name</Label>
                     <Input
-                      id="signup-name"
                       type="text"
                       placeholder="John Doe"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
+                      value={Name}
+                      onChange={(e) => setName(e.target.value)}
                       required
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
+                    <Label>Email</Label>
                     <Input
-                      id="signup-email"
                       type="email"
                       placeholder="name@solidpro-es.com"
                       value={email}
@@ -281,12 +277,11 @@ const Auth = () => {
                       required
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
+                    <Label>Password</Label>
                     <div className="relative">
                       <Input
-                        id="signup-password"
                         type={showPassword ? 'text' : 'password'}
                         placeholder="Create a password (min 8 characters)"
                         value={password}
@@ -297,14 +292,10 @@ const Auth = () => {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        className="absolute inset-y-0 right-2 flex items-center- px-1 hover:bg-transparent"
                         onClick={() => setShowPassword(!showPassword)}
                       >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-muted-foreground" />
-                        )}
+                        {showPassword ? <Eye className="h-4 w-4 text-muted-foreground" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
                       </Button>
                     </div>
                   </div>
@@ -314,6 +305,7 @@ const Auth = () => {
                   </Button>
                 </form>
               </TabsContent>
+
             </Tabs>
           </CardContent>
         </Card>
