@@ -1,3 +1,4 @@
+// ...existing code...
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -10,13 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Package } from 'lucide-react';
 import { z } from 'zod';
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
 import assetSlide1 from '@/assets/asset-slide-1.png';
 import assetSlide2 from '@/assets/asset-slide-2.png';
 import assetSlide3 from '@/assets/asset-slide-3.png';
@@ -58,11 +52,11 @@ const Auth = () => {
     }
   }, [user, navigate]);
 
-  // Auto-advance carousel
+  // Auto-advance carousel (2 seconds)
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % carouselSlides.length);
-    }, 5000);
+    }, 2000); // changed to 2000ms (2s)
     return () => clearInterval(interval);
   }, []);
 
@@ -137,19 +131,22 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Carousel */}
+      {/* Left Side - Autoplay Carousel */}
       <div className="hidden lg:flex lg:w-1/2 bg-primary relative overflow-hidden">
         <div className="w-full h-full flex flex-col items-center justify-center p-12 text-white">
           <h1 className="text-4xl font-bold mb-12 text-center">Asset Management</h1>
-          
-          <Carousel className="w-full max-w-2xl" opts={{ loop: true }}>
-            <CarouselContent>
+
+          <div className="w-full max-w-2xl overflow-hidden relative">
+            <div
+              className="flex transition-transform duration-700 ease-in-out"
+              style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+            >
               {carouselSlides.map((slide, index) => (
-                <CarouselItem key={index}>
+                <div key={index} className="flex-shrink-0 w-full px-4">
                   <div className="flex flex-col items-center text-center space-y-6">
                     <div className="w-full h-80 flex items-center justify-center">
-                      <img 
-                        src={slide.image} 
+                      <img
+                        src={slide.image}
                         alt={slide.title}
                         className="max-h-full object-contain rounded-lg"
                       />
@@ -157,27 +154,22 @@ const Auth = () => {
                     <h2 className="text-2xl font-semibold">{slide.title}</h2>
                     <p className="text-lg text-white/90 max-w-md">{slide.description}</p>
                   </div>
-                </CarouselItem>
+                </div>
               ))}
-            </CarouselContent>
-            
-            {/* Carousel Indicators */}
-            <div className="flex justify-center gap-2 mt-8">
+            </div>
+
+            {/* Non-clickable indicators */}
+            <div className="flex justify-center gap-2 mt-8 absolute bottom-6 left-0 right-0">
               {carouselSlides.map((_, index) => (
-                <button
+                <div
                   key={index}
-                  onClick={() => setCurrentSlide(index)}
-                  className={`h-2 rounded-full transition-all ${
-                    index === currentSlide 
-                      ? 'w-8 bg-white' 
-                      : 'w-2 bg-white/40 hover:bg-white/60'
-                  }`}
-                  aria-label={`Go to slide ${index + 1}`}
+                  className={`h-2 rounded-full transition-all ${index === currentSlide ? 'w-8 bg-white' : 'w-2 bg-white/40'}`}
+                  aria-hidden
                 />
               ))}
             </div>
-          </Carousel>
-          
+          </div>
+
           <p className="mt-12 text-white/80 text-center">
             Streamline your management<br />with precision and ease
           </p>
@@ -333,3 +325,4 @@ const Auth = () => {
 };
 
 export default Auth;
+// ...existing code...
