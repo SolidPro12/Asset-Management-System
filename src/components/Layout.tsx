@@ -55,6 +55,25 @@ export function Layout({ children }: LayoutProps) {
     }
   };
 
+  const getDisplayName = () =>
+    profile?.full_name ||
+    (user?.user_metadata?.full_name as string) ||
+    (user?.user_metadata?.name as string) ||
+    (user?.email ? user.email.split('@')[0] : null) ||
+    'User';
+
+  const roleLabel = profile?.user_roles?.[0]?.role
+    ? getRoleDisplayName(profile.user_roles[0].role)
+    : 'User';
+
+  const initials = (name = '') =>
+    name
+      .split(' ')
+      .map((n: string) => n[0] || '')
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
@@ -74,17 +93,22 @@ export function Layout({ children }: LayoutProps) {
               
               <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2 h-auto py-2">
-                    <div className="text-left">
+                  <Button variant="ghost" className="flex items-center gap-3 h-auto py-2">
+                    {/* Avatar / initials */}
+                    <div className="h-9 w-9 rounded-full bg-primary/10 text-primary font-semibold flex items-center justify-center">
+                      {initials(getDisplayName())}
+                    </div>
+
+                    {/* Name on top, role under it */}
+                    <div className="text-left leading-tight">
                       <p className="text-sm font-semibold text-foreground">
-                        {profile?.user_roles?.[0]?.role 
-                          ? getRoleDisplayName(profile.user_roles[0].role)
-                          : 'User'}
+                        {getDisplayName()}
                       </p>
-                      <p className="text-xs text-muted-foreground hidden md:block">
-                        {profile?.full_name || 'User'}
+                      <p className="text-xs text-muted-foreground">
+                        {roleLabel}
                       </p>
                     </div>
+
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </PopoverTrigger>
@@ -92,19 +116,17 @@ export function Layout({ children }: LayoutProps) {
                   <div className="p-4 space-y-3">
                     <div className="space-y-1">
                       <p className="text-base font-semibold text-foreground">
-                        {profile?.full_name || 'User'}
+                        {profile?.full_name || getDisplayName()}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {profile?.email}
+                        {profile?.email || user?.email}
                       </p>
-                      {profile?.user_roles?.[0]?.role && (
-                        <div className="flex items-center gap-2 mt-2">
-                          <Shield className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">
-                            {getRoleDisplayName(profile.user_roles[0].role)}
-                          </span>
-                        </div>
-                      )}
+
+                      {/* Show role directly under email */}
+                      <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                        <Shield className="h-4 w-4 text-muted-foreground" />
+                        <span>{roleLabel}</span>
+                      </p>
                     </div>
                     
                     <div className="border-t pt-3 space-y-1">
