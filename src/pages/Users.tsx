@@ -497,7 +497,7 @@ const Users = () => {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="add-name">Full Name</Label>
+              <Label htmlFor="add-name">Name</Label>
               <Input
                 id="add-name"
                 value={addForm.full_name}
