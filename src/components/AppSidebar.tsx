@@ -1,4 +1,4 @@
-import { Home, Package, FileText, History, Wrench, Users, UserCheck } from 'lucide-react';
+import { Home, Package, FileText, History, Users, UserCheck, ChevronDown } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import {
@@ -10,9 +10,17 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarHeader,
   useSidebar,
 } from '@/components/ui/sidebar';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -21,8 +29,15 @@ const menuItems = [
   { title: 'Assets', url: '/assets', icon: Package, requiredRole: null },
   { title: 'Asset Allocations', url: '/allocations', icon: UserCheck, requiredRole: null },
   { title: 'Asset Requests', url: '/requests', icon: FileText, requiredRole: null },
-  { title: 'History', url: '/history', icon: History, requiredRole: null },
-  { title: 'Service Records', url: '/service', icon: Wrench, requiredRole: null },
+  { 
+    title: 'History', 
+    icon: History, 
+    requiredRole: null,
+    subItems: [
+      { title: 'Asset History', url: '/history?tab=asset-history' },
+      { title: 'Service History', url: '/history?tab=service-history' },
+    ]
+  },
   { title: 'Users', url: '/users', icon: Users, requiredRole: 'super_admin' },
 ];
 
@@ -77,16 +92,47 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink to={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {visibleMenuItems.map((item) => {
+                if (item.subItems) {
+                  return (
+                    <Collapsible key={item.title} defaultOpen={currentPath === '/history'} asChild>
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton isActive={currentPath === '/history'}>
+                            <item.icon className="h-4 w-4" />
+                            <span>{item.title}</span>
+                            <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub>
+                            {item.subItems.map((subItem) => (
+                              <SidebarMenuSubItem key={subItem.title}>
+                                <SidebarMenuSubButton asChild isActive={currentPath + location.search === subItem.url}>
+                                  <NavLink to={subItem.url}>
+                                    <span>{subItem.title}</span>
+                                  </NavLink>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  );
+                }
+                
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url!)}>
+                      <NavLink to={item.url!}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

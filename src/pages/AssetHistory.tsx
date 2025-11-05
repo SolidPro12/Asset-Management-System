@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -70,11 +71,19 @@ interface ServiceHistoryRecord {
 }
 
 export default function AssetHistory() {
-  const [activeTab, setActiveTab] = useState('asset-history');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'asset-history');
   const [assetHistory, setAssetHistory] = useState<AssetHistoryRecord[]>([]);
   const [serviceHistory, setServiceHistory] = useState<ServiceHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -312,7 +321,10 @@ export default function AssetHistory() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(value) => {
+        setActiveTab(value);
+        setSearchParams({ tab: value });
+      }} className="space-y-4">
         <TabsList className="bg-white border shadow-sm">
           <TabsTrigger value="asset-history" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             Asset History ({assetHistory.length})

@@ -85,17 +85,6 @@ const App = () => (
               }
             />
             <Route
-              path="/service"
-              element={
-                <ProtectedRoute>
-                  <div className="text-center py-12">
-                    <h2 className="text-2xl font-bold mb-2">Service Records</h2>
-                    <p className="text-muted-foreground">Coming soon</p>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/users"
               element={
                 <ProtectedRoute>
