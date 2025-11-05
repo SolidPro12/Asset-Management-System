@@ -36,7 +36,7 @@ export function Layout({ children }: LayoutProps) {
     if (path === '/') return 'Dashboard';
     if (path === '/assets') return 'Assets';
     if (path === '/allocations') return 'Asset Allocations';
-    if (path === '/requests') return 'Requests';
+    if (path === '/requests') return 'Asset Requests';
     if (path === '/history') return 'Asset History';
     if (path === '/service') return 'Service Records';
     if (path === '/users') return 'Users';

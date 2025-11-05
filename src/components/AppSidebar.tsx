@@ -20,7 +20,7 @@ const menuItems = [
   { title: 'Dashboard', url: '/', icon: Home, requiredRole: null },
   { title: 'Assets', url: '/assets', icon: Package, requiredRole: null },
   { title: 'Asset Allocations', url: '/allocations', icon: UserCheck, requiredRole: null },
-  { title: 'Requests', url: '/requests', icon: FileText, requiredRole: null },
+  { title: 'Asset Requests', url: '/requests', icon: FileText, requiredRole: null },
   { title: 'History', url: '/history', icon: History, requiredRole: null },
   { title: 'Service Records', url: '/service', icon: Wrench, requiredRole: null },
   { title: 'Users', url: '/users', icon: Users, requiredRole: 'super_admin' },
