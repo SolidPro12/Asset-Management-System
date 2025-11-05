@@ -32,7 +32,8 @@ import {
   Package,
   Eye,
   Edit,
-  Trash2,
+  Check,
+  X,
   CalendarIcon,
   RotateCcw,
   Plus,
@@ -42,6 +43,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { CreateRequestModal } from '@/components/CreateRequestModal';
 import { ViewRequestModal } from '@/components/ViewRequestModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AssetRequest {
   id: string;
@@ -79,6 +81,7 @@ const priorityConfig = {
 };
 
 export default function AssetRequests() {
+  const { user } = useAuth();
   const [requests, setRequests] = useState<AssetRequest[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<AssetRequest[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -176,17 +179,67 @@ export default function AssetRequests() {
     return requests.filter((req) => req.status === status).length;
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this request?')) return;
-
+  const handleApprove = async (requestId: string) => {
+    if (!user) return;
+    
     try {
-      const { error } = await supabase.from('asset_requests').delete().eq('id', id);
-      if (error) throw error;
-      toast.success('Request deleted successfully');
+      const { error: updateError } = await supabase
+        .from('asset_requests')
+        .update({
+          status: 'approved',
+          approved_by: user.id,
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', requestId);
+
+      if (updateError) throw updateError;
+
+      // Add to history
+      await supabase.from('request_history').insert({
+        request_id: requestId,
+        action: 'approved',
+        performed_by: user.id,
+        remarks: 'Request approved',
+      });
+
+      toast.success('Request approved successfully!');
       fetchRequests();
     } catch (error) {
-      console.error('Error deleting request:', error);
-      toast.error('Failed to delete request');
+      console.error('Error approving request:', error);
+      toast.error('Failed to approve request');
+    }
+  };
+
+  const handleReject = async (requestId: string) => {
+    if (!user) return;
+    
+    const reason = prompt('Please provide a reason for rejection:');
+    if (!reason) return;
+
+    try {
+      const { error: updateError } = await supabase
+        .from('asset_requests')
+        .update({
+          status: 'rejected',
+          rejection_reason: reason,
+        })
+        .eq('id', requestId);
+
+      if (updateError) throw updateError;
+
+      // Add to history
+      await supabase.from('request_history').insert({
+        request_id: requestId,
+        action: 'rejected',
+        performed_by: user.id,
+        remarks: reason,
+      });
+
+      toast.success('Request rejected');
+      fetchRequests();
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+      toast.error('Failed to reject request');
     }
   };
 
@@ -195,7 +248,7 @@ export default function AssetRequests() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-[#f8f6ff] min-h-screen -m-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -378,22 +431,40 @@ export default function AssetRequests() {
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button
-                        variant="ghost"
-                        size="icon"
+                        variant="outline"
+                        size="sm"
                         onClick={() => setViewRequest(request)}
+                        className="h-8"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Eye className="h-3 w-3 mr-1" />
+                        View
                       </Button>
-                      <Button variant="ghost" size="icon">
-                        <Edit className="h-4 w-4" />
+                      <Button variant="outline" size="sm" className="h-8">
+                        <Edit className="h-3 w-3 mr-1" />
+                        Edit
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(request.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      {(request.status === 'pending' || request.status === 'in_progress') && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleApprove(request.id)}
+                            className="h-8 border-green-500 text-green-600 hover:bg-green-50"
+                          >
+                            <Check className="h-3 w-3 mr-1" />
+                            Approve
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleReject(request.id)}
+                            className="h-8 border-red-500 text-red-600 hover:bg-red-50"
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            Reject
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

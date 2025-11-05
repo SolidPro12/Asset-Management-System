@@ -268,6 +268,41 @@ export type Database = {
         }
         Relationships: []
       }
+      request_history: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          performed_by: string | null
+          remarks: string | null
+          request_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          performed_by?: string | null
+          remarks?: string | null
+          request_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          performed_by?: string | null
+          remarks?: string | null
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "request_history_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "asset_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_history: {
         Row: {
           asset_id: string

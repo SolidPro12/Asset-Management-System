@@ -19,6 +19,17 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { z } from 'zod';
+
+const requestSchema = z.object({
+  category: z.string().min(1, 'Category is required'),
+  reason: z.string()
+    .trim()
+    .min(10, 'Reason must be at least 10 characters')
+    .max(200, 'Reason must be less than 200 characters'),
+  quantity: z.number().min(1, 'Quantity must be at least 1').max(100, 'Quantity cannot exceed 100'),
+  notes: z.string().max(500, 'Notes must be less than 500 characters').optional(),
+});
 
 interface CreateRequestModalProps {
   open: boolean;
@@ -33,6 +44,7 @@ export function CreateRequestModal({
 }: CreateRequestModalProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     category: '',
     reason: '',
@@ -48,18 +60,58 @@ export function CreateRequestModal({
       return;
     }
 
-    setLoading(true);
+    // Validate form data
     try {
-      const { error } = await supabase.from('asset_requests').insert({
-        requester_id: user.id,
-        category: formData.category as any,
+      requestSchema.parse({
+        category: formData.category,
         reason: formData.reason,
         quantity: formData.quantity,
-        request_type: formData.request_type as any,
         notes: formData.notes,
       });
+      setErrors({});
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const fieldErrors: Record<string, string> = {};
+        error.issues.forEach((err) => {
+          if (err.path[0]) {
+            fieldErrors[err.path[0].toString()] = err.message;
+          }
+        });
+        setErrors(fieldErrors);
+        return;
+      }
+    }
 
-      if (error) throw error;
+    setLoading(true);
+    try {
+      const { error: insertError } = await supabase.from('asset_requests').insert({
+        requester_id: user.id,
+        category: formData.category as any,
+        reason: formData.reason.trim(),
+        quantity: formData.quantity,
+        request_type: formData.request_type as any,
+        notes: formData.notes.trim() || null,
+      });
+
+      if (insertError) throw insertError;
+
+      // Add to history
+      const { data: newRequest } = await supabase
+        .from('asset_requests')
+        .select('id')
+        .eq('requester_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (newRequest) {
+        await supabase.from('request_history').insert({
+          request_id: newRequest.id,
+          action: 'created',
+          performed_by: user.id,
+          remarks: 'Request created',
+        });
+      }
 
       toast.success('Request created successfully');
       onSuccess();
@@ -71,6 +123,7 @@ export function CreateRequestModal({
         request_type: 'medium',
         notes: '',
       });
+      setErrors({});
     } catch (error) {
       console.error('Error creating request:', error);
       toast.error('Failed to create request');
@@ -113,10 +166,18 @@ export function CreateRequestModal({
             <Input
               id="reason"
               value={formData.reason}
-              onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-              placeholder="Why do you need this asset?"
+              onChange={(e) => {
+                setFormData({ ...formData, reason: e.target.value });
+                setErrors({ ...errors, reason: '' });
+              }}
+              placeholder="Why do you need this asset? (min 10 characters)"
+              maxLength={200}
               required
+              className={errors.reason ? 'border-red-500' : ''}
             />
+            {errors.reason && (
+              <p className="text-sm text-destructive">{errors.reason}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -156,10 +217,18 @@ export function CreateRequestModal({
             <Textarea
               id="notes"
               value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, notes: e.target.value });
+                setErrors({ ...errors, notes: '' });
+              }}
               placeholder="Additional information (optional)"
+              maxLength={500}
               rows={3}
+              className={errors.notes ? 'border-red-500' : ''}
             />
+            {errors.notes && (
+              <p className="text-sm text-destructive">{errors.notes}</p>
+            )}
           </div>
 
           <div className="flex gap-3 justify-end">
