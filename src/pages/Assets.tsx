@@ -19,10 +19,16 @@ import {
   Briefcase,
   Cable,
   Usb,
-  Tv
+  Tv,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { AddAssetDialog } from '@/components/AddAssetDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from '@/hooks/use-toast';
 
 interface Asset {
@@ -35,6 +41,12 @@ interface Asset {
   status: string;
   department: string | null;
   location: string | null;
+  purchase_date: string | null;
+  purchase_cost: number | null;
+  serial_number: string | null;
+  warranty_end_date: string | null;
+  notes: string | null;
+  specifications: any;
 }
 
 const Assets = () => {
@@ -44,6 +56,7 @@ const Assets = () => {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchAssets();
@@ -147,6 +160,33 @@ const Assets = () => {
   };
 
   const assetCategories = Array.from(new Set(assets.map(a => a.category)));
+
+  const groupedAssets = filteredAssets.reduce((acc, asset) => {
+    const categoryName = asset.specifications?.originalCategory || asset.category;
+    if (!acc[categoryName]) {
+      acc[categoryName] = [];
+    }
+    acc[categoryName].push(asset);
+    return acc;
+  }, {} as Record<string, Asset[]>);
+
+  const toggleCategory = (category: string) => {
+    const newExpanded = new Set(expandedCategories);
+    if (newExpanded.has(category)) {
+      newExpanded.delete(category);
+    } else {
+      newExpanded.add(category);
+    }
+    setExpandedCategories(newExpanded);
+  };
+
+  const toggleAllCategories = () => {
+    if (expandedCategories.size === Object.keys(groupedAssets).length) {
+      setExpandedCategories(new Set());
+    } else {
+      setExpandedCategories(new Set(Object.keys(groupedAssets)));
+    }
+  };
 
   if (loading) {
     return (
@@ -268,57 +308,136 @@ const Assets = () => {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-medium">Asset Categories</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredAssets.map((asset) => (
-                <Card key={asset.id} className="transition-all hover:shadow-md duration-200">
-                  <CardHeader className="space-y-1 pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                          {getCategoryIcon(asset.category)}
-                        </div>
-                        <div>
-                          <CardTitle className="text-sm font-medium">{asset.asset_name}</CardTitle>
-                          <p className="text-xs text-muted-foreground">{asset.asset_tag}</p>
-                        </div>
-                      </div>
-                      <Badge className={getStatusColor(asset.status)} variant="secondary">
-                        {asset.status.replace('_', ' ')}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-xs">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <p className="text-muted-foreground">Category</p>
-                        <p className="font-medium capitalize">{asset.category.replace(/_/g, ' ')}</p>
-                      </div>
-                      {asset.brand && (
-                        <div>
-                          <p className="text-muted-foreground">Brand</p>
-                          <p className="font-medium">{asset.brand}</p>
-                        </div>
-                      )}
-                      {asset.model && (
-                        <div>
-                          <p className="text-muted-foreground">Model</p>
-                          <p className="font-medium">{asset.model}</p>
-                        </div>
-                      )}
-                      {asset.location && (
-                        <div>
-                          <p className="text-muted-foreground">Location</p>
-                          <p className="font-medium">{asset.location}</p>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-medium">Asset Categories</CardTitle>
+              <Button variant="ghost" size="sm" onClick={toggleAllCategories}>
+                {expandedCategories.size === Object.keys(groupedAssets).length ? 'Collapse All' : 'Expand All'} ({Object.keys(groupedAssets).length} categories)
+              </Button>
             </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {Object.entries(groupedAssets).map(([categoryName, categoryAssets]) => {
+              const isExpanded = expandedCategories.has(categoryName);
+              return (
+                <Collapsible
+                  key={categoryName}
+                  open={isExpanded}
+                  onOpenChange={() => toggleCategory(categoryName)}
+                >
+                  <Card className="border">
+                    <CollapsibleTrigger className="w-full">
+                      <CardHeader className="py-3 px-4 hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <div className="p-2 bg-primary/10 rounded-lg">
+                              {getCategoryIcon(categoryAssets[0].category)}
+                            </div>
+                            <div className="text-left">
+                              <h3 className="font-medium text-sm">{categoryName}</h3>
+                            </div>
+                          </div>
+                          <Badge variant="secondary" className="text-xs">
+                            {categoryAssets.length} asset{categoryAssets.length !== 1 ? 's' : ''}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="border-t overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="bg-muted/50">
+                            <tr>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Model</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Service Tag</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Purchase Date</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">RAM</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Processor</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Organization ID</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Notes</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Cost</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Serial Number</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Warranty</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Vendor</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Operating System</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Storage</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {categoryAssets.map((asset, index) => (
+                              <tr 
+                                key={asset.id} 
+                                className={`border-t hover:bg-muted/30 transition-colors ${
+                                  index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
+                                }`}
+                              >
+                                <td className="px-4 py-3 font-medium">{asset.model || '-'}</td>
+                                <td className="px-4 py-3">{asset.serial_number || asset.asset_tag}</td>
+                                <td className="px-4 py-3">
+                                  <Badge className={getStatusColor(asset.status)} variant="secondary">
+                                    {asset.status.replace('_', ' ')}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3">
+                                  {asset.purchase_date 
+                                    ? new Date(asset.purchase_date).toLocaleDateString('en-US', { 
+                                        month: '2-digit', 
+                                        day: '2-digit', 
+                                        year: 'numeric' 
+                                      }) 
+                                    : '-'}
+                                </td>
+                                <td className="px-4 py-3">{asset.specifications?.ram || '-'}</td>
+                                <td className="px-4 py-3">{asset.specifications?.processor || '-'}</td>
+                                <td className="px-4 py-3">{asset.specifications?.organizationId || '-'}</td>
+                                <td className="px-4 py-3 max-w-[150px] truncate" title={asset.notes || ''}>
+                                  {asset.notes || '-'}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {asset.purchase_cost 
+                                    ? `₹${asset.purchase_cost.toLocaleString()}` 
+                                    : '-'}
+                                </td>
+                                <td className="px-4 py-3">{asset.serial_number || '-'}</td>
+                                <td className="px-4 py-3">
+                                  {asset.warranty_end_date 
+                                    ? new Date(asset.warranty_end_date).toLocaleDateString('en-US', { 
+                                        year: 'numeric' 
+                                      }) 
+                                    : '-'}
+                                </td>
+                                <td className="px-4 py-3">{asset.brand || '-'}</td>
+                                <td className="px-4 py-3">{asset.specifications?.operatingSystem || '-'}</td>
+                                <td className="px-4 py-3">{asset.specifications?.storage || '-'}</td>
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                                      <Edit className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              );
+            })}
           </CardContent>
         </Card>
       )}
