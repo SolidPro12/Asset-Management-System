@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Assets from "./pages/Assets";
 import AssetAllocations from "./pages/AssetAllocations";
 import AssetRequests from "./pages/AssetRequests";
+import AssetHistory from "./pages/AssetHistory";
 import Users from "./pages/Users";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
@@ -79,10 +80,7 @@ const App = () => (
               path="/history"
               element={
                 <ProtectedRoute>
-                  <div className="text-center py-12">
-                    <h2 className="text-2xl font-bold mb-2">Asset History</h2>
-                    <p className="text-muted-foreground">Coming soon</p>
-                  </div>
+                  <AssetHistory />
                 </ProtectedRoute>
               }
             />
