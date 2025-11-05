@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Assets from "./pages/Assets";
+import AssetAllocations from "./pages/AssetAllocations";
 import Users from "./pages/Users";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
@@ -65,6 +66,14 @@ const App = () => (
                     <h2 className="text-2xl font-bold mb-2">Requests</h2>
                     <p className="text-muted-foreground">Coming soon</p>
                   </div>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/allocations"
+              element={
+                <ProtectedRoute>
+                  <AssetAllocations />
                 </ProtectedRoute>
               }
             />

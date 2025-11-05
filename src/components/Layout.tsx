@@ -10,7 +10,15 @@ import {
 } from '@/components/ui/popover';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 
 interface LayoutProps {
   children: ReactNode;
@@ -19,8 +27,22 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [profile, setProfile] = useState<any>(null);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+
+  const getPageTitle = () => {
+    const path = location.pathname;
+    if (path === '/') return 'Dashboard';
+    if (path === '/assets') return 'Assets';
+    if (path === '/allocations') return 'Asset Allocations';
+    if (path === '/requests') return 'Requests';
+    if (path === '/history') return 'Asset History';
+    if (path === '/service') return 'Service Records';
+    if (path === '/users') return 'Users';
+    if (path === '/profile') return 'Profile';
+    return '';
+  };
 
   useEffect(() => {
     if (user) {
@@ -66,7 +88,21 @@ export function Layout({ children }: LayoutProps) {
           <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-card px-6 shadow-sm justify-between">
             <div className="flex items-center gap-4">
               <SidebarTrigger />
-              <h1 className="text-xl font-semibold text-foreground">Asset Management System</h1>
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+                  </BreadcrumbItem>
+                  {location.pathname !== '/' && (
+                    <>
+                      <BreadcrumbSeparator />
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>{getPageTitle()}</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    </>
+                  )}
+                </BreadcrumbList>
+              </Breadcrumb>
             </div>
             
             <div className="flex items-center gap-2">

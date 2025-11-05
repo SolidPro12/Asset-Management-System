@@ -1,4 +1,4 @@
-import { Home, Package, FileText, History, Wrench, Users } from 'lucide-react';
+import { Home, Package, FileText, History, Wrench, Users, UserCheck } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import {
@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 const menuItems = [
   { title: 'Dashboard', url: '/', icon: Home, requiredRole: null },
   { title: 'Assets', url: '/assets', icon: Package, requiredRole: null },
+  { title: 'Asset Allocations', url: '/allocations', icon: UserCheck, requiredRole: null },
   { title: 'Requests', url: '/requests', icon: FileText, requiredRole: null },
   { title: 'History', url: '/history', icon: History, requiredRole: null },
   { title: 'Service Records', url: '/service', icon: Wrench, requiredRole: null },

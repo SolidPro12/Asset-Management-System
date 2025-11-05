@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      asset_allocations: {
+        Row: {
+          allocated_by: string | null
+          allocated_date: string
+          asset_id: string | null
+          asset_name: string
+          category: Database["public"]["Enums"]["asset_category"]
+          condition: string
+          created_at: string
+          department: string | null
+          employee_id: string | null
+          employee_name: string
+          id: string
+          notes: string | null
+          return_date: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          allocated_by?: string | null
+          allocated_date?: string
+          asset_id?: string | null
+          asset_name: string
+          category: Database["public"]["Enums"]["asset_category"]
+          condition?: string
+          created_at?: string
+          department?: string | null
+          employee_id?: string | null
+          employee_name: string
+          id?: string
+          notes?: string | null
+          return_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          allocated_by?: string | null
+          allocated_date?: string
+          asset_id?: string | null
+          asset_name?: string
+          category?: Database["public"]["Enums"]["asset_category"]
+          condition?: string
+          created_at?: string
+          department?: string | null
+          employee_id?: string | null
+          employee_name?: string
+          id?: string
+          notes?: string | null
+          return_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_allocations_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_allocations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asset_history: {
         Row: {
           asset_id: string
