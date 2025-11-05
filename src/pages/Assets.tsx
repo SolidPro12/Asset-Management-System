@@ -3,7 +3,27 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Search, Package } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { 
+  Search, 
+  Package, 
+  Plus, 
+  Download, 
+  Upload, 
+  FileText, 
+  RotateCcw,
+  Laptop,
+  Monitor,
+  Headphones,
+  MousePointer,
+  Briefcase,
+  Cable,
+  Usb,
+  Tv
+} from 'lucide-react';
+import { AddAssetDialog } from '@/components/AddAssetDialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/hooks/use-toast';
 
 interface Asset {
   id: string;
@@ -21,6 +41,9 @@ const Assets = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchAssets();
@@ -42,11 +65,17 @@ const Assets = () => {
     }
   };
 
-  const filteredAssets = assets.filter(asset =>
-    asset.asset_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    asset.asset_tag.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    asset.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredAssets = assets.filter(asset => {
+    const matchesSearch = 
+      asset.asset_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      asset.asset_tag.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      asset.category.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesCategory = categoryFilter === 'all' || asset.category === categoryFilter;
+    const matchesStatus = statusFilter === 'all' || asset.status === statusFilter;
+    
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -64,8 +93,60 @@ const Assets = () => {
   };
 
   const getCategoryIcon = (category: string) => {
-    return <Package className="h-5 w-5" />;
+    const iconClass = "h-5 w-5";
+    switch (category.toLowerCase()) {
+      case 'laptop':
+        return <Laptop className={iconClass} />;
+      case 'monitor':
+        return <Monitor className={iconClass} />;
+      case 'headphones':
+        return <Headphones className={iconClass} />;
+      case 'wireless_keyboard_&_mouse':
+      case 'wired_keyboard_&_mouse':
+      case 'mouse_pad':
+        return <MousePointer className={iconClass} />;
+      case 'bags':
+        return <Briefcase className={iconClass} />;
+      case 'chargers':
+        return <Cable className={iconClass} />;
+      case 'pendrives':
+      case 'jabra_devices':
+        return <Usb className={iconClass} />;
+      case 'tv':
+        return <Tv className={iconClass} />;
+      default:
+        return <Package className={iconClass} />;
+    }
   };
+
+  const handleReset = () => {
+    setSearchQuery('');
+    setCategoryFilter('all');
+    setStatusFilter('all');
+  };
+
+  const handleExportExcel = () => {
+    toast({
+      title: 'Export Excel',
+      description: 'Export functionality coming soon!',
+    });
+  };
+
+  const handleImportExcel = () => {
+    toast({
+      title: 'Import Excel',
+      description: 'Import functionality coming soon!',
+    });
+  };
+
+  const handleDownloadTemplate = () => {
+    toast({
+      title: 'Download Template',
+      description: 'Template download coming soon!',
+    });
+  };
+
+  const assetCategories = Array.from(new Set(assets.map(a => a.category)));
 
   if (loading) {
     return (
@@ -94,20 +175,85 @@ const Assets = () => {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Assets</h2>
-          <p className="text-muted-foreground">Manage and view all company assets</p>
+          <h2 className="text-3xl font-bold tracking-tight">Asset Management</h2>
+          <p className="text-muted-foreground">Comprehensive asset tracking and management system</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={handleExportExcel} variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Export Excel
+          </Button>
+          <Button onClick={handleImportExcel} variant="outline" size="sm">
+            <Upload className="h-4 w-4 mr-2" />
+            Import Excel
+          </Button>
+          <Button onClick={handleDownloadTemplate} variant="outline" size="sm">
+            <FileText className="h-4 w-4 mr-2" />
+            Template
+          </Button>
+          <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Asset
+          </Button>
         </div>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search assets by name, tag, or category..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
-      </div>
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-medium">Advanced Filters</CardTitle>
+            <Button variant="ghost" size="sm" onClick={handleReset}>
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by model, tag, cost..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Category</label>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {assetCategories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="assigned">Assigned</SelectItem>
+                  <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
+                  <SelectItem value="retired">Retired</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {filteredAssets.length === 0 ? (
         <Card>
@@ -120,55 +266,68 @@ const Assets = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredAssets.map((asset) => (
-            <Card key={asset.id} className="transition-all hover:shadow-md hover:scale-105 duration-200">
-              <CardHeader className="space-y-1">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      {getCategoryIcon(asset.category)}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">Asset Categories</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredAssets.map((asset) => (
+                <Card key={asset.id} className="transition-all hover:shadow-md duration-200">
+                  <CardHeader className="space-y-1 pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                          {getCategoryIcon(asset.category)}
+                        </div>
+                        <div>
+                          <CardTitle className="text-sm font-medium">{asset.asset_name}</CardTitle>
+                          <p className="text-xs text-muted-foreground">{asset.asset_tag}</p>
+                        </div>
+                      </div>
+                      <Badge className={getStatusColor(asset.status)} variant="secondary">
+                        {asset.status.replace('_', ' ')}
+                      </Badge>
                     </div>
-                    <div>
-                      <CardTitle className="text-base">{asset.asset_name}</CardTitle>
-                      <p className="text-xs text-muted-foreground">{asset.asset_tag}</p>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-xs">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-muted-foreground">Category</p>
+                        <p className="font-medium capitalize">{asset.category.replace(/_/g, ' ')}</p>
+                      </div>
+                      {asset.brand && (
+                        <div>
+                          <p className="text-muted-foreground">Brand</p>
+                          <p className="font-medium">{asset.brand}</p>
+                        </div>
+                      )}
+                      {asset.model && (
+                        <div>
+                          <p className="text-muted-foreground">Model</p>
+                          <p className="font-medium">{asset.model}</p>
+                        </div>
+                      )}
+                      {asset.location && (
+                        <div>
+                          <p className="text-muted-foreground">Location</p>
+                          <p className="font-medium">{asset.location}</p>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <Badge className={getStatusColor(asset.status)}>
-                    {asset.status.replace('_', ' ')}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Category</p>
-                    <p className="font-medium capitalize">{asset.category}</p>
-                  </div>
-                  {asset.brand && (
-                    <div>
-                      <p className="text-muted-foreground">Brand</p>
-                      <p className="font-medium">{asset.brand}</p>
-                    </div>
-                  )}
-                  {asset.department && (
-                    <div>
-                      <p className="text-muted-foreground">Department</p>
-                      <p className="font-medium">{asset.department}</p>
-                    </div>
-                  )}
-                  {asset.location && (
-                    <div>
-                      <p className="text-muted-foreground">Location</p>
-                      <p className="font-medium">{asset.location}</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
+      
+      <AddAssetDialog 
+        open={isAddDialogOpen} 
+        onOpenChange={setIsAddDialogOpen}
+        onSuccess={fetchAssets}
+      />
     </div>
   );
 };
