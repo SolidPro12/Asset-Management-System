@@ -33,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { DEPARTMENTS } from '@/lib/constants';
 
 interface UserProfile {
   id: string;
@@ -447,11 +448,19 @@ const Users = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-department">Department</Label>
-              <Input
-                id="edit-department"
-                value={editForm.department}
-                onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
-              />
+              <Select
+                value={editForm.department || ''}
+                onValueChange={(value) => setEditForm({ ...editForm, department: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEPARTMENTS.map((dept) => (
+                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-phone">Phone</Label>
@@ -524,11 +533,19 @@ const Users = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="add-department">Department</Label>
-              <Input
-                id="add-department"
+              <Select
                 value={addForm.department}
-                onChange={(e) => setAddForm({ ...addForm, department: e.target.value })}
-              />
+                onValueChange={(value) => setAddForm({ ...addForm, department: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEPARTMENTS.map((dept) => (
+                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="add-phone">Phone</Label>
