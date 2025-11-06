@@ -236,13 +236,24 @@ const Users = () => {
     if (!selectedUser) return;
 
     try {
+      const nameTrimmed = (editForm.full_name || '').trim();
+      if (!nameTrimmed || !/^[A-Za-z ]+$/.test(nameTrimmed) || nameTrimmed.length > 25) {
+        toast({ title: 'Invalid name', description: 'Name must be letters and spaces only, max 25 characters', variant: 'destructive' });
+        return;
+      }
+      const phoneDigits = (editForm.phone || '').replace(/\D/g, '');
+      if (phoneDigits && phoneDigits.length !== 10) {
+        toast({ title: 'Invalid phone', description: 'Phone must be exactly 10 digits', variant: 'destructive' });
+        return;
+      }
+
       // Update profile
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
-          full_name: editForm.full_name,
+          full_name: nameTrimmed,
           department: editForm.department,
-          phone: editForm.phone
+          phone: phoneDigits
         })
         .eq('id', selectedUser.id);
 
@@ -276,13 +287,24 @@ const Users = () => {
     const originalSession = orig?.session;
 
     try {
+      const nameTrimmed = (addForm.full_name || '').trim();
+      if (!nameTrimmed || !/^[A-Za-z ]+$/.test(nameTrimmed) || nameTrimmed.length > 25) {
+        toast({ title: 'Invalid name', description: 'Name must be letters and spaces only, max 25 characters', variant: 'destructive' });
+        return;
+      }
+      const phoneDigits = (addForm.phone || '').replace(/\D/g, '');
+      if (phoneDigits && phoneDigits.length !== 10) {
+        toast({ title: 'Invalid phone', description: 'Phone must be exactly 10 digits', variant: 'destructive' });
+        return;
+      }
+
       // Create user via Supabase Auth (this may switch the session to the new user)
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: addForm.email,
         password: addForm.password,
         options: {
           data: {
-            full_name: addForm.full_name
+            full_name: nameTrimmed
           }
         }
       });
@@ -295,7 +317,7 @@ const Users = () => {
           .from('profiles')
           .update({
             department: addForm.department,
-            phone: addForm.phone
+            phone: phoneDigits
           })
           .eq('id', authData.user.id);
 
@@ -457,7 +479,11 @@ const Users = () => {
               <Input
                 id="edit-name"
                 value={editForm.full_name}
-                onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                onChange={(e) => {
+                  const raw = e.target.value || '';
+                  const filtered = raw.replace(/[^A-Za-z ]/g, '').slice(0, 25);
+                  setEditForm({ ...editForm, full_name: filtered });
+                }}
               />
             </div>
             <div className="space-y-2">
@@ -490,7 +516,10 @@ const Users = () => {
               <Input
                 id="edit-phone"
                 value={editForm.phone}
-                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                onChange={(e) => {
+                  const digits = (e.target.value || '').replace(/\D/g, '').slice(0, 10);
+                  setEditForm({ ...editForm, phone: digits });
+                }}
               />
             </div>
             <div className="space-y-2">
@@ -533,7 +562,11 @@ const Users = () => {
               <Input
                 id="add-name"
                 value={addForm.full_name}
-                onChange={(e) => setAddForm({ ...addForm, full_name: e.target.value })}
+                onChange={(e) => {
+                  const raw = e.target.value || '';
+                  const filtered = raw.replace(/[^A-Za-z ]/g, '').slice(0, 25);
+                  setAddForm({ ...addForm, full_name: filtered });
+                }}
               />
             </div>
             <div className="space-y-2">
@@ -575,7 +608,10 @@ const Users = () => {
               <Input
                 id="add-phone"
                 value={addForm.phone}
-                onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
+                onChange={(e) => {
+                  const digits = (e.target.value || '').replace(/\D/g, '').slice(0, 10);
+                  setAddForm({ ...addForm, phone: digits });
+                }}
               />
             </div>
             <div className="space-y-2">
