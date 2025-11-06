@@ -70,6 +70,7 @@ const Users = () => {
   });
   const { user } = useAuth();
   const { toast } = useToast();
+  const sortedDepartments = [...DEPARTMENTS].sort((a, b) => a.localeCompare(b));
 
   useEffect(() => {
     if (user) {
@@ -270,8 +271,12 @@ const Users = () => {
   };
 
   const handleAddUser = async () => {
+    // Preserve current admin session so we can restore it after creating the user
+    const { data: orig } = await supabase.auth.getSession();
+    const originalSession = orig?.session;
+
     try {
-      // Create user via Supabase Auth
+      // Create user via Supabase Auth (this may switch the session to the new user)
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: addForm.email,
         password: addForm.password,
@@ -285,7 +290,7 @@ const Users = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // Update profile with additional details
+        // While the session is the new user, update profile details
         const { error: profileError } = await supabase
           .from('profiles')
           .update({
@@ -296,10 +301,18 @@ const Users = () => {
 
         if (profileError) throw profileError;
 
-        // Assign role
+        // Assign role if different from default
         if (addForm.role !== 'user') {
           await updateUserRole(authData.user.id, addForm.role);
         }
+      }
+
+      // Restore original admin session (prevents auto-login as the new user)
+      if (originalSession?.access_token && originalSession.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: originalSession.access_token,
+          refresh_token: originalSession.refresh_token,
+        });
       }
 
       toast({
@@ -318,6 +331,16 @@ const Users = () => {
       });
       fetchUsers();
     } catch (error: any) {
+      // Attempt to restore original session on error as well
+      if (originalSession?.access_token && originalSession.refresh_token) {
+        try {
+          await supabase.auth.setSession({
+            access_token: originalSession.access_token,
+            refresh_token: originalSession.refresh_token,
+          });
+        } catch {}
+      }
+
       toast({
         title: 'Error',
         description: error.message || 'Failed to create user',
@@ -456,7 +479,7 @@ const Users = () => {
                   <SelectValue placeholder="Select Department" />
                 </SelectTrigger>
                 <SelectContent>
-                  {DEPARTMENTS.map((dept) => (
+                  {sortedDepartments.map((dept) => (
                     <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                   ))}
                 </SelectContent>
@@ -541,7 +564,7 @@ const Users = () => {
                   <SelectValue placeholder="Select Department" />
                 </SelectTrigger>
                 <SelectContent>
-                  {DEPARTMENTS.map((dept) => (
+                  {sortedDepartments.map((dept) => (
                     <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                   ))}
                 </SelectContent>

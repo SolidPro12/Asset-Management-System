@@ -11,14 +11,6 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 
 interface LayoutProps {
   children: ReactNode;
@@ -29,40 +21,109 @@ export function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [profile, setProfile] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
   const getPageTitle = () => {
     const path = location.pathname;
-    if (path === '/') return 'Dashboard';
-    if (path === '/assets') return 'Assets';
-    if (path === '/allocations') return 'Asset Allocations';
-    if (path === '/requests') return 'Asset Requests';
-    if (path === '/history') return 'Asset History & Maintenance';
-    if (path === '/service') return 'Service Records';
-    if (path === '/users') return 'Users';
-    if (path === '/profile') return 'Profile';
-    return '';
+    if (path.includes('profile')) return 'Profile';
+    if (path.includes('assets')) return 'Assets';
+    return 'Dashboard';
   };
 
   useEffect(() => {
     if (user) {
+      // fetch role first (authoritative), then profile
+      fetchUserRole();
       fetchProfile();
+    } else {
+      setProfile(null);
+      setUserRole(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  const fetchUserRole = async () => {
+    if (!user) return;
+    try {
+      // Query user_roles table directly for reliable result
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
+
+      if (error) {
+        // if no role row, keep null (will fallback later)
+        console.debug('fetchUserRole error', error.message ?? error);
+        setUserRole(null);
+      } else {
+        setUserRole((data as any)?.role ?? null);
+      }
+    } catch (err) {
+      console.error('fetchUserRole unexpected', err);
+      setUserRole(null);
+    }
+  };
 
   const fetchProfile = async () => {
     if (!user) return;
-    
-    const { data } = await supabase
-      .from('profiles')
-      .select('*, user_roles(role)')
-      .eq('id', user.id)
-      .single();
-    
-    setProfile(data);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*, user_roles(role)')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.debug('fetchProfile error', error.message ?? error);
+        setProfile(null);
+      } else {
+        setProfile(data);
+        // if role wasn't found earlier, try to use joined relation
+        if (!userRole) {
+          const joinedRole = (data as any)?.user_roles?.[0]?.role;
+          if (joinedRole) setUserRole(joinedRole);
+        }
+      }
+    } catch (err) {
+      console.error('fetchProfile unexpected', err);
+      setProfile(null);
+    }
   };
 
-  const getRoleDisplayName = (role?: string) => {
+  // Subscribe to realtime profile updates so header reflects changes immediately
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`realtime:profiles:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` },
+        (payload) => {
+          setProfile((prev: any) => ({ ...(prev || {}), ...(payload.new as any) }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  // Fallback: update profile from custom event dispatched by Profile page
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      setProfile((prev: any) => ({ ...(prev || {}), ...detail }));
+      fetchProfile();
+    };
+    window.addEventListener('profile-updated', handler as EventListener);
+    return () => window.removeEventListener('profile-updated', handler as EventListener);
+  }, []);
+
+  const getRoleDisplayName = (role?: string | null) => {
     switch (role) {
       case 'super_admin':
         return 'Super Admin';
@@ -77,8 +138,13 @@ export function Layout({ children }: LayoutProps) {
     }
   };
 
-  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || (user?.email ? user.email.split('@')[0] : 'User');
-  const roleLabel = getRoleDisplayName(profile?.user_roles?.[0]?.role);
+  const displayName =
+    profile?.full_name ||
+    (user?.user_metadata?.full_name as string) ||
+    (user?.user_metadata?.name as string) ||
+    (user?.email ? user.email.split('@')[0] : 'User');
+
+  const roleLabel = getRoleDisplayName(userRole ?? (profile as any)?.user_roles?.[0]?.role ?? null);
 
   return (
     <SidebarProvider>
@@ -88,29 +154,15 @@ export function Layout({ children }: LayoutProps) {
           <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-card px-6 shadow-sm justify-between">
             <div className="flex items-center gap-4">
               <SidebarTrigger />
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem>
-                    <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
-                  </BreadcrumbItem>
-                  {location.pathname !== '/' && (
-                    <>
-                      <BreadcrumbSeparator />
-                      <BreadcrumbItem>
-                        <BreadcrumbPage>{getPageTitle()}</BreadcrumbPage>
-                      </BreadcrumbItem>
-                    </>
-                  )}
-                </BreadcrumbList>
-              </Breadcrumb>
+              <h1 className="text-xl font-semibold text-foreground">Asset Management System</h1>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-5 w-5" />
                 <span className="absolute top-1 right-1 h-2 w-2 bg-destructive rounded-full" />
               </Button>
-              
+
               <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2 h-auto py-2">
@@ -135,16 +187,12 @@ export function Layout({ children }: LayoutProps) {
                         {profile?.email || user?.email}
                       </p>
 
-                      {/* Always show role directly under email */}
                       <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
                         <Shield className="h-4 w-4 text-muted-foreground" />
                         <span>{roleLabel}</span>
                       </p>
-
-                      {/* If you still want the separate block only when roles exist, keep the conditional too.
-                          The line above ensures role always appears under the email. */}
                     </div>
-                    
+
                     <div className="border-t pt-3 space-y-1">
                       <Button
                         variant="ghost"
