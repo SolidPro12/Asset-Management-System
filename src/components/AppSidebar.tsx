@@ -68,9 +68,14 @@ export function AppSidebar() {
 
   const isActive = (path: string) => currentPath === path;
 
-  const visibleMenuItems = menuItems.filter(
-    (item) => !item.requiredRole || item.requiredRole === userRole
-  );
+  const visibleMenuItems = menuItems.filter((item) => {
+    // HR role can only see Dashboard and Asset Requests
+    if (userRole === 'hr') {
+      return item.title === 'Dashboard' || item.title === 'Asset Requests';
+    }
+    // For other roles, apply the existing requiredRole logic
+    return !item.requiredRole || item.requiredRole === userRole;
+  });
 
   return (
     <Sidebar collapsible="icon">
