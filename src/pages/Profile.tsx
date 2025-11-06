@@ -111,6 +111,14 @@ const Profile = () => {
       alert('Full name cannot be empty');
       return;
     }
+    if (!/^[A-Za-z ]+$/.test(trimmed)) {
+      alert('Full name must contain only letters and spaces');
+      return;
+    }
+    if (trimmed.length > 25) {
+      alert('Full name must be at most 25 characters');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -225,7 +233,11 @@ const Profile = () => {
               <Input
                 id="fullName"
                 value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
+                onChange={(e) => {
+                  const raw = e.target.value || '';
+                  const filtered = raw.replace(/[^A-Za-z ]/g, '').slice(0, 25);
+                  setNameInput(filtered);
+                }}
                 readOnly={!isEditing}
                 className={!isEditing ? 'bg-muted/50' : ''}
               />

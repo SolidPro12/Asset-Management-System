@@ -86,8 +86,8 @@ const Auth = () => {
       .regex(/[0-9]/, 'Password must contain a number'),
     Name: z.string()
       .trim()
-      .min(2, 'Name must be at least 2 characters')
-      .max(100)
+      .regex(/^[A-Za-z ]+$/, 'Name must contain only letters and spaces')
+      .max(25, 'Name must be at most 25 characters')
       .optional(),
   });
 
@@ -262,7 +262,11 @@ const Auth = () => {
                       type="text"
                       placeholder="John Doe"
                       value={Name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => {
+                        const raw = e.target.value || '';
+                        const filtered = raw.replace(/[^A-Za-z ]/g, '').slice(0, 25);
+                        setName(filtered);
+                      }}
                       required
                     />
                   </div>
@@ -292,7 +296,7 @@ const Auth = () => {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="absolute inset-y-0 right-2 flex items-center- px-1 hover:bg-transparent"
+                        className="absolute inset-y-0 right-2 flex items-center px-1 hover:bg-transparent"
                         onClick={() => setShowPassword(!showPassword)}
                       >
                         {showPassword ? <Eye className="h-4 w-4 text-muted-foreground" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
