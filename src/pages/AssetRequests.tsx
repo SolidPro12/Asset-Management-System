@@ -84,6 +84,7 @@ const priorityConfig = {
 
 export default function AssetRequests() {
   const { user } = useAuth();
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [requests, setRequests] = useState<AssetRequest[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<AssetRequest[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -96,8 +97,23 @@ export default function AssetRequests() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (user) {
+      checkUserRole();
+    }
     fetchRequests();
-  }, []);
+  }, [user]);
+
+  const checkUserRole = async () => {
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    setUserRole(data?.role || null);
+  };
 
   useEffect(() => {
     applyFilters();
@@ -476,7 +492,7 @@ export default function AssetRequests() {
                         <Edit className="h-3 w-3 mr-1" />
                         Edit
                       </Button>
-                      {(request.status === 'pending' || request.status === 'in_progress') && (
+                      {userRole !== 'hr' && (request.status === 'pending' || request.status === 'in_progress') && (
                         <>
                           <Button
                             variant="outline"
