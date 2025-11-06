@@ -15,6 +15,10 @@ import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { z } from 'zod';
 
+interface UserRole {
+  role: string;
+}
+
 interface ViewRequestModalProps {
   request: any;
   open: boolean;
@@ -47,6 +51,7 @@ export function ViewRequestModal({
   onSuccess,
 }: ViewRequestModalProps) {
   const { user } = useAuth();
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<RequestHistory[]>([]);
   const [showRejectForm, setShowRejectForm] = useState(false);
@@ -54,10 +59,28 @@ export function ViewRequestModal({
   const [validationError, setValidationError] = useState('');
 
   useEffect(() => {
+    if (user) {
+      checkUserRole();
+    }
+  }, [user]);
+
+  useEffect(() => {
     if (open && request) {
       fetchHistory();
     }
   }, [open, request]);
+
+  const checkUserRole = async () => {
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    setUserRole(data?.role || null);
+  };
 
   const fetchHistory = async () => {
     try {
@@ -228,7 +251,7 @@ export function ViewRequestModal({
             </div>
             <div className="space-y-1">
               <Label className="text-sm text-muted-foreground">Department</Label>
-              <p className="font-medium">{request.profiles?.department || 'N/A'}</p>
+              <p className="font-medium">{request.department || request.profiles?.department || 'N/A'}</p>
             </div>
             <div className="space-y-1">
               <Label className="text-sm text-muted-foreground">Requested By</Label>
@@ -362,7 +385,7 @@ export function ViewRequestModal({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Close
           </Button>
-          {(request.status === 'pending' || request.status === 'in_progress') && !showRejectForm && (
+          {userRole !== 'hr' && (request.status === 'pending' || request.status === 'in_progress') && !showRejectForm && (
             <>
               <Button
                 onClick={handleApprove}

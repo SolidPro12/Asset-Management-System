@@ -17,17 +17,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { z } from 'zod';
+import { DEPARTMENTS } from '@/lib/constants';
 
 const requestSchema = z.object({
   category: z.string().min(1, 'Category is required'),
-  reason: z.string()
-    .trim()
-    .min(10, 'Reason must be at least 10 characters')
-    .max(200, 'Reason must be less than 200 characters'),
+  employment_type: z.string().min(1, 'Employment type is required'),
   quantity: z.number().min(1, 'Quantity must be at least 1').max(100, 'Quantity cannot exceed 100'),
+  specification: z.string().min(10, 'Specification must be at least 10 characters').max(500, 'Specification must be less than 500 characters'),
+  location: z.string().min(1, 'Location is required'),
+  department: z.string().min(1, 'Department is required'),
+  expected_delivery_date: z.date({ message: 'Expected delivery date is required' }),
+  request_type: z.enum(['regular', 'express']),
   notes: z.string().max(500, 'Notes must be less than 500 characters').optional(),
 });
 
@@ -47,9 +59,13 @@ export function CreateRequestModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     category: '',
-    reason: '',
+    employment_type: '',
     quantity: 1,
-    request_type: 'medium',
+    specification: '',
+    location: '',
+    department: '',
+    expected_delivery_date: undefined as Date | undefined,
+    request_type: 'regular' as 'regular' | 'express',
     notes: '',
   });
 
@@ -64,8 +80,13 @@ export function CreateRequestModal({
     try {
       requestSchema.parse({
         category: formData.category,
-        reason: formData.reason,
+        employment_type: formData.employment_type,
         quantity: formData.quantity,
+        specification: formData.specification,
+        location: formData.location,
+        department: formData.department,
+        expected_delivery_date: formData.expected_delivery_date,
+        request_type: formData.request_type,
         notes: formData.notes,
       });
       setErrors({});
@@ -87,10 +108,15 @@ export function CreateRequestModal({
       const { error: insertError } = await supabase.from('asset_requests').insert({
         requester_id: user.id,
         category: formData.category as any,
-        reason: formData.reason.trim(),
+        employment_type: formData.employment_type,
         quantity: formData.quantity,
+        specification: formData.specification.trim(),
+        location: formData.location.trim(),
+        department: formData.department,
+        expected_delivery_date: formData.expected_delivery_date?.toISOString().split('T')[0],
         request_type: formData.request_type as any,
         notes: formData.notes.trim() || null,
+        reason: formData.specification.trim(), // Keep reason for backward compatibility
       });
 
       if (insertError) throw insertError;
@@ -118,9 +144,13 @@ export function CreateRequestModal({
       onOpenChange(false);
       setFormData({
         category: '',
-        reason: '',
+        employment_type: '',
         quantity: 1,
-        request_type: 'medium',
+        specification: '',
+        location: '',
+        department: '',
+        expected_delivery_date: undefined,
+        request_type: 'regular',
         notes: '',
       });
       setErrors({});
@@ -134,86 +164,213 @@ export function CreateRequestModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Request</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="category">Asset Category *</Label>
-            <Select
-              value={formData.category}
-              onValueChange={(value) => setFormData({ ...formData, category: value })}
-              required
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="laptop">Laptop</SelectItem>
-                <SelectItem value="desktop">Desktop</SelectItem>
-                <SelectItem value="monitor">Monitor</SelectItem>
-                <SelectItem value="keyboard">Keyboard</SelectItem>
-                <SelectItem value="mouse">Mouse</SelectItem>
-                <SelectItem value="headset">Headset</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="category">Asset Category *</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(value) => {
+                  setFormData({ ...formData, category: value });
+                  setErrors({ ...errors, category: '' });
+                }}
+                required
+              >
+                <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="laptop">Laptop</SelectItem>
+                  <SelectItem value="desktop">Desktop</SelectItem>
+                  <SelectItem value="monitor">Monitor</SelectItem>
+                  <SelectItem value="keyboard">Keyboard</SelectItem>
+                  <SelectItem value="mouse">Mouse</SelectItem>
+                  <SelectItem value="headset">Headset</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.category && (
+                <p className="text-sm text-destructive">{errors.category}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="employment_type">Employment Type *</Label>
+              <Select
+                value={formData.employment_type}
+                onValueChange={(value) => {
+                  setFormData({ ...formData, employment_type: value });
+                  setErrors({ ...errors, employment_type: '' });
+                }}
+                required
+              >
+                <SelectTrigger className={errors.employment_type ? 'border-red-500' : ''}>
+                  <SelectValue placeholder="Select employment type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="extern">Extern</SelectItem>
+                  <SelectItem value="Intern">Intern</SelectItem>
+                  <SelectItem value="Employee">Employee</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.employment_type && (
+                <p className="text-sm text-destructive">{errors.employment_type}</p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="reason">Reason *</Label>
-            <Input
-              id="reason"
-              value={formData.reason}
-              onChange={(e) => {
-                setFormData({ ...formData, reason: e.target.value });
-                setErrors({ ...errors, reason: '' });
-              }}
-              placeholder="Why do you need this asset? (min 10 characters)"
-              maxLength={200}
-              required
-              className={errors.reason ? 'border-red-500' : ''}
-            />
-            {errors.reason && (
-              <p className="text-sm text-destructive">{errors.reason}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="quantity">Quantity *</Label>
+            <Label htmlFor="quantity">Count *</Label>
             <Input
               id="quantity"
               type="number"
               min="1"
+              max="100"
               value={formData.quantity}
-              onChange={(e) =>
-                setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })
-              }
+              onChange={(e) => {
+                setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 });
+                setErrors({ ...errors, quantity: '' });
+              }}
+              className={errors.quantity ? 'border-red-500' : ''}
               required
             />
+            {errors.quantity && (
+              <p className="text-sm text-destructive">{errors.quantity}</p>
+            )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="priority">Priority *</Label>
-            <Select
-              value={formData.request_type}
-              onValueChange={(value) => setFormData({ ...formData, request_type: value })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="urgent">Urgent</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="specification">Specification *</Label>
+            <Textarea
+              id="specification"
+              value={formData.specification}
+              onChange={(e) => {
+                setFormData({ ...formData, specification: e.target.value });
+                setErrors({ ...errors, specification: '' });
+              }}
+              placeholder="Enter detailed specifications (min 10 characters)"
+              maxLength={500}
+              rows={4}
+              className={errors.specification ? 'border-red-500' : ''}
+              required
+            />
+            {errors.specification && (
+              <p className="text-sm text-destructive">{errors.specification}</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="location">Location *</Label>
+              <Input
+                id="location"
+                value={formData.location}
+                onChange={(e) => {
+                  setFormData({ ...formData, location: e.target.value });
+                  setErrors({ ...errors, location: '' });
+                }}
+                placeholder="Enter location"
+                className={errors.location ? 'border-red-500' : ''}
+                required
+              />
+              {errors.location && (
+                <p className="text-sm text-destructive">{errors.location}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="department">Department *</Label>
+              <Select
+                value={formData.department}
+                onValueChange={(value) => {
+                  setFormData({ ...formData, department: value });
+                  setErrors({ ...errors, department: '' });
+                }}
+                required
+              >
+                <SelectTrigger className={errors.department ? 'border-red-500' : ''}>
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEPARTMENTS.map((dept) => (
+                    <SelectItem key={dept} value={dept}>
+                      {dept}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.department && (
+                <p className="text-sm text-destructive">{errors.department}</p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+            <Label>Expected Delivery Date *</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    'w-full justify-start text-left font-normal',
+                    !formData.expected_delivery_date && 'text-muted-foreground',
+                    errors.expected_delivery_date && 'border-red-500'
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {formData.expected_delivery_date ? (
+                    format(formData.expected_delivery_date, 'PPP')
+                  ) : (
+                    <span>Pick a date</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={formData.expected_delivery_date}
+                  onSelect={(date) => {
+                    setFormData({ ...formData, expected_delivery_date: date });
+                    setErrors({ ...errors, expected_delivery_date: '' });
+                  }}
+                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            {errors.expected_delivery_date && (
+              <p className="text-sm text-destructive">{errors.expected_delivery_date}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Priority *</Label>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant={formData.request_type === 'regular' ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => setFormData({ ...formData, request_type: 'regular' })}
+              >
+                Regular Request
+              </Button>
+              <Button
+                type="button"
+                variant={formData.request_type === 'express' ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => setFormData({ ...formData, request_type: 'express' })}
+              >
+                Express Request
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notes">Additional Note</Label>
             <Textarea
               id="notes"
               value={formData.notes}
@@ -231,7 +388,7 @@ export function CreateRequestModal({
             )}
           </div>
 
-          <div className="flex gap-3 justify-end">
+          <div className="flex gap-3 justify-end pt-4">
             <Button
               type="button"
               variant="outline"

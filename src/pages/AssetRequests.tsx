@@ -38,6 +38,7 @@ import {
   CalendarIcon,
   RotateCcw,
   Plus,
+  Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -83,6 +84,7 @@ const priorityConfig = {
 
 export default function AssetRequests() {
   const { user } = useAuth();
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [requests, setRequests] = useState<AssetRequest[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<AssetRequest[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -95,8 +97,23 @@ export default function AssetRequests() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (user) {
+      checkUserRole();
+    }
     fetchRequests();
-  }, []);
+  }, [user]);
+
+  const checkUserRole = async () => {
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    setUserRole(data?.role || null);
+  };
 
   useEffect(() => {
     applyFilters();
@@ -244,6 +261,36 @@ export default function AssetRequests() {
     }
   };
 
+  const handleDelete = async (requestId: string) => {
+    if (!user) return;
+    
+    if (!confirm('Are you sure you want to delete this request? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Delete request history first (foreign key constraint)
+      await supabase
+        .from('request_history')
+        .delete()
+        .eq('request_id', requestId);
+
+      // Delete the request
+      const { error: deleteError } = await supabase
+        .from('asset_requests')
+        .delete()
+        .eq('id', requestId);
+
+      if (deleteError) throw deleteError;
+
+      toast.success('Request deleted successfully');
+      fetchRequests();
+    } catch (error) {
+      console.error('Error deleting request:', error);
+      toast.error('Failed to delete request');
+    }
+  };
+
   const departments = Array.from(
     new Set(requests.map((r) => r.profiles?.department).filter(Boolean))
   );
@@ -386,9 +433,9 @@ export default function AssetRequests() {
               <TableHead>Priority</TableHead>
               <TableHead>Department</TableHead>
               <TableHead>Requested By</TableHead>
-              <TableHead>Request Date</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>View</TableHead>
+              <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -409,13 +456,12 @@ export default function AssetRequests() {
                 <TableRow key={request.id} className={index % 2 === 1 ? 'bg-muted/50' : ''}>
                   <TableCell className="font-medium">{request.category}</TableCell>
                   <TableCell>
-                    <Badge variant={priorityConfig[request.request_type as keyof typeof priorityConfig]?.variant || 'secondary'}>
-                      {priorityConfig[request.request_type as keyof typeof priorityConfig]?.label || request.request_type}
+                    <Badge variant={request.request_type === 'express' ? 'destructive' : 'secondary'}>
+                      {request.request_type === 'express' ? 'Express' : 'Regular'}
                     </Badge>
                   </TableCell>
                   <TableCell>{request.profiles?.department || 'N/A'}</TableCell>
                   <TableCell>{request.profiles?.full_name || 'Unknown'}</TableCell>
-                  <TableCell>{format(new Date(request.created_at), 'yyyy-MM-dd')}</TableCell>
                   <TableCell>
                     <Badge
                       variant={
@@ -429,22 +475,24 @@ export default function AssetRequests() {
                       {statusConfig[request.status as keyof typeof statusConfig]?.label || request.status}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setViewRequest(request)}
+                      className="h-8"
+                    >
+                      <Eye className="h-3 w-3 mr-1" />
+                      View
+                    </Button>
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setViewRequest(request)}
-                        className="h-8"
-                      >
-                        <Eye className="h-3 w-3 mr-1" />
-                        View
-                      </Button>
                       <Button variant="outline" size="sm" className="h-8">
                         <Edit className="h-3 w-3 mr-1" />
                         Edit
                       </Button>
-                      {(request.status === 'pending' || request.status === 'in_progress') && (
+                      {userRole !== 'hr' && (request.status === 'pending' || request.status === 'in_progress') && (
                         <>
                           <Button
                             variant="outline"
@@ -452,8 +500,7 @@ export default function AssetRequests() {
                             onClick={() => handleApprove(request.id)}
                             className="h-8 border-green-500 text-green-600 hover:bg-green-50"
                           >
-                            <Check className="h-3 w-3 mr-1" />
-                            Approve
+                            <Check className="h-3 w-3" />
                           </Button>
                           <Button
                             variant="outline"
@@ -461,11 +508,18 @@ export default function AssetRequests() {
                             onClick={() => handleReject(request.id)}
                             className="h-8 border-red-500 text-red-600 hover:bg-red-50"
                           >
-                            <X className="h-3 w-3 mr-1" />
-                            Reject
+                            <X className="h-3 w-3" />
                           </Button>
                         </>
                       )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(request.id)}
+                        className="h-8 border-red-500 text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

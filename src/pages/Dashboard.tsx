@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { Package, CheckCircle, AlertCircle, Wrench, FileText, Clock, TrendingUp } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { format } from 'date-fns';
 
 interface DashboardStats {
   totalAssets: number;
@@ -14,6 +16,8 @@ interface DashboardStats {
 }
 
 const Dashboard = () => {
+  const { user } = useAuth();
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
     totalAssets: 0,
     availableAssets: 0,
@@ -24,10 +28,81 @@ const Dashboard = () => {
     inProgressRequests: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [approvedAssets, setApprovedAssets] = useState<any[]>([]);
+  const [myRequests, setMyRequests] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchDashboardStats();
-  }, []);
+    if (user) {
+      checkUserRole();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (userRole) {
+      if (userRole === 'hr') {
+        fetchHRDashboardData();
+      } else {
+        fetchDashboardStats();
+      }
+    }
+  }, [userRole]);
+
+  const checkUserRole = async () => {
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    setUserRole(data?.role || null);
+  };
+
+  const fetchHRDashboardData = async () => {
+    try {
+      if (!user) return;
+
+      // Fetch my requests
+      const { data: myRequestsData } = await supabase
+        .from('asset_requests')
+        .select('*, profiles:requester_id(full_name, department)')
+        .eq('requester_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (myRequestsData) {
+        setMyRequests(myRequestsData);
+
+        const myRequestCount = myRequestsData.length;
+        const pendingApproval = myRequestsData.filter(r => r.status === 'pending').length;
+        const approved = myRequestsData.filter(r => r.status === 'approved').length;
+        const inProgress = myRequestsData.filter(r => r.status === 'in_progress').length;
+
+        setStats(prev => ({
+          ...prev,
+          totalAssets: myRequestCount,
+          pendingRequests: pendingApproval,
+          approvedRequests: approved,
+          inProgressRequests: inProgress,
+        }));
+      }
+
+      // Fetch approved assets allocated to user
+      const { data: allocationsData } = await supabase
+        .from('asset_allocations')
+        .select('*, assets:asset_id(asset_name, category)')
+        .eq('status', 'active')
+        .order('allocated_date', { ascending: false });
+
+      if (allocationsData) {
+        setApprovedAssets(allocationsData);
+      }
+    } catch (error) {
+      console.error('Error fetching HR dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchDashboardStats = async () => {
     try {
@@ -135,7 +210,7 @@ const Dashboard = () => {
           <p className="text-muted-foreground">Overview of your asset management system</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="h-4 w-24 bg-muted rounded" />
@@ -147,6 +222,166 @@ const Dashboard = () => {
             </Card>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  // HR Dashboard
+  if (userRole === 'hr') {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">HR Dashboard</h2>
+          <p className="text-muted-foreground">Manage asset requests and track allocations for new joiners</p>
+        </div>
+
+        {/* Status Cards */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card className="transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                My Requests
+              </CardTitle>
+              <div className="p-2 rounded-lg bg-primary/10">
+                <FileText className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalAssets}</div>
+              <p className="text-xs text-muted-foreground mt-1">Total requests submitted</p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Pending Approval
+              </CardTitle>
+              <div className="p-2 rounded-lg bg-warning/10">
+                <Clock className="h-4 w-4 text-warning" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.pendingRequests}</div>
+              <p className="text-xs text-muted-foreground mt-1">Waiting for approval</p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Approved
+              </CardTitle>
+              <div className="p-2 rounded-lg bg-success/10">
+                <CheckCircle className="h-4 w-4 text-success" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.approvedRequests}</div>
+              <p className="text-xs text-muted-foreground mt-1">Ready for allocation</p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                In Progress
+              </CardTitle>
+              <div className="p-2 rounded-lg bg-accent/10">
+                <TrendingUp className="h-4 w-4 text-accent" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.inProgressRequests}</div>
+              <p className="text-xs text-muted-foreground mt-1">Being processed</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Approved Assets Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Approved Assets</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {approvedAssets.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">No approved assets allocated yet</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-4 font-medium">Asset Category</th>
+                      <th className="text-left py-2 px-4 font-medium">Assigned Employee</th>
+                      <th className="text-left py-2 px-4 font-medium">Approved Date</th>
+                      <th className="text-left py-2 px-4 font-medium">Assigned Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {approvedAssets.map((asset) => (
+                      <tr key={asset.id} className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4">{asset.assets?.asset_name || 'N/A'}</td>
+                        <td className="py-3 px-4">{asset.employee_name}</td>
+                        <td className="py-3 px-4">{format(new Date(asset.created_at), 'dd-MM-yyyy')}</td>
+                        <td className="py-3 px-4">{format(new Date(asset.allocated_date), 'dd-MM-yyyy')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* My Asset Requests Status Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>My Asset Requests Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {myRequests.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">No requests found</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-4 font-medium">Category</th>
+                      <th className="text-left py-2 px-4 font-medium">Type</th>
+                      <th className="text-left py-2 px-4 font-medium">Department</th>
+                      <th className="text-left py-2 px-4 font-medium">Request Date</th>
+                      <th className="text-left py-2 px-4 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {myRequests.map((request) => (
+                      <tr key={request.id} className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4 capitalize">{request.category}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-1 rounded text-xs ${request.request_type === 'express' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {request.request_type === 'express' ? 'Express' : 'Regular'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">{request.department || 'N/A'}</td>
+                        <td className="py-3 px-4">{format(new Date(request.created_at), 'dd-MM-yyyy')}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            request.status === 'approved' ? 'bg-green-100 text-green-700' :
+                            request.status === 'pending' ? 'bg-orange-100 text-orange-700' :
+                            request.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {request.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     );
   }

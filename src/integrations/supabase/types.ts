@@ -130,13 +130,18 @@ export type Database = {
           approved_by: string | null
           category: Database["public"]["Enums"]["asset_category"]
           created_at: string
+          department: string | null
+          employment_type: string | null
+          expected_delivery_date: string | null
           id: string
+          location: string | null
           notes: string | null
           quantity: number
           reason: string
           rejection_reason: string | null
           request_type: Database["public"]["Enums"]["request_type"]
           requester_id: string
+          specification: string | null
           status: Database["public"]["Enums"]["request_status"]
           updated_at: string
         }
@@ -145,13 +150,18 @@ export type Database = {
           approved_by?: string | null
           category: Database["public"]["Enums"]["asset_category"]
           created_at?: string
+          department?: string | null
+          employment_type?: string | null
+          expected_delivery_date?: string | null
           id?: string
+          location?: string | null
           notes?: string | null
           quantity?: number
           reason: string
           rejection_reason?: string | null
           request_type?: Database["public"]["Enums"]["request_type"]
           requester_id: string
+          specification?: string | null
           status?: Database["public"]["Enums"]["request_status"]
           updated_at?: string
         }
@@ -160,13 +170,18 @@ export type Database = {
           approved_by?: string | null
           category?: Database["public"]["Enums"]["asset_category"]
           created_at?: string
+          department?: string | null
+          employment_type?: string | null
+          expected_delivery_date?: string | null
           id?: string
+          location?: string | null
           notes?: string | null
           quantity?: number
           reason?: string
           rejection_reason?: string | null
           request_type?: Database["public"]["Enums"]["request_type"]
           requester_id?: string
+          specification?: string | null
           status?: Database["public"]["Enums"]["request_status"]
           updated_at?: string
         }
@@ -416,7 +431,7 @@ export type Database = {
         | "in_progress"
         | "completed"
         | "cancelled"
-      request_type: "regular" | "urgent"
+      request_type: "regular" | "urgent" | "express"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -566,7 +581,7 @@ export const Constants = {
         "completed",
         "cancelled",
       ],
-      request_type: ["regular", "urgent"],
+      request_type: ["regular", "urgent", "express"],
     },
   },
 } as const
