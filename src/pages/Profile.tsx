@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardDescription, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Edit } from 'lucide-react';
+import { Edit, Save, X } from 'lucide-react';
 
 interface Profile {
+  id?: string;
   full_name: string;
   email: string;
   department: string | null;
@@ -36,7 +37,7 @@ const getRoleBadgeVariant = (role: string): "default" | "secondary" | "destructi
 const getInitials = (name: string) => {
   return name
     .split(' ')
-    .map(word => word[0])
+    .map(word => word[0] || '')
     .join('')
     .toUpperCase()
     .slice(0, 2);
@@ -48,40 +49,99 @@ const Profile = () => {
   const [userRole, setUserRole] = useState<string>('user');
   const [loading, setLoading] = useState(true);
 
+  // edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+
   useEffect(() => {
     if (user) {
       fetchProfile();
       fetchUserRole();
+    } else {
+      setProfile(null);
+      setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchProfile = async () => {
     if (!user) return;
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+    setLoading(true);
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
-    if (data) {
-      setProfile(data);
+      if (data) {
+        setProfile(data);
+        setNameInput(data.full_name ?? '');
+      }
+    } catch (err) {
+      console.error('fetchProfile error', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const fetchUserRole = async () => {
     if (!user) return;
 
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single();
+    try {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
 
-    if (data) {
-      setUserRole(data.role);
+      if (data) {
+        setUserRole(data.role);
+      }
+    } catch (err) {
+      console.error('fetchUserRole error', err);
     }
+  };
+
+  const handleSave = async () => {
+    if (!profile) return;
+    const trimmed = nameInput.trim();
+    if (!trimmed) {
+      alert('Full name cannot be empty');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ full_name: trimmed })
+        .eq('id', profile.id || user?.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('update profile error', error);
+        alert(error.message || 'Failed to save changes');
+      } else {
+        setProfile(prev => prev ? { ...prev, full_name: trimmed } : prev);
+        setIsEditing(false);
+        try { await supabase.auth.updateUser({ data: { full_name: trimmed } }); } catch {}
+        try { window.dispatchEvent(new CustomEvent('profile-updated', { detail: { full_name: trimmed } })); } catch {}
+        alert('Profile updated');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Unexpected error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setNameInput(profile?.full_name ?? '');
+    setIsEditing(false);
   };
 
   if (loading) {
@@ -138,10 +198,24 @@ const Profile = () => {
             <div className="flex items-center gap-2">
               <CardTitle className="text-lg font-semibold">Profile Information</CardTitle>
             </div>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Edit className="h-4 w-4" />
-              Edit
-            </Button>
+
+            {!isEditing ? (
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => { setIsEditing(true); setNameInput(profile.full_name); }}>
+                <Edit className="h-4 w-4" />
+                Edit
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" className="gap-2" onClick={handleSave} disabled={loading}>
+                  <Save className="h-4 w-4" />
+                  Save
+                </Button>
+                <Button variant="ghost" size="sm" className="gap-2" onClick={handleCancel}>
+                  <X className="h-4 w-4" />
+                  Cancel
+                </Button>
+              </div>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -150,9 +224,10 @@ const Profile = () => {
               </Label>
               <Input
                 id="fullName"
-                value={profile.full_name}
-                readOnly
-                className="bg-muted/50"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                readOnly={!isEditing}
+                className={!isEditing ? 'bg-muted/50' : ''}
               />
             </div>
 
