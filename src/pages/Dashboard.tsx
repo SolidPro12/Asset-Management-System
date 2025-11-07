@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { Package, CheckCircle, AlertCircle, Wrench, FileText, Clock, TrendingUp } from 'lucide-react';
+import { Package, CheckCircle, AlertCircle, Wrench, FileText, Clock, TrendingUp, Download } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 
@@ -251,6 +252,131 @@ const Dashboard = () => {
             </Card>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  // Financer Dashboard
+  if (userRole === 'financer') {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Finance & Management Dashboard</h2>
+          <p className="text-muted-foreground">Financial overview and reporting of asset investments</p>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card className="transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total Asset Value
+              </CardTitle>
+              <div className="p-2 rounded-lg bg-success/10">
+                <Package className="h-4 w-4 text-success" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-success">₹45,67,890</div>
+              <p className="text-xs text-muted-foreground mt-1">Total investment</p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Assets In Use
+              </CardTitle>
+              <div className="p-2 rounded-lg bg-primary/10">
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-primary">{stats.assignedAssets}</div>
+              <p className="text-xs text-muted-foreground mt-1">Utilization rate 75%</p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Categories
+              </CardTitle>
+              <div className="p-2 rounded-lg bg-accent/10">
+                <Package className="h-4 w-4 text-accent" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-accent">13</div>
+              <p className="text-xs text-muted-foreground mt-1">Asset categories</p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Departments
+              </CardTitle>
+              <div className="p-2 rounded-lg bg-warning/10">
+                <FileText className="h-4 w-4 text-warning" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-warning">8</div>
+              <p className="text-xs text-muted-foreground mt-1">Active departments</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Reports & Data Management */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Reports & Data Management</CardTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Export Reports
+              </Button>
+              <Button variant="outline" size="sm">
+                <FileText className="h-4 w-4 mr-2" />
+                Import Data
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card className="border-2">
+                <CardHeader>
+                  <CardTitle className="text-base">Asset Utilization Report</CardTitle>
+                  <p className="text-sm text-muted-foreground">Comprehensive usage analytics</p>
+                </CardHeader>
+                <CardContent>
+                  <Button className="w-full">Generate</Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2">
+                <CardHeader>
+                  <CardTitle className="text-base">Financial Summary</CardTitle>
+                  <p className="text-sm text-muted-foreground">Cost analysis and ROI metrics</p>
+                </CardHeader>
+                <CardContent>
+                  <Button className="w-full">Generate</Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2">
+                <CardHeader>
+                  <CardTitle className="text-base">Department Allocation</CardTitle>
+                  <p className="text-sm text-muted-foreground">Asset distribution by department</p>
+                </CardHeader>
+                <CardContent>
+                  <Button className="w-full">Generate</Button>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

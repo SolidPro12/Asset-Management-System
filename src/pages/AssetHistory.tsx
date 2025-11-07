@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -11,12 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -26,11 +18,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { CalendarIcon, Download, Plus, Eye, Edit, Filter } from 'lucide-react';
+import { Download, Eye, Edit, Filter } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { AddServiceModal } from '@/components/AddServiceModal';
+import * as XLSX from 'xlsx';
 
 interface AssetHistoryRecord {
   id: string;
@@ -53,59 +44,21 @@ interface AssetHistoryRecord {
   };
 }
 
-interface ServiceHistoryRecord {
-  id: string;
-  asset_id: string;
-  service_type: string;
-  service_date: string;
-  vendor?: string;
-  cost?: number;
-  description?: string;
-  notes?: string;
-  performed_by?: string;
-  created_at: string;
-  assets?: {
-    asset_name: string;
-    category: string;
-  };
-}
-
 export default function AssetHistory() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'asset-history');
   const [assetHistory, setAssetHistory] = useState<AssetHistoryRecord[]>([]);
-  const [serviceHistory, setServiceHistory] = useState<ServiceHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
-
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab) {
-      setActiveTab(tab);
-    }
-  }, [searchParams]);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [actionFilter, setActionFilter] = useState('all');
-  const [dateFrom, setDateFrom] = useState<Date>();
-  const [dateTo, setDateTo] = useState<Date>();
 
   useEffect(() => {
-    fetchData();
+    fetchAssetHistory();
   }, []);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([fetchAssetHistory(), fetchServiceHistory()]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchAssetHistory = async () => {
+    setLoading(true);
     try {
       const { data: historyData, error } = await supabase
         .from('asset_history')
@@ -139,35 +92,8 @@ export default function AssetHistory() {
     } catch (error) {
       console.error('Error fetching asset history:', error);
       toast.error('Failed to load asset history');
-    }
-  };
-
-  const fetchServiceHistory = async () => {
-    try {
-      const { data: serviceData, error } = await supabase
-        .from('service_history')
-        .select('*')
-        .order('service_date', { ascending: false });
-
-      if (error) throw error;
-
-      if (serviceData && serviceData.length > 0) {
-        const assetIds = [...new Set(serviceData.map(s => s.asset_id))];
-        const { data: assets } = await supabase
-          .from('assets')
-          .select('id, asset_name, category')
-          .in('id', assetIds);
-
-        const enrichedData = serviceData.map(record => ({
-          ...record,
-          assets: assets?.find(a => a.id === record.asset_id),
-        }));
-
-        setServiceHistory(enrichedData as any);
-      }
-    } catch (error) {
-      console.error('Error fetching service history:', error);
-      toast.error('Failed to load service history');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -184,70 +110,73 @@ export default function AssetHistory() {
     return <Badge variant="default" className="bg-green-100 text-green-700">assigned</Badge>;
   };
 
-  const getServiceStatus = (serviceType: string) => {
-    const type = serviceType.toLowerCase();
-    if (type.includes('warranty') || type.includes('cleaning')) {
-      return <Badge className="bg-green-100 text-green-700 border-green-200">completed</Badge>;
+  const handleExport = (exportFormat: 'csv' | 'xlsx') => {
+    const data = filteredHistory.map(r => ({
+      Asset: r.assets?.asset_name || 'Unknown',
+      Category: r.assets?.category || 'N/A',
+      Action: r.return_date ? 'Returned' : 'Assigned',
+      Details: r.notes || '',
+      Date: format(new Date(r.assigned_date), 'yyyy-MM-dd'),
+      'Performed By': r.assignee?.full_name || 'N/A',
+      Condition: 'excellent'
+    }));
+
+    if (exportFormat === 'csv') {
+      const csv = 'Asset,Category,Action,Details,Date,Performed By,Condition\n' +
+        data.map(r => Object.values(r).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `asset-history-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      a.click();
+    } else {
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Asset History');
+      XLSX.writeFile(wb, `asset-history-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     }
-    if (type.includes('maintenance')) {
-      return <Badge className="bg-blue-100 text-blue-700 border-blue-200">in progress</Badge>;
-    }
-    if (type.includes('repair')) {
-      return <Badge className="bg-red-100 text-red-700 border-red-200">repair</Badge>;
-    }
-    return <Badge variant="secondary">completed</Badge>;
+    toast.success(`Export completed as ${exportFormat.toUpperCase()}`);
   };
 
-  const handleExport = () => {
-    const data = activeTab === 'asset-history' ? assetHistory : serviceHistory;
-    const csv = activeTab === 'asset-history'
-      ? 'Asset,Action,Details,Date,Performed By,Condition\n' +
-        assetHistory.map(r => 
-          `${r.assets?.asset_name},${r.return_date ? 'Returned' : 'Assigned'},${r.notes || ''},${format(new Date(r.assigned_date), 'yyyy-MM-dd')},${r.assignee?.full_name || ''},good`
-        ).join('\n')
-      : 'Asset,Service Type,Vendor,Date,Cost,Status\n' +
-        serviceHistory.map(r =>
-          `${r.assets?.asset_name},${r.service_type},${r.vendor || ''},${format(new Date(r.service_date), 'yyyy-MM-dd')},${r.cost || 0},completed`
-        ).join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${activeTab}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    a.click();
-    toast.success('Export completed');
-  };
+  const filteredHistory = assetHistory.filter(record => {
+    const matchesSearch = searchTerm === '' || 
+      record.assets?.asset_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = categoryFilter === 'all' || record.assets?.category === categoryFilter;
+    const matchesAction = actionFilter === 'all' || 
+      (actionFilter === 'returned' && record.return_date) ||
+      (actionFilter === 'assigned' && !record.return_date);
+    return matchesSearch && matchesCategory && matchesAction;
+  });
 
   return (
-    <div className="space-y-6 bg-[#f8f6ff] min-h-screen -m-6 p-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Asset History & Maintenance</h1>
-          <p className="text-muted-foreground">Track asset movements and service records</p>
+          <h1 className="text-3xl font-bold tracking-tight">Asset History</h1>
+          <p className="text-muted-foreground">Track asset movements and assignments</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExport} className="rounded-lg">
+          <Button variant="outline" onClick={() => handleExport('csv')}>
             <Download className="h-4 w-4 mr-2" />
-            Export
+            Export CSV
           </Button>
-          {activeTab === 'service-history' && (
-            <Button onClick={() => setIsServiceModalOpen(true)} className="rounded-lg">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Service Record
-            </Button>
-          )}
+          <Button variant="outline" onClick={() => handleExport('xlsx')}>
+            <Download className="h-4 w-4 mr-2" />
+            Export Excel
+          </Button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border shadow-sm p-4">
+      <div className="border rounded-lg p-4">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium">Filters</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Input
             placeholder="Search history..."
             value={searchTerm}
@@ -281,205 +210,70 @@ export default function AssetHistory() {
               <SelectItem value="repair">Repair</SelectItem>
             </SelectContent>
           </Select>
-
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="h-10 justify-start">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateFrom ? format(dateFrom, 'dd-MMM-yyyy') : 'dd-mm-yyyy'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={dateFrom}
-                onSelect={setDateFrom}
-                initialFocus
-                className={cn('p-3 pointer-events-auto')}
-              />
-            </PopoverContent>
-          </Popover>
-
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="h-10 justify-start">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateTo ? format(dateTo, 'dd-MMM-yyyy') : 'dd-mm-yyyy'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={dateTo}
-                onSelect={setDateTo}
-                initialFocus
-                className={cn('p-3 pointer-events-auto')}
-              />
-            </PopoverContent>
-          </Popover>
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => {
-        setActiveTab(value);
-        setSearchParams({ tab: value });
-      }} className="space-y-4">
-        <TabsList className="bg-white border shadow-sm">
-          <TabsTrigger value="asset-history" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            Asset History ({assetHistory.length})
-          </TabsTrigger>
-          <TabsTrigger value="service-history" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            Service History ({serviceHistory.length})
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Asset History Tab */}
-        <TabsContent value="asset-history" className="space-y-4">
-          <div className="bg-white rounded-xl border shadow-sm">
-            <div className="p-4 border-b">
-              <h2 className="text-lg font-semibold">Asset Movement History</h2>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Asset</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Details</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Performed By</TableHead>
-                  <TableHead>Condition</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+      {/* Asset History Table */}
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Asset</TableHead>
+              <TableHead>Action</TableHead>
+              <TableHead>Details</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Performed By</TableHead>
+              <TableHead>Condition</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8">Loading...</TableCell>
+              </TableRow>
+            ) : filteredHistory.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  No asset history found
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredHistory.map((record) => (
+                <TableRow key={record.id}>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium">{record.assets?.asset_name || 'Unknown Asset'}</p>
+                      <p className="text-sm text-muted-foreground capitalize">{record.assets?.category}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell>{getActionBadge(record)}</TableCell>
+                  <TableCell className="max-w-xs">
+                    <p className="text-sm">{record.notes || '—'}</p>
+                  </TableCell>
+                  <TableCell>{format(new Date(record.assigned_date), 'yyyy-MM-dd')}</TableCell>
+                  <TableCell>{record.assignee?.full_name || 'N/A'}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      excellent
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="ghost" size="icon">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">Loading...</TableCell>
-                  </TableRow>
-                ) : assetHistory.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No asset history found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  assetHistory.map((record, index) => (
-                    <TableRow key={record.id} className={index % 2 === 1 ? 'bg-muted/50' : ''}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{record.assets?.asset_name || 'Unknown Asset'}</p>
-                          <p className="text-sm text-muted-foreground capitalize">{record.assets?.category}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{getActionBadge(record)}</TableCell>
-                      <TableCell className="max-w-xs">
-                        <p className="text-sm">{record.notes || '—'}</p>
-                      </TableCell>
-                      <TableCell>{format(new Date(record.assigned_date), 'yyyy-MM-dd')}</TableCell>
-                      <TableCell>{record.assignee?.full_name || 'N/A'}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                          excellent
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button variant="ghost" size="icon">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-
-        {/* Service History Tab */}
-        <TabsContent value="service-history" className="space-y-4">
-          <div className="bg-white rounded-xl border shadow-sm">
-            <div className="p-4 border-b">
-              <h2 className="text-lg font-semibold">Service & Maintenance Records</h2>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Asset</TableHead>
-                  <TableHead>Service Type</TableHead>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Cost</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">Loading...</TableCell>
-                  </TableRow>
-                ) : serviceHistory.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No service history found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  serviceHistory.map((record, index) => (
-                    <TableRow key={record.id} className={index % 2 === 1 ? 'bg-muted/50' : ''}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{record.assets?.asset_name || 'Unknown Asset'}</p>
-                          <p className="text-sm text-muted-foreground capitalize">{record.assets?.category}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{record.service_type}</Badge>
-                      </TableCell>
-                      <TableCell>{record.vendor || 'Internal Team'}</TableCell>
-                      <TableCell>
-                        <div>
-                          <p>{format(new Date(record.service_date), 'yyyy-MM-dd')}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(record.service_date), 'HH:mm')}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>₹ {record.cost?.toLocaleString() || 0}</TableCell>
-                      <TableCell>{getServiceStatus(record.service_type)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button variant="ghost" size="icon">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      <AddServiceModal
-        open={isServiceModalOpen}
-        onOpenChange={setIsServiceModalOpen}
-        onSuccess={() => {
-          fetchServiceHistory();
-          toast.success('Service record added successfully');
-        }}
-      />
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

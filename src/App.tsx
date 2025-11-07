@@ -10,6 +10,7 @@ import Assets from "./pages/Assets";
 import AssetAllocations from "./pages/AssetAllocations";
 import AssetRequests from "./pages/AssetRequests";
 import AssetHistory from "./pages/AssetHistory";
+import ServiceHistory from "./pages/ServiceHistory";
 import Users from "./pages/Users";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
@@ -81,6 +82,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <AssetHistory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/service-history"
+              element={
+                <ProtectedRoute>
+                  <ServiceHistory />
                 </ProtectedRoute>
               }
             />

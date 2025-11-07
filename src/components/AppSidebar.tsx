@@ -34,8 +34,8 @@ const menuItems = [
     icon: History, 
     requiredRole: null,
     subItems: [
-      { title: 'Asset History', url: '/history?tab=asset-history' },
-      { title: 'Service History', url: '/history?tab=service-history' },
+      { title: 'Asset History', url: '/history' },
+      { title: 'Service History', url: '/service-history' },
     ]
   },
   { title: 'Users', url: '/users', icon: Users, requiredRole: 'super_admin' },
@@ -73,6 +73,10 @@ export function AppSidebar() {
     if (userRole === 'hr') {
       return item.title === 'Dashboard' || item.title === 'Asset Requests';
     }
+    // Financer role can only see Dashboard and Assets
+    if (userRole === 'financer') {
+      return item.title === 'Dashboard' || item.title === 'Assets';
+    }
     // For other roles, apply the existing requiredRole logic
     return !item.requiredRole || item.requiredRole === userRole;
   });
@@ -99,11 +103,12 @@ export function AppSidebar() {
             <SidebarMenu>
               {visibleMenuItems.map((item) => {
                 if (item.subItems) {
+                  const isHistoryActive = currentPath === '/history' || currentPath === '/service-history';
                   return (
-                    <Collapsible key={item.title} defaultOpen={currentPath === '/history'} asChild>
+                    <Collapsible key={item.title} defaultOpen={isHistoryActive} asChild>
                       <SidebarMenuItem>
                         <CollapsibleTrigger asChild>
-                          <SidebarMenuButton isActive={currentPath === '/history'}>
+                          <SidebarMenuButton isActive={isHistoryActive}>
                             <item.icon className="h-4 w-4" />
                             <span>{item.title}</span>
                             <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
@@ -113,7 +118,7 @@ export function AppSidebar() {
                           <SidebarMenuSub>
                             {item.subItems.map((subItem) => (
                               <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton asChild isActive={currentPath + location.search === subItem.url}>
+                                <SidebarMenuSubButton asChild isActive={currentPath === subItem.url}>
                                   <NavLink to={subItem.url}>
                                     <span>{subItem.title}</span>
                                   </NavLink>
