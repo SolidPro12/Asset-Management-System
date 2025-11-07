@@ -139,6 +139,7 @@ export type Database = {
           quantity: number
           reason: string
           rejection_reason: string | null
+          request_id: string | null
           request_type: Database["public"]["Enums"]["request_type"]
           requester_id: string
           specification: string | null
@@ -159,6 +160,7 @@ export type Database = {
           quantity?: number
           reason: string
           rejection_reason?: string | null
+          request_id?: string | null
           request_type?: Database["public"]["Enums"]["request_type"]
           requester_id: string
           specification?: string | null
@@ -179,6 +181,7 @@ export type Database = {
           quantity?: number
           reason?: string
           rejection_reason?: string | null
+          request_id?: string | null
           request_type?: Database["public"]["Enums"]["request_type"]
           requester_id?: string
           specification?: string | null
@@ -260,6 +263,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          is_department_head: boolean | null
           phone: string | null
           updated_at: string
         }
@@ -269,6 +273,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          is_department_head?: boolean | null
           phone?: string | null
           updated_at?: string
         }
@@ -278,6 +283,7 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          is_department_head?: boolean | null
           phone?: string | null
           updated_at?: string
         }
@@ -391,6 +397,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_request_id: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]

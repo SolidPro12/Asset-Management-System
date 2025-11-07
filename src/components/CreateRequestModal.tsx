@@ -29,7 +29,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { z } from 'zod';
-import { DEPARTMENTS } from '@/lib/constants';
+
+const LOCATIONS = ['Guindy', 'Vandalur'];
 
 const requestSchema = z.object({
   category: z.string().min(1, 'Category is required'),
@@ -37,7 +38,7 @@ const requestSchema = z.object({
   quantity: z.number().min(1, 'Quantity must be at least 1').max(100, 'Quantity cannot exceed 100'),
   specification: z.string().min(10, 'Specification must be at least 10 characters').max(500, 'Specification must be less than 500 characters'),
   location: z.string().min(1, 'Location is required'),
-  department: z.string().min(1, 'Department is required'),
+  department_head: z.string().min(1, 'Department Head is required'),
   expected_delivery_date: z.date({ message: 'Expected delivery date is required' }),
   request_type: z.enum(['regular', 'express']),
   notes: z.string().max(500, 'Notes must be less than 500 characters').optional(),
@@ -71,13 +72,15 @@ export function CreateRequestModal({
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [requestId, setRequestId] = useState('');
+  const [departmentHeads, setDepartmentHeads] = useState<Array<{ id: string; full_name: string; department: string }>>([]);
   const [formData, setFormData] = useState({
     category: '',
     employment_type: '',
     quantity: 1,
     specification: '',
     location: '',
-    department: '',
+    department_head: '',
     expected_delivery_date: undefined as Date | undefined,
     request_type: 'regular' as 'regular' | 'express',
     notes: '',
@@ -86,6 +89,11 @@ export function CreateRequestModal({
   // Initialize or reset form when opening/closing or when editRequest changes
   useEffect(() => {
     if (open) {
+      fetchDepartmentHeads();
+      if (!editRequest) {
+        fetchNextRequestId();
+      }
+      
       if (editRequest) {
         setFormData({
           category: editRequest.category || '',
@@ -93,7 +101,7 @@ export function CreateRequestModal({
           quantity: editRequest.quantity ?? 1,
           specification: (editRequest.specification || editRequest.reason || ''),
           location: editRequest.location || '',
-          department: editRequest.department || '',
+          department_head: editRequest.department || '',
           expected_delivery_date: editRequest.expected_delivery_date ? new Date(editRequest.expected_delivery_date) : undefined,
           request_type: editRequest.request_type,
           notes: editRequest.notes || '',
@@ -105,7 +113,7 @@ export function CreateRequestModal({
           quantity: 1,
           specification: '',
           location: '',
-          department: '',
+          department_head: '',
           expected_delivery_date: undefined,
           request_type: 'regular',
           notes: '',
@@ -113,6 +121,33 @@ export function CreateRequestModal({
       }
     }
   }, [open, editRequest]);
+
+  const fetchNextRequestId = async () => {
+    try {
+      const { data, error } = await supabase.rpc('generate_request_id');
+      if (error) throw error;
+      setRequestId(data);
+    } catch (error) {
+      console.error('Error fetching request ID:', error);
+      setRequestId('AR???');
+    }
+  };
+
+  const fetchDepartmentHeads = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, department')
+        .eq('is_department_head', true)
+        .not('department', 'is', null)
+        .order('department');
+      
+      if (error) throw error;
+      setDepartmentHeads(data || []);
+    } catch (error) {
+      console.error('Error fetching department heads:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,7 +164,7 @@ export function CreateRequestModal({
         quantity: formData.quantity,
         specification: formData.specification,
         location: formData.location,
-        department: formData.department,
+        department_head: formData.department_head,
         expected_delivery_date: formData.expected_delivery_date,
         request_type: formData.request_type,
         notes: formData.notes,
@@ -160,7 +195,7 @@ export function CreateRequestModal({
             quantity: formData.quantity,
             specification: formData.specification.trim(),
             location: formData.location.trim(),
-            department: formData.department,
+            department: formData.department_head,
             expected_delivery_date: formData.expected_delivery_date?.toISOString().split('T')[0] || null,
             request_type: formData.request_type as any,
             notes: formData.notes.trim() || null,
@@ -187,7 +222,7 @@ export function CreateRequestModal({
           quantity: formData.quantity,
           specification: formData.specification.trim(),
           location: formData.location.trim(),
-          department: formData.department,
+          department: formData.department_head,
           expected_delivery_date: formData.expected_delivery_date?.toISOString().split('T')[0],
           request_type: formData.request_type as any,
           notes: formData.notes.trim() || null,
@@ -235,6 +270,19 @@ export function CreateRequestModal({
           <DialogTitle>{editRequest ? 'Edit Request' : 'Create New Request'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Request ID - only show for new requests */}
+          {!editRequest && (
+            <div className="space-y-2">
+              <Label htmlFor="request_id">Request ID</Label>
+              <Input
+                id="request_id"
+                value={requestId}
+                readOnly
+                className="bg-muted font-mono"
+              />
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="category">Asset Category *</Label>
@@ -332,45 +380,53 @@ export function CreateRequestModal({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="location">Location *</Label>
-              <Input
-                id="location"
+              <Select
                 value={formData.location}
-                onChange={(e) => {
-                  setFormData({ ...formData, location: e.target.value });
+                onValueChange={(value) => {
+                  setFormData({ ...formData, location: value });
                   setErrors({ ...errors, location: '' });
                 }}
-                placeholder="Enter location"
-                className={errors.location ? 'border-red-500' : ''}
                 required
-              />
+              >
+                <SelectTrigger className={errors.location ? 'border-red-500' : ''}>
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LOCATIONS.map((loc) => (
+                    <SelectItem key={loc} value={loc}>
+                      {loc}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {errors.location && (
                 <p className="text-sm text-destructive">{errors.location}</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="department">Department *</Label>
+              <Label htmlFor="department_head">Department Head *</Label>
               <Select
-                value={formData.department}
+                value={formData.department_head}
                 onValueChange={(value) => {
-                  setFormData({ ...formData, department: value });
-                  setErrors({ ...errors, department: '' });
+                  setFormData({ ...formData, department_head: value });
+                  setErrors({ ...errors, department_head: '' });
                 }}
                 required
               >
-                <SelectTrigger className={errors.department ? 'border-red-500' : ''}>
-                  <SelectValue placeholder="Select department" />
+                <SelectTrigger className={errors.department_head ? 'border-red-500' : ''}>
+                  <SelectValue placeholder="Select department head" />
                 </SelectTrigger>
                 <SelectContent>
-                  {DEPARTMENTS.map((dept) => (
-                    <SelectItem key={dept} value={dept}>
-                      {dept}
+                  {departmentHeads.map((head) => (
+                    <SelectItem key={head.id} value={head.department || ''}>
+                      {head.department} – {head.full_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.department && (
-                <p className="text-sm text-destructive">{errors.department}</p>
+              {errors.department_head && (
+                <p className="text-sm text-destructive">{errors.department_head}</p>
               )}
             </div>
           </div>

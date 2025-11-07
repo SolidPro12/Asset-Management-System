@@ -76,7 +76,7 @@ const Dashboard = () => {
       // Fetch my requests
       const { data: myRequestsData } = await supabase
         .from('asset_requests')
-        .select('*, profiles:requester_id(full_name, department)')
+        .select('request_id, category, request_type, department, created_at, status, profiles:requester_id(full_name, department)')
         .eq('requester_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -117,7 +117,7 @@ const Dashboard = () => {
       // Fetch all approved asset requests for table display
       const { data: approvedReqsData } = await supabase
         .from('asset_requests')
-        .select('*, profiles:requester_id(full_name, department)')
+        .select('request_id, category, created_at, approved_at, profiles:requester_id(full_name, department)')
         .eq('status', 'approved')
         .order('approved_at', { ascending: false });
 
@@ -488,19 +488,21 @@ const Dashboard = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
+                      <th className="text-left py-2 px-4 font-medium">Request ID</th>
                       <th className="text-left py-2 px-4 font-medium">Asset Category</th>
-                      <th className="text-left py-2 px-4 font-medium">Assigned Employee</th>
+                      <th className="text-left py-2 px-4 font-medium">Requester</th>
+                      <th className="text-left py-2 px-4 font-medium">Request Date</th>
                       <th className="text-left py-2 px-4 font-medium">Approved Date</th>
-                      <th className="text-left py-2 px-4 font-medium">Assigned Date</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {approvedAssets.map((asset) => (
-                      <tr key={asset.id} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4">{asset.assets?.asset_name || 'N/A'}</td>
-                        <td className="py-3 px-4">{asset.employee_name}</td>
-                        <td className="py-3 px-4">{format(new Date(asset.created_at), 'dd-MM-yyyy')}</td>
-                        <td className="py-3 px-4">{format(new Date(asset.allocated_date), 'dd-MM-yyyy')}</td>
+                    {approvedRequestsList.map((request) => (
+                      <tr key={request.request_id || request.id} className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4 font-mono text-sm font-semibold">{request.request_id || 'N/A'}</td>
+                        <td className="py-3 px-4 capitalize">{request.category}</td>
+                        <td className="py-3 px-4">{request.profiles?.full_name || 'N/A'}</td>
+                        <td className="py-3 px-4">{format(new Date(request.created_at), 'dd-MM-yyyy')}</td>
+                        <td className="py-3 px-4">{request.approved_at ? format(new Date(request.approved_at), 'dd-MM-yyyy') : 'N/A'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -523,6 +525,7 @@ const Dashboard = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
+                      <th className="text-left py-2 px-4 font-medium">Request ID</th>
                       <th className="text-left py-2 px-4 font-medium">Category</th>
                       <th className="text-left py-2 px-4 font-medium">Type</th>
                       <th className="text-left py-2 px-4 font-medium">Department</th>
@@ -532,7 +535,8 @@ const Dashboard = () => {
                   </thead>
                   <tbody>
                     {myRequests.map((request) => (
-                      <tr key={request.id} className="border-b hover:bg-muted/50">
+                      <tr key={request.request_id || request.id} className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4 font-mono text-sm font-semibold">{request.request_id || 'N/A'}</td>
                         <td className="py-3 px-4 capitalize">{request.category}</td>
                         <td className="py-3 px-4">
                           <span className={`px-2 py-1 rounded text-xs ${request.request_type === 'express' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>

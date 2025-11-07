@@ -57,6 +57,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface AssetRequest {
   id: string;
+  request_id?: string;
   category: string;
   reason: string;
   quantity: number;
@@ -452,13 +453,13 @@ export default function AssetRequests() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Request ID</TableHead>
               <TableHead>Asset Category</TableHead>
               <TableHead>Priority</TableHead>
-              <TableHead>Department</TableHead>
+              <TableHead>Location</TableHead>
+              <TableHead>Department Head</TableHead>
               <TableHead>Requested By</TableHead>
               <TableHead>Request Date</TableHead>
-              <TableHead>Expected Delivery</TableHead>
-              <TableHead>Request ID</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>View</TableHead>
               <TableHead className="text-right">Action</TableHead>
@@ -480,21 +481,17 @@ export default function AssetRequests() {
             ) : (
               filteredRequests.map((request, index) => (
                 <TableRow key={request.id} className={index % 2 === 1 ? 'bg-muted/50' : ''}>
+                  <TableCell className="font-mono text-sm font-semibold">{request.request_id || 'N/A'}</TableCell>
                   <TableCell className="font-medium">{request.category}</TableCell>
                   <TableCell>
                     <Badge variant={request.request_type === 'express' ? 'destructive' : 'secondary'}>
                       {request.request_type === 'express' ? 'Express' : 'Regular'}
                     </Badge>
                   </TableCell>
-                  <TableCell>{request.profiles?.department || 'N/A'}</TableCell>
+                  <TableCell>{(request as any).location || 'N/A'}</TableCell>
+                  <TableCell>{request.department || 'N/A'}</TableCell>
                   <TableCell>{request.profiles?.full_name || 'Unknown'}</TableCell>
                   <TableCell>{format(new Date(request.created_at), 'dd MMM yyyy')}</TableCell>
-                  <TableCell>
-                    {request.expected_delivery_date
-                      ? format(new Date(request.expected_delivery_date), 'dd MMM yyyy')
-                      : 'N/A'}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs break-all">{request.id}</TableCell>
                   <TableCell>
                     <Badge
                       variant={
