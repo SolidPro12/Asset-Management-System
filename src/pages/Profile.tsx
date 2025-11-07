@@ -239,7 +239,7 @@ const Profile = () => {
                   setNameInput(filtered);
                 }}
                 readOnly={!isEditing}
-                className={!isEditing ? 'bg-muted/50' : ''}
+                className={isEditing ? 'bg-white' : 'bg-muted/50'}
               />
             </div>
 

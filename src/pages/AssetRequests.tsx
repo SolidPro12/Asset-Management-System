@@ -59,6 +59,8 @@ interface AssetRequest {
   approved_by?: string;
   approved_at?: string;
   rejection_reason?: string;
+  expected_delivery_date?: string | null;
+  department?: string | null;
   created_at: string;
   updated_at: string;
   profiles?: {
@@ -94,6 +96,7 @@ export default function AssetRequests() {
   const [dateFilter, setDateFilter] = useState<Date>();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [viewRequest, setViewRequest] = useState<AssetRequest | null>(null);
+  const [editRequest, setEditRequest] = useState<AssetRequest | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -171,7 +174,7 @@ export default function AssetRequests() {
     }
 
     if (departmentFilter !== 'all') {
-      filtered = filtered.filter((req) => req.profiles?.department === departmentFilter);
+      filtered = filtered.filter((req) => (req.department || req.profiles?.department) === departmentFilter);
     }
 
     if (dateFilter) {
@@ -292,7 +295,7 @@ export default function AssetRequests() {
   };
 
   const departments = Array.from(
-    new Set(requests.map((r) => r.profiles?.department).filter(Boolean))
+    new Set(requests.map((r) => r.department || r.profiles?.department).filter(Boolean))
   );
 
   return (
@@ -433,6 +436,9 @@ export default function AssetRequests() {
               <TableHead>Priority</TableHead>
               <TableHead>Department</TableHead>
               <TableHead>Requested By</TableHead>
+              <TableHead>Request Date</TableHead>
+              <TableHead>Expected Delivery</TableHead>
+              <TableHead>Request ID</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>View</TableHead>
               <TableHead className="text-right">Action</TableHead>
@@ -441,13 +447,13 @@ export default function AssetRequests() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                <TableCell colSpan={10} className="text-center py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : filteredRequests.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   No requests found
                 </TableCell>
               </TableRow>
@@ -462,6 +468,13 @@ export default function AssetRequests() {
                   </TableCell>
                   <TableCell>{request.profiles?.department || 'N/A'}</TableCell>
                   <TableCell>{request.profiles?.full_name || 'Unknown'}</TableCell>
+                  <TableCell>{format(new Date(request.created_at), 'dd MMM yyyy')}</TableCell>
+                  <TableCell>
+                    {request.expected_delivery_date
+                      ? format(new Date(request.expected_delivery_date), 'dd MMM yyyy')
+                      : 'N/A'}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs break-all">{request.id}</TableCell>
                   <TableCell>
                     <Badge
                       variant={
@@ -488,7 +501,12 @@ export default function AssetRequests() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button variant="outline" size="sm" className="h-8">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => { setEditRequest(request); setIsCreateModalOpen(true); }}
+                      >
                         <Edit className="h-3 w-3 mr-1" />
                         Edit
                       </Button>
@@ -512,14 +530,16 @@ export default function AssetRequests() {
                           </Button>
                         </>
                       )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(request.id)}
-                        className="h-8 border-red-500 text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      {userRole !== 'hr' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDelete(request.id)}
+                          className="h-8 border-red-500 text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -531,8 +551,27 @@ export default function AssetRequests() {
 
       <CreateRequestModal
         open={isCreateModalOpen}
-        onOpenChange={setIsCreateModalOpen}
-        onSuccess={fetchRequests}
+        onOpenChange={(open) => {
+          setIsCreateModalOpen(open);
+          if (!open) setEditRequest(null);
+        }}
+        onSuccess={() => {
+          fetchRequests();
+          setEditRequest(null);
+        }}
+        editRequest={editRequest ? {
+          id: editRequest.id,
+          category: editRequest.category,
+          employment_type: (editRequest as any).employment_type,
+          quantity: editRequest.quantity,
+          specification: (editRequest as any).specification,
+          reason: (editRequest as any).reason,
+          location: (editRequest as any).location,
+          department: (editRequest as any).department,
+          expected_delivery_date: (editRequest as any).expected_delivery_date,
+          request_type: editRequest.request_type === 'express' ? 'express' : 'regular',
+          notes: editRequest.notes as any,
+        } : null}
       />
 
       {viewRequest && (
