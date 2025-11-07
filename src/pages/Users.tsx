@@ -5,6 +5,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Users as UsersIcon, Shield, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -304,7 +312,9 @@ const Users = () => {
         password: addForm.password,
         options: {
           data: {
-            full_name: nameTrimmed
+            full_name: nameTrimmed,
+            department: addForm.department,
+            phone: phoneDigits
           }
         }
       });
@@ -312,16 +322,22 @@ const Users = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // While the session is the new user, update profile details
+        // Wait a moment for the trigger to create the profile
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Update profile details with department and phone
         const { error: profileError } = await supabase
           .from('profiles')
           .update({
-            department: addForm.department,
-            phone: phoneDigits
+            department: addForm.department || null,
+            phone: phoneDigits || null
           })
           .eq('id', authData.user.id);
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+          // Don't throw - profile was created, just department update failed
+        }
 
         // Assign role if different from default
         if (addForm.role !== 'user') {
@@ -407,6 +423,18 @@ const Users = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>User Management</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">

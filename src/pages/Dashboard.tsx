@@ -5,6 +5,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Package, CheckCircle, AlertCircle, Wrench, FileText, Clock, TrendingUp, Download } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+} from '@/components/ui/breadcrumb';
 
 interface DashboardStats {
   totalAssets: number;
@@ -260,6 +266,14 @@ const Dashboard = () => {
   if (userRole === 'financer') {
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbPage>Dashboard</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Finance & Management Dashboard</h2>
           <p className="text-muted-foreground">Financial overview and reporting of asset investments</p>
@@ -385,6 +399,14 @@ const Dashboard = () => {
   if (userRole === 'hr') {
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbPage>Dashboard</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
         <div>
           <h2 className="text-3xl font-bold tracking-tight">HR Dashboard</h2>
           <p className="text-muted-foreground">Manage asset requests and track allocations for new joiners</p>
@@ -543,6 +565,14 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbPage>Dashboard</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <p className="text-muted-foreground">Overview of your asset management system</p>
