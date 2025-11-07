@@ -13,6 +13,7 @@ interface DashboardStats {
   pendingRequests: number;
   approvedRequests: number;
   inProgressRequests: number;
+  myRequests: number;
 }
 
 const Dashboard = () => {
@@ -26,9 +27,11 @@ const Dashboard = () => {
     pendingRequests: 0,
     approvedRequests: 0,
     inProgressRequests: 0,
+    myRequests: 0,
   });
   const [loading, setLoading] = useState(true);
   const [approvedAssets, setApprovedAssets] = useState<any[]>([]);
+  const [approvedRequestsList, setApprovedRequestsList] = useState<any[]>([]);
   const [myRequests, setMyRequests] = useState<any[]>([]);
 
   useEffect(() => {
@@ -72,18 +75,24 @@ const Dashboard = () => {
 
       if (myRequestsData) {
         setMyRequests(myRequestsData);
+      }
 
-        const myRequestCount = myRequestsData.length;
-        const pendingApproval = myRequestsData.filter(r => r.status === 'pending').length;
-        const approved = myRequestsData.filter(r => r.status === 'approved').length;
-        const inProgress = myRequestsData.filter(r => r.status === 'in_progress').length;
+      // Organization-wide request status counts for HR dashboard cards
+      const { data: allRequests } = await supabase
+        .from('asset_requests')
+        .select('status');
+
+      if (allRequests) {
+        const pendingApprovalAll = allRequests.filter(r => r.status === 'pending').length;
+        const approvedAll = allRequests.filter(r => r.status === 'approved').length;
+        const inProgressAll = allRequests.filter(r => r.status === 'in_progress').length;
 
         setStats(prev => ({
           ...prev,
-          totalAssets: myRequestCount,
-          pendingRequests: pendingApproval,
-          approvedRequests: approved,
-          inProgressRequests: inProgress,
+          totalAssets: allRequests.length,
+          pendingRequests: pendingApprovalAll,
+          approvedRequests: approvedAll,
+          inProgressRequests: inProgressAll,
         }));
       }
 
@@ -96,6 +105,17 @@ const Dashboard = () => {
 
       if (allocationsData) {
         setApprovedAssets(allocationsData);
+      }
+
+      // Fetch all approved asset requests for table display
+      const { data: approvedReqsData } = await supabase
+        .from('asset_requests')
+        .select('*, profiles:requester_id(full_name, department)')
+        .eq('status', 'approved')
+        .order('approved_at', { ascending: false });
+
+      if (approvedReqsData) {
+        setApprovedRequestsList(approvedReqsData);
       }
     } catch (error) {
       console.error('Error fetching HR dashboard data:', error);
@@ -114,7 +134,7 @@ const Dashboard = () => {
       // Fetch request statistics
       const { data: requests } = await supabase
         .from('asset_requests')
-        .select('status');
+        .select('status, requester_id');
 
       if (assets) {
         const totalAssets = assets.length;
@@ -135,12 +155,14 @@ const Dashboard = () => {
         const pendingRequests = requests.filter(r => r.status === 'pending').length;
         const approvedRequests = requests.filter(r => r.status === 'approved').length;
         const inProgressRequests = requests.filter(r => r.status === 'in_progress').length;
+        const myRequests = user ? requests.filter(r => r.requester_id === user.id).length : 0;
 
         setStats(prev => ({
           ...prev,
           pendingRequests,
           approvedRequests,
           inProgressRequests,
+          myRequests,
         }));
       }
     } catch (error: any) {
@@ -155,6 +177,13 @@ const Dashboard = () => {
       title: 'Total Assets',
       value: stats.totalAssets,
       icon: Package,
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
+    },
+    {
+      title: 'My Requests',
+      value: stats.myRequests,
+      icon: FileText,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
     },
@@ -240,7 +269,7 @@ const Dashboard = () => {
           <Card className="transition-all hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                My Requests
+                Total Requests
               </CardTitle>
               <div className="p-2 rounded-lg bg-primary/10">
                 <FileText className="h-4 w-4 text-primary" />
@@ -301,7 +330,7 @@ const Dashboard = () => {
         {/* Approved Assets Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Approved Assets</CardTitle>
+            <CardTitle>Approved Assets ({approvedAssets.length})</CardTitle>
           </CardHeader>
           <CardContent>
             {approvedAssets.length === 0 ? (

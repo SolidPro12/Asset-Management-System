@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -47,12 +47,26 @@ interface CreateRequestModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  editRequest?: {
+    id: string;
+    category: string;
+    employment_type?: string;
+    quantity: number;
+    specification?: string;
+    reason?: string;
+    location?: string;
+    department?: string;
+    expected_delivery_date?: string | null;
+    request_type: 'regular' | 'express';
+    notes?: string | null;
+  } | null;
 }
 
 export function CreateRequestModal({
   open,
   onOpenChange,
   onSuccess,
+  editRequest,
 }: CreateRequestModalProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -68,6 +82,37 @@ export function CreateRequestModal({
     request_type: 'regular' as 'regular' | 'express',
     notes: '',
   });
+
+  // Initialize or reset form when opening/closing or when editRequest changes
+  useEffect(() => {
+    if (open) {
+      if (editRequest) {
+        setFormData({
+          category: editRequest.category || '',
+          employment_type: editRequest.employment_type || '',
+          quantity: editRequest.quantity ?? 1,
+          specification: (editRequest.specification || editRequest.reason || ''),
+          location: editRequest.location || '',
+          department: editRequest.department || '',
+          expected_delivery_date: editRequest.expected_delivery_date ? new Date(editRequest.expected_delivery_date) : undefined,
+          request_type: editRequest.request_type,
+          notes: editRequest.notes || '',
+        });
+      } else {
+        setFormData({
+          category: '',
+          employment_type: '',
+          quantity: 1,
+          specification: '',
+          location: '',
+          department: '',
+          expected_delivery_date: undefined,
+          request_type: 'regular',
+          notes: '',
+        });
+      }
+    }
+  }, [open, editRequest]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,58 +150,79 @@ export function CreateRequestModal({
 
     setLoading(true);
     try {
-      const { error: insertError } = await supabase.from('asset_requests').insert({
-        requester_id: user.id,
-        category: formData.category as any,
-        employment_type: formData.employment_type,
-        quantity: formData.quantity,
-        specification: formData.specification.trim(),
-        location: formData.location.trim(),
-        department: formData.department,
-        expected_delivery_date: formData.expected_delivery_date?.toISOString().split('T')[0],
-        request_type: formData.request_type as any,
-        notes: formData.notes.trim() || null,
-        reason: formData.specification.trim(), // Keep reason for backward compatibility
-      });
+      if (editRequest) {
+        // Update existing request
+        const { error: updateError } = await supabase
+          .from('asset_requests')
+          .update({
+            category: formData.category as any,
+            employment_type: formData.employment_type,
+            quantity: formData.quantity,
+            specification: formData.specification.trim(),
+            location: formData.location.trim(),
+            department: formData.department,
+            expected_delivery_date: formData.expected_delivery_date?.toISOString().split('T')[0] || null,
+            request_type: formData.request_type as any,
+            notes: formData.notes.trim() || null,
+            reason: formData.specification.trim(), // Keep reason for backward compatibility
+          })
+          .eq('id', editRequest.id);
 
-      if (insertError) throw insertError;
+        if (updateError) throw updateError;
 
-      // Add to history
-      const { data: newRequest } = await supabase
-        .from('asset_requests')
-        .select('id')
-        .eq('requester_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (newRequest) {
         await supabase.from('request_history').insert({
-          request_id: newRequest.id,
-          action: 'created',
+          request_id: editRequest.id,
+          action: 'updated',
           performed_by: user.id,
-          remarks: 'Request created',
+          remarks: 'Request updated',
         });
+
+        toast.success('Request updated successfully');
+      } else {
+        // Create new request
+        const { error: insertError } = await supabase.from('asset_requests').insert({
+          requester_id: user.id,
+          category: formData.category as any,
+          employment_type: formData.employment_type,
+          quantity: formData.quantity,
+          specification: formData.specification.trim(),
+          location: formData.location.trim(),
+          department: formData.department,
+          expected_delivery_date: formData.expected_delivery_date?.toISOString().split('T')[0],
+          request_type: formData.request_type as any,
+          notes: formData.notes.trim() || null,
+          reason: formData.specification.trim(), // Keep reason for backward compatibility
+        });
+
+        if (insertError) throw insertError;
+
+        // Add to history
+        const { data: newRequest } = await supabase
+          .from('asset_requests')
+          .select('id')
+          .eq('requester_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (newRequest) {
+          await supabase.from('request_history').insert({
+            request_id: newRequest.id,
+            action: 'created',
+            performed_by: user.id,
+            remarks: 'Request created',
+          });
+        }
+
+        toast.success('Request created successfully');
       }
 
-      toast.success('Request created successfully');
       onSuccess();
       onOpenChange(false);
-      setFormData({
-        category: '',
-        employment_type: '',
-        quantity: 1,
-        specification: '',
-        location: '',
-        department: '',
-        expected_delivery_date: undefined,
-        request_type: 'regular',
-        notes: '',
-      });
       setErrors({});
     } catch (error) {
-      console.error('Error creating request:', error);
-      toast.error('Failed to create request');
+      console.error(editRequest ? 'Error updating request:' : 'Error creating request:', error);
+      toast.error(editRequest ? 'Failed to update request' : 'Failed to create request');
     } finally {
       setLoading(false);
     }
@@ -166,7 +232,7 @@ export function CreateRequestModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create New Request</DialogTitle>
+          <DialogTitle>{editRequest ? 'Edit Request' : 'Create New Request'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">

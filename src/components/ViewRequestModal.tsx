@@ -264,6 +264,20 @@ export function ViewRequestModal({
               </p>
             </div>
             <div className="space-y-1">
+              <Label className="text-sm text-muted-foreground">Request ID</Label>
+              <p className="font-medium break-all">{request.id}</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm text-muted-foreground">Expected Delivery Date</Label>
+              <p className="font-medium">
+                {request.expected_delivery_date ? (
+                  format(new Date(request.expected_delivery_date), 'dd MMM yyyy')
+                ) : (
+                  'N/A'
+                )}
+              </p>
+            </div>
+            <div className="space-y-1">
               <Label className="text-sm text-muted-foreground">Status</Label>
               <div>
                 <Badge className={getStatusColor(request.status)}>
@@ -276,7 +290,7 @@ export function ViewRequestModal({
               <p className="font-medium">{request.quantity}</p>
             </div>
             <div className="space-y-1">
-              <Label className="text-sm text-muted-foreground">Reason</Label>
+              <Label className="text-sm text-muted-foreground">Specification</Label>
               <p className="font-medium">{request.reason}</p>
             </div>
           </div>
