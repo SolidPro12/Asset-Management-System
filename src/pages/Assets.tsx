@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,7 @@ import { AddAssetDialog } from '@/components/AddAssetDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
 
 interface Asset {
   id: string;
@@ -57,6 +58,7 @@ const Assets = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchAssets();
@@ -139,23 +141,193 @@ const Assets = () => {
   };
 
   const handleExportExcel = () => {
-    toast({
-      title: 'Export Excel',
-      description: 'Export functionality coming soon!',
-    });
+    try {
+      if (filteredAssets.length === 0) {
+        toast({
+          title: 'No data to export',
+          description: 'There are no assets to export.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const exportData = filteredAssets.map(asset => ({
+        'Asset Name': asset.asset_name,
+        'Asset Tag': asset.asset_tag,
+        'Category': asset.category,
+        'Brand': asset.brand || '',
+        'Model': asset.model || '',
+        'Serial Number': asset.serial_number || '',
+        'Status': asset.status,
+        'Department': asset.department || '',
+        'Location': asset.location || '',
+        'Purchase Date': asset.purchase_date || '',
+        'Purchase Cost': asset.purchase_cost || '',
+        'Warranty End Date': asset.warranty_end_date || '',
+        'RAM': asset.specifications?.ram || '',
+        'Processor': asset.specifications?.processor || '',
+        'Storage': asset.specifications?.storage || '',
+        'Operating System': asset.specifications?.operatingSystem || '',
+        'Organization ID': asset.specifications?.organizationId || '',
+        'Notes': asset.notes || '',
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Assets');
+
+      const fileName = `assets_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+
+      toast({
+        title: 'Export Successful',
+        description: `${filteredAssets.length} assets exported successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Export Failed',
+        description: 'Failed to export assets. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleImportExcel = () => {
-    toast({
-      title: 'Import Excel',
-      description: 'Import functionality coming soon!',
-    });
+    fileInputRef.current?.click();
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const reader = new FileReader();
+      
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+          if (jsonData.length === 0) {
+            toast({
+              title: 'No Data Found',
+              description: 'The uploaded file contains no data.',
+              variant: 'destructive',
+            });
+            return;
+          }
+
+          // Map the imported data to match database schema
+          const assetsToImport = jsonData.map((row) => ({
+            asset_name: row['Asset Name'] || row['asset_name'] || '',
+            asset_tag: row['Asset Tag'] || row['asset_tag'] || `TAG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            category: (row['Category'] || row['category'] || '').toLowerCase().replace(/ /g, '_'),
+            brand: row['Brand'] || row['brand'] || null,
+            model: row['Model'] || row['model'] || null,
+            serial_number: row['Serial Number'] || row['serial_number'] || null,
+            status: (row['Status'] || row['status'] || 'available').toLowerCase().replace(/ /g, '_'),
+            department: row['Department'] || row['department'] || null,
+            location: row['Location'] || row['location'] || null,
+            purchase_date: row['Purchase Date'] || row['purchase_date'] || null,
+            purchase_cost: parseFloat(row['Purchase Cost'] || row['purchase_cost'] || 0) || null,
+            warranty_end_date: row['Warranty End Date'] || row['warranty_end_date'] || null,
+            notes: row['Notes'] || row['notes'] || null,
+            specifications: {
+              ram: row['RAM'] || row['ram'] || '',
+              processor: row['Processor'] || row['processor'] || '',
+              storage: row['Storage'] || row['storage'] || '',
+              operatingSystem: row['Operating System'] || row['operatingSystem'] || '',
+              organizationId: row['Organization ID'] || row['organizationId'] || '',
+            },
+          }));
+
+          // Filter out invalid entries
+          const validAssets = assetsToImport.filter(asset => asset.asset_name && asset.category);
+
+          if (validAssets.length === 0) {
+            toast({
+              title: 'Invalid Data',
+              description: 'No valid assets found in the file. Please check the required fields.',
+              variant: 'destructive',
+            });
+            return;
+          }
+
+          // Insert into database
+          const { data: insertedData, error } = await supabase
+            .from('assets')
+            .insert(validAssets)
+            .select();
+
+          if (error) {
+            throw error;
+          }
+
+          toast({
+            title: 'Import Successful',
+            description: `${validAssets.length} assets imported successfully.`,
+          });
+
+          // Refresh the assets list
+          fetchAssets();
+        } catch (parseError) {
+          toast({
+            title: 'Import Failed',
+            description: 'Failed to parse the file. Please check the format.',
+            variant: 'destructive',
+          });
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+    } catch (error) {
+      toast({
+        title: 'Import Failed',
+        description: 'Failed to read the file. Please try again.',
+        variant: 'destructive',
+      });
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleDownloadTemplate = () => {
+    const templateData = [{
+      'Asset Name': 'Example Laptop',
+      'Asset Tag': 'LAP-001',
+      'Category': 'laptop',
+      'Brand': 'Dell',
+      'Model': 'Latitude 5520',
+      'Serial Number': 'SN123456',
+      'Status': 'available',
+      'Department': 'IT',
+      'Location': 'Office A',
+      'Purchase Date': '2024-01-15',
+      'Purchase Cost': '50000',
+      'Warranty End Date': '2027-01-15',
+      'RAM': '16GB',
+      'Processor': 'Intel i7',
+      'Storage': '512GB SSD',
+      'Operating System': 'Windows 11',
+      'Organization ID': 'ORG-001',
+      'Notes': 'New laptop for employee',
+    }];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Assets Template');
+
+    XLSX.writeFile(workbook, 'assets_import_template.xlsx');
+
     toast({
-      title: 'Download Template',
-      description: 'Template download coming soon!',
+      title: 'Template Downloaded',
+      description: 'Import template has been downloaded successfully.',
     });
   };
 
@@ -446,6 +618,14 @@ const Assets = () => {
         open={isAddDialogOpen} 
         onOpenChange={setIsAddDialogOpen}
         onSuccess={fetchAssets}
+      />
+      
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,.xlsx,.xls"
+        onChange={handleFileUpload}
+        className="hidden"
       />
     </div>
   );
