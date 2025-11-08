@@ -516,7 +516,7 @@ export type Database = {
         | "cancelled"
       request_type: "regular" | "urgent" | "express"
       ticket_priority: "low" | "medium" | "high" | "critical"
-      ticket_status: "open" | "in_progress" | "resolved" | "closed"
+      ticket_status: "open" | "in_progress" | "resolved" | "closed" | "on_hold"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -676,7 +676,7 @@ export const Constants = {
       ],
       request_type: ["regular", "urgent", "express"],
       ticket_priority: ["low", "medium", "high", "critical"],
-      ticket_status: ["open", "in_progress", "resolved", "closed"],
+      ticket_status: ["open", "in_progress", "resolved", "closed", "on_hold"],
     },
   },
 } as const
