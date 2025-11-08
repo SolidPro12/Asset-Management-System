@@ -170,6 +170,8 @@ const Users = () => {
         return 'secondary';
       case 'hr':
         return 'outline';
+      case 'department_head':
+        return 'secondary';
       default:
         return 'outline';
     }
@@ -185,6 +187,8 @@ const Users = () => {
         return 'Finance Admin';
       case 'hr':
         return 'HR';
+      case 'department_head':
+        return 'Department Head';
       default:
         return 'User';
     }
@@ -255,13 +259,43 @@ const Users = () => {
         return;
       }
 
+      // Validate department head assignment
+      if (editForm.role === 'department_head') {
+        if (!editForm.department) {
+          toast({ 
+            title: 'Department Required', 
+            description: 'Please select a department for the department head', 
+            variant: 'destructive' 
+          });
+          return;
+        }
+
+        // Check if another user is already department head for this department
+        const { data: existingHeads } = await supabase
+          .from('profiles')
+          .select('id, full_name, user_roles!inner(role)')
+          .eq('department', editForm.department)
+          .eq('user_roles.role', 'department_head')
+          .neq('id', selectedUser.id);
+
+        if (existingHeads && existingHeads.length > 0) {
+          toast({ 
+            title: 'Department Head Exists', 
+            description: `${existingHeads[0].full_name} is already the department head for ${editForm.department}`, 
+            variant: 'destructive' 
+          });
+          return;
+        }
+      }
+
       // Update profile
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
           full_name: nameTrimmed,
-          department: editForm.department,
-          phone: phoneDigits
+          department: editForm.department || null,
+          phone: phoneDigits || null,
+          is_department_head: editForm.role === 'department_head'
         })
         .eq('id', selectedUser.id);
 
@@ -306,6 +340,34 @@ const Users = () => {
         return;
       }
 
+      // Validate department head assignment
+      if (addForm.role === 'department_head') {
+        if (!addForm.department) {
+          toast({ 
+            title: 'Department Required', 
+            description: 'Please select a department for the department head', 
+            variant: 'destructive' 
+          });
+          return;
+        }
+
+        // Check if another user is already department head for this department
+        const { data: existingHeads } = await supabase
+          .from('profiles')
+          .select('id, full_name, user_roles!inner(role)')
+          .eq('department', addForm.department)
+          .eq('user_roles.role', 'department_head');
+
+        if (existingHeads && existingHeads.length > 0) {
+          toast({ 
+            title: 'Department Head Exists', 
+            description: `${existingHeads[0].full_name} is already the department head for ${addForm.department}`, 
+            variant: 'destructive' 
+          });
+          return;
+        }
+      }
+
       // Create user via Supabase Auth (this may switch the session to the new user)
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: addForm.email,
@@ -330,7 +392,8 @@ const Users = () => {
           .from('profiles')
           .update({
             department: addForm.department || null,
-            phone: phoneDigits || null
+            phone: phoneDigits || null,
+            is_department_head: addForm.role === 'department_head'
           })
           .eq('id', authData.user.id);
 
@@ -559,6 +622,7 @@ const Users = () => {
                 <SelectContent>
                   <SelectItem value="user">User</SelectItem>
                   <SelectItem value="hr">HR</SelectItem>
+                  <SelectItem value="department_head">Department Head</SelectItem>
                   <SelectItem value="financer">Finance Admin</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="super_admin">Super Admin</SelectItem>
@@ -651,6 +715,7 @@ const Users = () => {
                 <SelectContent>
                   <SelectItem value="user">User</SelectItem>
                   <SelectItem value="hr">HR</SelectItem>
+                  <SelectItem value="department_head">Department Head</SelectItem>
                   <SelectItem value="financer">Finance Admin</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="super_admin">Super Admin</SelectItem>
