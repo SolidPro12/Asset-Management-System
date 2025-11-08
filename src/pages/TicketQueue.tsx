@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -16,7 +16,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -26,8 +25,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { Eye, Clock } from 'lucide-react';
 
 interface Ticket {
   id: string;
@@ -44,8 +45,16 @@ interface Ticket {
   assigned_to: string | null;
   created_at: string;
   completed_at: string | null;
+  attachments: string | null;
   created_by_name?: string;
   assigned_to_name?: string;
+  updated_at?: string;
+}
+
+interface StatusHistory {
+  status: string;
+  changed_at: string;
+  changed_by: string;
 }
 
 const TicketQueue = () => {
@@ -53,12 +62,9 @@ const TicketQueue = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [itStaff, setItStaff] = useState<any[]>([]);
-  const [updateData, setUpdateData] = useState({
-    status: '',
-    assigned_to: '',
-  });
+  const [statusHistory, setStatusHistory] = useState<StatusHistory[]>([]);
 
   useEffect(() => {
     fetchAllTickets();
@@ -128,32 +134,25 @@ const TicketQueue = () => {
     }
   };
 
-  const handleUpdateTicket = async () => {
-    if (!selectedTicket) return;
-
+  const handleStatusUpdate = async (ticketId: string, newStatus: string) => {
     try {
-      const updates: any = {};
-      if (updateData.status) updates.status = updateData.status;
-      if (updateData.assigned_to) updates.assigned_to = updateData.assigned_to;
-      if (updateData.status === 'resolved' || updateData.status === 'closed') {
+      const updates: any = { status: newStatus };
+      if (newStatus === 'resolved' || newStatus === 'closed') {
         updates.completed_at = new Date().toISOString();
       }
 
       const { error } = await supabase
         .from('tickets')
         .update(updates)
-        .eq('id', selectedTicket.id);
+        .eq('id', ticketId);
 
       if (error) throw error;
 
       toast({
         title: 'Success',
-        description: 'Ticket updated successfully',
+        description: 'Ticket status updated successfully',
       });
 
-      setIsDialogOpen(false);
-      setSelectedTicket(null);
-      setUpdateData({ status: '', assigned_to: '' });
       fetchAllTickets();
     } catch (error: any) {
       toast({
@@ -162,6 +161,30 @@ const TicketQueue = () => {
         variant: 'destructive',
       });
     }
+  };
+
+  const handleViewTicket = async (ticket: Ticket) => {
+    setSelectedTicket(ticket);
+    
+    // Fetch status history (simulated - in production you'd have a separate table)
+    const history: StatusHistory[] = [
+      {
+        status: 'open',
+        changed_at: ticket.created_at,
+        changed_by: ticket.created_by_name || 'System',
+      },
+    ];
+
+    if (ticket.status !== 'open') {
+      history.push({
+        status: ticket.status,
+        changed_at: ticket.updated_at || ticket.created_at,
+        changed_by: 'Admin',
+      });
+    }
+
+    setStatusHistory(history);
+    setIsViewDialogOpen(true);
   };
 
   const getPriorityBadge = (priority: string) => {
@@ -178,12 +201,20 @@ const TicketQueue = () => {
     const variants: Record<string, any> = {
       open: 'default',
       in_progress: 'secondary',
+      on_hold: 'destructive',
       resolved: 'outline',
       closed: 'secondary',
     };
+    const labels: Record<string, string> = {
+      open: 'OPEN',
+      in_progress: 'IN PROGRESS',
+      on_hold: 'ON HOLD',
+      resolved: 'COMPLETED',
+      closed: 'CLOSED',
+    };
     return (
       <Badge variant={variants[status]}>
-        {status.replace('_', ' ').toUpperCase()}
+        {labels[status] || status.toUpperCase()}
       </Badge>
     );
   };
@@ -199,16 +230,22 @@ const TicketQueue = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Ticket Queue</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Ticket Management</h1>
+          <p className="text-muted-foreground mt-1">Manage and track all support tickets</p>
+        </div>
       </div>
 
       <Card>
-        <CardContent className="p-6">
+        <CardHeader>
+          <CardTitle>All Tickets</CardTitle>
+        </CardHeader>
+        <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Ticket ID</TableHead>
-                <TableHead>Created By</TableHead>
+                <TableHead>Asset ID</TableHead>
                 <TableHead>Asset Name</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Title</TableHead>
@@ -217,13 +254,15 @@ const TicketQueue = () => {
                 <TableHead>Status</TableHead>
                 <TableHead>Assigned To</TableHead>
                 <TableHead>Created Date</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>Completed Date</TableHead>
+                <TableHead>Update Status</TableHead>
+                <TableHead>View</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tickets.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center text-muted-foreground">
+                  <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                     No tickets found.
                   </TableCell>
                 </TableRow>
@@ -231,29 +270,46 @@ const TicketQueue = () => {
                 tickets.map((ticket) => (
                   <TableRow key={ticket.id}>
                     <TableCell className="font-medium">{ticket.ticket_id}</TableCell>
-                    <TableCell>{ticket.created_by_name}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {ticket.asset_id.slice(0, 8)}...
+                    </TableCell>
                     <TableCell>{ticket.asset_name}</TableCell>
                     <TableCell>{ticket.location}</TableCell>
-                    <TableCell>{ticket.title}</TableCell>
+                    <TableCell className="max-w-[200px] truncate">{ticket.title}</TableCell>
                     <TableCell>{getPriorityBadge(ticket.priority)}</TableCell>
-                    <TableCell>{ticket.issue_category}</TableCell>
+                    <TableCell className="capitalize">{ticket.issue_category}</TableCell>
                     <TableCell>{getStatusBadge(ticket.status)}</TableCell>
                     <TableCell>{ticket.assigned_to_name}</TableCell>
                     <TableCell>{format(new Date(ticket.created_at), 'MMM dd, yyyy')}</TableCell>
                     <TableCell>
+                      {ticket.completed_at
+                        ? format(new Date(ticket.completed_at), 'MMM dd, yyyy')
+                        : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={ticket.status}
+                        onValueChange={(value) => handleStatusUpdate(ticket.id, value)}
+                      >
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="open">Open</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="on_hold">On Hold</SelectItem>
+                          <SelectItem value="resolved">Completed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          setSelectedTicket(ticket);
-                          setUpdateData({
-                            status: ticket.status,
-                            assigned_to: ticket.assigned_to || '',
-                          });
-                          setIsDialogOpen(true);
-                        }}
+                        onClick={() => handleViewTicket(ticket)}
                       >
-                        Manage
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -264,83 +320,166 @@ const TicketQueue = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Manage Ticket - {selectedTicket?.ticket_id}</DialogTitle>
+            <DialogTitle className="text-2xl">Ticket Details - {selectedTicket?.ticket_id}</DialogTitle>
           </DialogHeader>
           {selectedTicket && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-6">
+              {/* Header Info */}
+              <div className="grid grid-cols-3 gap-4 p-4 bg-muted rounded-lg">
                 <div>
-                  <p className="text-sm text-muted-foreground">Asset</p>
-                  <p className="font-medium">{selectedTicket.asset_name}</p>
+                  <p className="text-sm text-muted-foreground">Priority</p>
+                  {getPriorityBadge(selectedTicket.priority)}
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Created By</p>
-                  <p className="font-medium">{selectedTicket.created_by_name}</p>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  {getStatusBadge(selectedTicket.status)}
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Category</p>
+                  <p className="font-medium capitalize">{selectedTicket.issue_category}</p>
                 </div>
               </div>
 
+              {/* Asset & Location Info */}
               <div>
-                <p className="text-sm text-muted-foreground">Title</p>
-                <p className="font-medium">{selectedTicket.title}</p>
+                <h3 className="font-semibold mb-3">Asset Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Asset ID</p>
+                    <p className="font-medium font-mono text-sm">{selectedTicket.asset_id}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Asset Name</p>
+                    <p className="font-medium">{selectedTicket.asset_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Location</p>
+                    <p className="font-medium">{selectedTicket.location}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Department</p>
+                    <p className="font-medium">{selectedTicket.department}</p>
+                  </div>
+                </div>
               </div>
 
+              <Separator />
+
+              {/* Ticket Details */}
               <div>
-                <p className="text-sm text-muted-foreground">Description</p>
-                <p className="text-sm">{selectedTicket.description}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select
-                    value={updateData.status}
-                    onValueChange={(value) =>
-                      setUpdateData({ ...updateData, status: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open">Open</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="resolved">Resolved</SelectItem>
-                      <SelectItem value="closed">Closed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Assign To</Label>
-                  <Select
-                    value={updateData.assigned_to}
-                    onValueChange={(value) =>
-                      setUpdateData({ ...updateData, assigned_to: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select IT staff" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {itStaff.map((staff) => (
-                        <SelectItem key={staff.id} value={staff.id}>
-                          {staff.full_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <h3 className="font-semibold mb-3">Ticket Details</h3>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Title</p>
+                    <p className="font-medium text-lg">{selectedTicket.title}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Description</p>
+                    <div className="p-4 bg-muted rounded-lg">
+                      <p className="text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
+              <Separator />
+
+              {/* Assignment Info */}
+              <div>
+                <h3 className="font-semibold mb-3">Assignment Details</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Created By</p>
+                    <p className="font-medium">{selectedTicket.created_by_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Assigned To</p>
+                    <p className="font-medium">{selectedTicket.assigned_to_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Created Date</p>
+                    <p className="font-medium">
+                      {format(new Date(selectedTicket.created_at), 'MMM dd, yyyy HH:mm')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Completed Date</p>
+                    <p className="font-medium">
+                      {selectedTicket.completed_at
+                        ? format(new Date(selectedTicket.completed_at), 'MMM dd, yyyy HH:mm')
+                        : 'Not completed'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Attachments */}
+              <div>
+                <h3 className="font-semibold mb-3">Attachments</h3>
+                {selectedTicket.attachments ? (
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm">{selectedTicket.attachments}</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No attachments</p>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Status Timeline */}
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Status Timeline
+                </h3>
+                <div className="space-y-3">
+                  {statusHistory.map((history, index) => (
+                    <div key={index} className="flex items-start gap-3 pl-4 border-l-2 border-primary pb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(history.status)}
+                          <span className="text-sm text-muted-foreground">
+                            by {history.changed_by}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {format(new Date(history.changed_at), 'MMM dd, yyyy HH:mm')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex gap-2 pt-4 border-t">
+                <Select
+                  value={selectedTicket.status}
+                  onValueChange={(value) => {
+                    handleStatusUpdate(selectedTicket.id, value);
+                    setIsViewDialogOpen(false);
+                  }}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Update Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="on_hold">On Hold</SelectItem>
+                    <SelectItem value="resolved">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                  Close
                 </Button>
-                <Button onClick={handleUpdateTicket}>Update Ticket</Button>
-              </DialogFooter>
+              </div>
             </div>
           )}
         </DialogContent>
