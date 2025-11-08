@@ -26,9 +26,19 @@ import { supabase } from '@/integrations/supabase/client';
 
 const menuItems = [
   { title: 'Dashboard', url: '/', icon: Home, requiredRole: null },
+  { title: 'My Asset', url: '/my-assets', icon: Package, requiredRole: null },
   { title: 'Assets', url: '/assets', icon: Package, requiredRole: null },
   { title: 'Asset Allocations', url: '/allocations', icon: UserCheck, requiredRole: null },
   { title: 'Asset Requests', url: '/requests', icon: FileText, requiredRole: null },
+  { 
+    title: 'Service Desk', 
+    icon: FileText, 
+    requiredRole: null,
+    subItems: [
+      { title: 'My Tickets', url: '/my-tickets', requiredRole: null },
+      { title: 'Ticket Queue', url: '/ticket-queue', requiredRole: 'admin' },
+    ]
+  },
   { 
     title: 'History', 
     icon: History, 
@@ -79,6 +89,19 @@ export function AppSidebar() {
     }
     // For other roles, apply the existing requiredRole logic
     return !item.requiredRole || item.requiredRole === userRole;
+  }).map((item) => {
+    // Filter subItems based on role
+    if (item.subItems) {
+      const filteredSubItems = item.subItems.filter((subItem: any) => {
+        if (!subItem.requiredRole) return true;
+        if (subItem.requiredRole === 'admin') {
+          return userRole === 'super_admin' || userRole === 'admin';
+        }
+        return subItem.requiredRole === userRole;
+      });
+      return { ...item, subItems: filteredSubItems };
+    }
+    return item;
   });
 
   return (
@@ -103,12 +126,12 @@ export function AppSidebar() {
             <SidebarMenu>
               {visibleMenuItems.map((item) => {
                 if (item.subItems) {
-                  const isHistoryActive = currentPath === '/history' || currentPath === '/service-history';
+                  const isGroupActive = item.subItems.some((subItem: any) => currentPath === subItem.url);
                   return (
-                    <Collapsible key={item.title} defaultOpen={isHistoryActive} asChild>
+                    <Collapsible key={item.title} defaultOpen={isGroupActive} asChild>
                       <SidebarMenuItem>
                         <CollapsibleTrigger asChild>
-                          <SidebarMenuButton isActive={isHistoryActive}>
+                          <SidebarMenuButton isActive={isGroupActive}>
                             <item.icon className="h-4 w-4" />
                             <span>{item.title}</span>
                             <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />

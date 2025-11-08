@@ -371,6 +371,74 @@ export type Database = {
           },
         ]
       }
+      tickets: {
+        Row: {
+          asset_id: string | null
+          asset_name: string
+          assigned_to: string | null
+          attachments: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          department: string
+          description: string
+          id: string
+          issue_category: Database["public"]["Enums"]["issue_category"]
+          location: string
+          priority: Database["public"]["Enums"]["ticket_priority"]
+          status: Database["public"]["Enums"]["ticket_status"]
+          ticket_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id?: string | null
+          asset_name: string
+          assigned_to?: string | null
+          attachments?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          department: string
+          description: string
+          id?: string
+          issue_category: Database["public"]["Enums"]["issue_category"]
+          location: string
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          status?: Database["public"]["Enums"]["ticket_status"]
+          ticket_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string | null
+          asset_name?: string
+          assigned_to?: string | null
+          attachments?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          department?: string
+          description?: string
+          id?: string
+          issue_category?: Database["public"]["Enums"]["issue_category"]
+          location?: string
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          status?: Database["public"]["Enums"]["ticket_status"]
+          ticket_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -398,6 +466,7 @@ export type Database = {
     }
     Functions: {
       generate_request_id: { Args: never; Returns: string }
+      generate_ticket_id: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -437,6 +506,7 @@ export type Database = {
         | "tablet"
         | "other"
       asset_status: "available" | "assigned" | "under_maintenance" | "retired"
+      issue_category: "hardware" | "software" | "network" | "access"
       request_status:
         | "pending"
         | "approved"
@@ -445,6 +515,8 @@ export type Database = {
         | "completed"
         | "cancelled"
       request_type: "regular" | "urgent" | "express"
+      ticket_priority: "low" | "medium" | "high" | "critical"
+      ticket_status: "open" | "in_progress" | "resolved" | "closed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -593,6 +665,7 @@ export const Constants = {
         "other",
       ],
       asset_status: ["available", "assigned", "under_maintenance", "retired"],
+      issue_category: ["hardware", "software", "network", "access"],
       request_status: [
         "pending",
         "approved",
@@ -602,6 +675,8 @@ export const Constants = {
         "cancelled",
       ],
       request_type: ["regular", "urgent", "express"],
+      ticket_priority: ["low", "medium", "high", "critical"],
+      ticket_status: ["open", "in_progress", "resolved", "closed"],
     },
   },
 } as const

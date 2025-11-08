@@ -15,6 +15,9 @@ import Users from "./pages/Users";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import MyAssets from "./pages/MyAssets";
+import MyTickets from "./pages/MyTickets";
+import TicketQueue from "./pages/TicketQueue";
 
 const queryClient = new QueryClient();
 
@@ -106,6 +109,30 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/my-assets"
+              element={
+                <ProtectedRoute>
+                  <MyAssets />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/my-tickets"
+              element={
+                <ProtectedRoute>
+                  <MyTickets />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ticket-queue"
+              element={
+                <ProtectedRoute>
+                  <TicketQueue />
                 </ProtectedRoute>
               }
             />
