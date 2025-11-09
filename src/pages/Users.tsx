@@ -49,6 +49,7 @@ interface UserProfile {
   email: string;
   department: string | null;
   phone: string | null;
+  employee_id: string;
   created_at: string;
   user_roles: { role: string }[];
 }
@@ -66,6 +67,7 @@ const Users = () => {
     email: '',
     department: '',
     phone: '',
+    employee_id: '',
     role: 'user'
   });
   const [addForm, setAddForm] = useState({
@@ -74,6 +76,7 @@ const Users = () => {
     password: '',
     department: '',
     phone: '',
+    employee_id: '',
     role: 'user'
   });
   const { user } = useAuth();
@@ -118,6 +121,7 @@ const Users = () => {
           
           return {
             ...profile,
+            employee_id: profile.employee_id,
             user_roles: roles || []
           };
         })
@@ -201,6 +205,7 @@ const Users = () => {
       email: userProfile.email,
       department: userProfile.department || '',
       phone: userProfile.phone || '',
+      employee_id: userProfile.employee_id || '',
       role: userProfile.user_roles?.[0]?.role || 'user'
     });
     setEditDialogOpen(true);
@@ -253,6 +258,10 @@ const Users = () => {
         toast({ title: 'Invalid name', description: 'Name must be letters and spaces only, max 25 characters', variant: 'destructive' });
         return;
       }
+      if (!editForm.employee_id) {
+        toast({ title: 'Employee ID required', description: 'Please enter employee ID', variant: 'destructive' });
+        return;
+      }
       const phoneDigits = (editForm.phone || '').replace(/\D/g, '');
       if (phoneDigits && phoneDigits.length !== 10) {
         toast({ title: 'Invalid phone', description: 'Phone must be exactly 10 digits', variant: 'destructive' });
@@ -288,18 +297,28 @@ const Users = () => {
         }
       }
 
-      // Update profile
+      // Update profile (now includes employee_id)
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
           full_name: nameTrimmed,
           department: editForm.department || null,
           phone: phoneDigits || null,
-          is_department_head: editForm.role === 'department_head'
+          is_department_head: editForm.role === 'department_head',
+          employee_id: editForm.employee_id
         })
         .eq('id', selectedUser.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        let userMsg = profileError.message;
+        if (profileError.code === '23505') userMsg = 'Employee ID must be unique.'; // Postgres duplicate error
+        toast({
+          title: 'Error',
+          description: userMsg || 'Failed to update user',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       // Update role if changed
       if (editForm.role !== selectedUser.user_roles?.[0]?.role) {
@@ -339,6 +358,10 @@ const Users = () => {
         toast({ title: 'Invalid phone', description: 'Phone must be exactly 10 digits', variant: 'destructive' });
         return;
       }
+      if (!addForm.employee_id) {
+        toast({ title: 'Employee ID required', description: 'Please enter employee ID', variant: 'destructive' });
+        return;
+      }
 
       // Validate department head assignment
       if (addForm.role === 'department_head') {
@@ -376,7 +399,8 @@ const Users = () => {
           data: {
             full_name: nameTrimmed,
             department: addForm.department,
-            phone: phoneDigits
+            phone: phoneDigits,
+            employee_id: addForm.employee_id
           }
         }
       });
@@ -387,19 +411,28 @@ const Users = () => {
         // Wait a moment for the trigger to create the profile
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Update profile details with department and phone
+        // Update profile details with department, phone, employee_id
         const { error: profileError } = await supabase
           .from('profiles')
           .update({
             department: addForm.department || null,
             phone: phoneDigits || null,
-            is_department_head: addForm.role === 'department_head'
+            is_department_head: addForm.role === 'department_head',
+            employee_id: addForm.employee_id
           })
           .eq('id', authData.user.id);
 
         if (profileError) {
           console.error('Profile update error:', profileError);
+          let userMsg = profileError.message;
+          if (profileError.code === '23505') userMsg = 'Employee ID must be unique.'; // Postgres duplicate error
           // Don't throw - profile was created, just department update failed
+          toast({
+            title: 'Error',
+            description: userMsg || 'Failed to create user',
+            variant: 'destructive',
+          });
+          return;
         }
 
         // Assign role if different from default
@@ -428,6 +461,7 @@ const Users = () => {
         password: '',
         department: '',
         phone: '',
+        employee_id: '',
         role: 'user'
       });
       fetchUsers();
@@ -531,6 +565,7 @@ const Users = () => {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm w-[110px]">{userProfile.employee_id || '-'}</span>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -565,6 +600,19 @@ const Users = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Employee ID field -- edit mode */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-employee-id">Employee ID *</Label>
+              <Input
+                id="edit-employee-id"
+                value={editForm.employee_id}
+                onChange={e => setEditForm({ ...editForm, employee_id: e.target.value.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 25) })}
+                required
+                maxLength={25}
+                placeholder="Enter Employee ID"
+                disabled={false}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="edit-name">Full Name</Label>
               <Input
@@ -649,6 +697,18 @@ const Users = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Employee ID field -- add mode */}
+            <div className="space-y-2">
+              <Label htmlFor="add-employee-id">Employee ID *</Label>
+              <Input
+                id="add-employee-id"
+                value={addForm.employee_id}
+                onChange={e => setAddForm({ ...addForm, employee_id: e.target.value.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 25) })}
+                required
+                maxLength={25}
+                placeholder="Enter Employee ID"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="add-name">Name</Label>
               <Input
