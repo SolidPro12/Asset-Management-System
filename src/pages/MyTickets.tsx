@@ -281,9 +281,15 @@ const MyTickets = () => {
               ) : (
                 tickets.map((ticket) => (
                   <TableRow key={ticket.id}>
-                    <TableCell className="font-medium">{ticket.ticket_id}</TableCell>
-                    <TableCell>{ticket.asset_id.slice(0, 8)}...</TableCell>
-                    <TableCell>{ticket.asset_name}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="font-mono text-sm px-3 py-1">
+                        {ticket.ticket_id}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {ticket.asset_id.slice(0, 8)}...
+                    </TableCell>
+                    <TableCell className="font-medium">{ticket.asset_name}</TableCell>
                     <TableCell>{ticket.location}</TableCell>
                     <TableCell>{ticket.title}</TableCell>
                     <TableCell>{getPriorityBadge(ticket.priority)}</TableCell>
