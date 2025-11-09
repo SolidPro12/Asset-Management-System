@@ -114,11 +114,9 @@ export function CreateRequestModal({
           location: editRequest.location || '',
           department: editRequest.department || '',
           expected_delivery_date: editRequest.expected_delivery_date 
-            ? (editRequest.expected_delivery_date instanceof Date 
-                ? editRequest.expected_delivery_date 
-                : new Date(editRequest.expected_delivery_date))
+            ? new Date(editRequest.expected_delivery_date)
             : undefined,
-          request_type: editRequest.request_type === 'express' || editRequest.request_type === 'urgent' 
+          request_type: editRequest.request_type === 'express' 
             ? 'express' 
             : 'regular',
           notes: editRequest.notes || '',
