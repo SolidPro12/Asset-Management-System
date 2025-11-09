@@ -305,6 +305,7 @@ export type Database = {
           created_at: string
           department: string | null
           email: string
+          employee_id: string | null
           full_name: string
           id: string
           is_department_head: boolean | null
@@ -315,6 +316,7 @@ export type Database = {
           created_at?: string
           department?: string | null
           email: string
+          employee_id?: string | null
           full_name: string
           id: string
           is_department_head?: boolean | null
@@ -325,6 +327,7 @@ export type Database = {
           created_at?: string
           department?: string | null
           email?: string
+          employee_id?: string | null
           full_name?: string
           id?: string
           is_department_head?: boolean | null
