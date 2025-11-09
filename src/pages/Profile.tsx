@@ -23,6 +23,7 @@ interface Profile {
   email: string;
   department: string | null;
   phone: string | null;
+  employee_id?: string | null;
 }
 
 const getRoleDisplayName = (role: string) => {
@@ -260,6 +261,18 @@ const Profile = () => {
                 }}
                 readOnly={!isEditing}
                 className={isEditing ? 'bg-white' : 'bg-muted/50'}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="employeeId" className="text-sm font-medium">
+                Employee ID
+              </Label>
+              <Input
+                id="employeeId"
+                value={profile.employee_id || 'Not assigned'}
+                readOnly
+                className="bg-muted/50"
               />
             </div>
 

@@ -36,6 +36,7 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
   const [Name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -84,6 +85,12 @@ const Auth = () => {
       .regex(/[A-Z]/, 'Password must contain an uppercase letter')
       .regex(/[a-z]/, 'Password must contain a lowercase letter')
       .regex(/[0-9]/, 'Password must contain a number'),
+    employeeId: z.string()
+      .trim()
+      .min(1, 'Employee ID is required')
+      .max(25, 'Employee ID must be at most 25 characters')
+      .regex(/^[A-Za-z0-9_-]+$/, 'Employee ID must contain only letters, numbers, hyphens, and underscores')
+      .optional(),
     Name: z.string()
       .trim()
       .regex(/^[A-Za-z ]+$/, 'Name must contain only letters and spaces')
@@ -94,10 +101,26 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validate employee ID for signup
+    if (!isLogin) {
+      if (!employeeId || !employeeId.trim()) {
+        toast.error('Employee ID is required');
+        return;
+      }
+      if (employeeId.trim().length > 25) {
+        toast.error('Employee ID must be at most 25 characters');
+        return;
+      }
+      if (!/^[A-Za-z0-9_-]+$/.test(employeeId.trim())) {
+        toast.error('Employee ID must contain only letters, numbers, hyphens, and underscores');
+        return;
+      }
+    }
+
     const data = {
       email,
       password,
-      ...(!isLogin && { Name }),
+      ...(!isLogin && { Name, employeeId }),
     };
 
     const result = authSchema.safeParse(data);
@@ -126,7 +149,8 @@ const Auth = () => {
           toast.error(error.message.includes('Invalid login credentials') ? 'Invalid email or password' : error.message);
         }
       } else {
-        const { error } = await signUp(email, password, Name);
+        const normalizedEmployeeId = employeeId ? employeeId.trim().toUpperCase() : '';
+        const { error } = await signUp(email, password, Name, normalizedEmployeeId);
         if (error) toast.error(error.message.includes('already registered') ? 'This email is already registered' : error.message);
         else toast.success('Account created successfully!');
       }
@@ -256,6 +280,24 @@ const Auth = () => {
               {/* SIGNUP */}
               <TabsContent value="signup" className="space-y-4">
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Employee ID</Label>
+                    <Input
+                      type="text"
+                      placeholder="EMP001"
+                      value={employeeId}
+                      onChange={(e) => {
+                        const raw = e.target.value || '';
+                        const filtered = raw.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 25);
+                        setEmployeeId(filtered);
+                      }}
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Employee ID will be converted to uppercase
+                    </p>
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Name</Label>
                     <Input

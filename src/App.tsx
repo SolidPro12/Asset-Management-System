@@ -18,6 +18,7 @@ import NotFound from "./pages/NotFound";
 import MyAssets from "./pages/MyAssets";
 import MyTickets from "./pages/MyTickets";
 import TicketQueue from "./pages/TicketQueue";
+import Settings from "./pages/Settings";
 
 
 const queryClient = new QueryClient();
@@ -134,6 +135,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <TicketQueue />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
                 </ProtectedRoute>
               }
             />
