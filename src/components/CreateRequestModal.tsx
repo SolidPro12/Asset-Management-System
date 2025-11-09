@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { z } from 'zod';
+import { DEPARTMENTS } from '@/lib/constants';
 
 const LOCATIONS = ['Guindy', 'Vandalur'];
 
@@ -38,7 +39,7 @@ const requestSchema = z.object({
   quantity: z.number().min(1, 'Quantity must be at least 1').max(100, 'Quantity cannot exceed 100'),
   specification: z.string().min(10, 'Specification must be at least 10 characters').max(500, 'Specification must be less than 500 characters'),
   location: z.string().min(1, 'Location is required'),
-  department_head: z.string().min(1, 'Department Head is required'),
+  department: z.string().min(1, 'Department is required'),
   expected_delivery_date: z.date({ message: 'Expected delivery date is required' }),
   request_type: z.enum(['regular', 'express']),
   notes: z.string().max(500, 'Notes must be less than 500 characters').optional(),
@@ -73,14 +74,13 @@ export function CreateRequestModal({
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [requestId, setRequestId] = useState('');
-  const [departmentHeads, setDepartmentHeads] = useState<Array<{ id: string; full_name: string; department: string }>>([]);
   const [formData, setFormData] = useState({
     category: '',
     employment_type: '',
     quantity: 1,
     specification: '',
     location: '',
-    department_head: '',
+    department: '',
     expected_delivery_date: undefined as Date | undefined,
     request_type: 'regular' as 'regular' | 'express',
     notes: '',
@@ -89,7 +89,6 @@ export function CreateRequestModal({
   // Initialize or reset form when opening/closing or when editRequest changes
   useEffect(() => {
     if (open) {
-      fetchDepartmentHeads();
       if (!editRequest) {
         fetchNextRequestId();
       }
@@ -101,7 +100,7 @@ export function CreateRequestModal({
           quantity: editRequest.quantity ?? 1,
           specification: (editRequest.specification || editRequest.reason || ''),
           location: editRequest.location || '',
-          department_head: editRequest.department || '',
+          department: editRequest.department || '',
           expected_delivery_date: editRequest.expected_delivery_date ? new Date(editRequest.expected_delivery_date) : undefined,
           request_type: editRequest.request_type,
           notes: editRequest.notes || '',
@@ -113,7 +112,7 @@ export function CreateRequestModal({
           quantity: 1,
           specification: '',
           location: '',
-          department_head: '',
+          department: '',
           expected_delivery_date: undefined,
           request_type: 'regular',
           notes: '',
@@ -133,21 +132,6 @@ export function CreateRequestModal({
     }
   };
 
-  const fetchDepartmentHeads = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, department')
-        .eq('is_department_head', true)
-        .not('department', 'is', null)
-        .order('department');
-      
-      if (error) throw error;
-      setDepartmentHeads(data || []);
-    } catch (error) {
-      console.error('Error fetching department heads:', error);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,7 +148,7 @@ export function CreateRequestModal({
         quantity: formData.quantity,
         specification: formData.specification,
         location: formData.location,
-        department_head: formData.department_head,
+        department: formData.department,
         expected_delivery_date: formData.expected_delivery_date,
         request_type: formData.request_type,
         notes: formData.notes,
@@ -195,7 +179,7 @@ export function CreateRequestModal({
             quantity: formData.quantity,
             specification: formData.specification.trim(),
             location: formData.location.trim(),
-            department: formData.department_head,
+            department: formData.department,
             expected_delivery_date: formData.expected_delivery_date?.toISOString().split('T')[0] || null,
             request_type: formData.request_type as any,
             notes: formData.notes.trim() || null,
@@ -222,7 +206,7 @@ export function CreateRequestModal({
           quantity: formData.quantity,
           specification: formData.specification.trim(),
           location: formData.location.trim(),
-          department: formData.department_head,
+          department: formData.department,
           expected_delivery_date: formData.expected_delivery_date?.toISOString().split('T')[0],
           request_type: formData.request_type as any,
           notes: formData.notes.trim() || null,
@@ -405,28 +389,28 @@ export function CreateRequestModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="department_head">Department Head *</Label>
+              <Label htmlFor="department">Department *</Label>
               <Select
-                value={formData.department_head}
+                value={formData.department}
                 onValueChange={(value) => {
-                  setFormData({ ...formData, department_head: value });
-                  setErrors({ ...errors, department_head: '' });
+                  setFormData({ ...formData, department: value });
+                  setErrors({ ...errors, department: '' });
                 }}
                 required
               >
-                <SelectTrigger className={errors.department_head ? 'border-red-500' : ''}>
-                  <SelectValue placeholder="Select department head" />
+                <SelectTrigger className={errors.department ? 'border-red-500' : ''}>
+                  <SelectValue placeholder="Select department" />
                 </SelectTrigger>
-                <SelectContent>
-                  {departmentHeads.map((head) => (
-                    <SelectItem key={head.id} value={head.department || ''}>
-                      {head.department} – {head.full_name}
+                <SelectContent className="max-h-[300px]">
+                  {DEPARTMENTS.map((dept) => (
+                    <SelectItem key={dept} value={dept}>
+                      {dept}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.department_head && (
-                <p className="text-sm text-destructive">{errors.department_head}</p>
+              {errors.department && (
+                <p className="text-sm text-destructive">{errors.department}</p>
               )}
             </div>
           </div>
