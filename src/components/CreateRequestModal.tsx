@@ -91,21 +91,7 @@ export function CreateRequestModal({
     if (open) {
       if (!editRequest) {
         fetchNextRequestId();
-      }
-      
-      if (editRequest) {
-        setFormData({
-          category: editRequest.category || '',
-          employment_type: editRequest.employment_type || '',
-          quantity: editRequest.quantity ?? 1,
-          specification: (editRequest.specification || editRequest.reason || ''),
-          location: editRequest.location || '',
-          department: editRequest.department || '',
-          expected_delivery_date: editRequest.expected_delivery_date ? new Date(editRequest.expected_delivery_date) : undefined,
-          request_type: editRequest.request_type,
-          notes: editRequest.notes || '',
-        });
-      } else {
+        // Reset form for new request
         setFormData({
           category: '',
           employment_type: '',
@@ -117,7 +103,43 @@ export function CreateRequestModal({
           request_type: 'regular',
           notes: '',
         });
+        setErrors({});
+      } else {
+        // Populate form for editing
+        setFormData({
+          category: editRequest.category || '',
+          employment_type: editRequest.employment_type || '',
+          quantity: editRequest.quantity ?? 1,
+          specification: (editRequest.specification || editRequest.reason || ''),
+          location: editRequest.location || '',
+          department: editRequest.department || '',
+          expected_delivery_date: editRequest.expected_delivery_date 
+            ? (editRequest.expected_delivery_date instanceof Date 
+                ? editRequest.expected_delivery_date 
+                : new Date(editRequest.expected_delivery_date))
+            : undefined,
+          request_type: editRequest.request_type === 'express' || editRequest.request_type === 'urgent' 
+            ? 'express' 
+            : 'regular',
+          notes: editRequest.notes || '',
+        });
+        setErrors({});
       }
+    } else {
+      // Reset when modal closes
+      setFormData({
+        category: '',
+        employment_type: '',
+        quantity: 1,
+        specification: '',
+        location: '',
+        department: '',
+        expected_delivery_date: undefined,
+        request_type: 'regular',
+        notes: '',
+      });
+      setErrors({});
+      setRequestId('');
     }
   }, [open, editRequest]);
 
@@ -175,15 +197,15 @@ export function CreateRequestModal({
           .from('asset_requests')
           .update({
             category: formData.category as any,
-            employment_type: formData.employment_type,
+            employment_type: formData.employment_type || null,
             quantity: formData.quantity,
-            specification: formData.specification.trim(),
-            location: formData.location.trim(),
-            department: formData.department,
+            specification: formData.specification.trim() || null,
+            location: formData.location.trim() || null,
+            department: formData.department || null,
             expected_delivery_date: formData.expected_delivery_date?.toISOString().split('T')[0] || null,
             request_type: formData.request_type as any,
             notes: formData.notes.trim() || null,
-            reason: formData.specification.trim(), // Keep reason for backward compatibility
+            reason: formData.specification.trim() || null, // Keep reason for backward compatibility
           })
           .eq('id', editRequest.id);
 
@@ -504,7 +526,10 @@ export function CreateRequestModal({
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Request'}
+              {loading 
+                ? (editRequest ? 'Updating...' : 'Creating...') 
+                : (editRequest ? 'Update Request' : 'Create Request')
+              }
             </Button>
           </div>
         </form>

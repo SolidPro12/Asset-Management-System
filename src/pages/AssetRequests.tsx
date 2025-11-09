@@ -70,6 +70,9 @@ interface AssetRequest {
   rejection_reason?: string;
   expected_delivery_date?: string | null;
   department?: string | null;
+  specification?: string | null;
+  employment_type?: string | null;
+  location?: string | null;
   created_at: string;
   updated_at: string;
   profiles?: {
@@ -416,31 +419,42 @@ export default function AssetRequests() {
       </div>
 
       {/* Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        {Object.entries(statusConfig).map(([status, config]) => {
-          const Icon = config.icon;
-          const count = getStatusCount(status);
-          return (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={cn(
-                'bg-card rounded-lg p-4 border-2 transition-all hover:shadow-md',
-                statusFilter === status ? 'border-primary' : 'border-transparent'
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <div className={cn('p-2 rounded-lg', config.color, 'bg-opacity-10')}>
-                  <Icon className={cn('h-5 w-5', config.color.replace('bg-', 'text-'))} />
+      <div className={cn(
+        "grid gap-4",
+        userRole === 'hr' ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1 md:grid-cols-5"
+      )}>
+        {Object.entries(statusConfig)
+          .filter(([status]) => {
+            // For HR role, exclude in_progress and fulfilled status cards
+            if (userRole === 'hr') {
+              return status !== 'in_progress' && status !== 'fulfilled';
+            }
+            return true;
+          })
+          .map(([status, config]) => {
+            const Icon = config.icon;
+            const count = getStatusCount(status);
+            return (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={cn(
+                  'bg-card rounded-lg p-4 border-2 transition-all hover:shadow-md',
+                  statusFilter === status ? 'border-primary' : 'border-transparent'
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn('p-2 rounded-lg', config.color, 'bg-opacity-10')}>
+                    <Icon className={cn('h-5 w-5', config.color.replace('bg-', 'text-'))} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm text-muted-foreground">{config.label}</p>
+                    <p className="text-2xl font-bold">{count}</p>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <p className="text-sm text-muted-foreground">{config.label}</p>
-                  <p className="text-2xl font-bold">{count}</p>
-                </div>
-              </div>
-            </button>
-          );
-        })}
+              </button>
+            );
+          })}
       </div>
 
       {/* Table */}
@@ -579,15 +593,15 @@ export default function AssetRequests() {
         editRequest={editRequest ? {
           id: editRequest.id,
           category: editRequest.category,
-          employment_type: (editRequest as any).employment_type,
+          employment_type: editRequest.employment_type || undefined,
           quantity: editRequest.quantity,
-          specification: (editRequest as any).specification,
-          reason: (editRequest as any).reason,
-          location: (editRequest as any).location,
-          department: (editRequest as any).department,
-          expected_delivery_date: (editRequest as any).expected_delivery_date,
-          request_type: editRequest.request_type === 'express' ? 'express' : 'regular',
-          notes: editRequest.notes as any,
+          specification: editRequest.specification || editRequest.reason || undefined,
+          reason: editRequest.reason,
+          location: editRequest.location || undefined,
+          department: editRequest.department || undefined,
+          expected_delivery_date: editRequest.expected_delivery_date || null,
+          request_type: (editRequest.request_type === 'express' || editRequest.request_type === 'urgent') ? 'express' : 'regular',
+          notes: editRequest.notes || null,
         } : null}
       />
 
