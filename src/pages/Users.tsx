@@ -297,16 +297,32 @@ const Users = () => {
         }
       }
 
-      // Update profile (now includes employee_id)
+      const normalizedDepartment = editForm.department && editForm.department.trim() ? editForm.department.trim() : null;
+      const normalizedEmployeeId = editForm.employee_id ? editForm.employee_id.trim().toUpperCase() : '';
+
+      const updatePayload = {
+        full_name: nameTrimmed,
+        department: normalizedDepartment,
+        phone: phoneDigits || null,
+        is_department_head: editForm.role === 'department_head',
+        employee_id: normalizedEmployeeId
+      };
+      // Skip update if no changes
+      const oldDept = selectedUser.department || null;
+      const oldEmpId = selectedUser.employee_id || '';
+      if (
+        nameTrimmed === selectedUser.full_name &&
+        normalizedDepartment === oldDept &&
+        phoneDigits === (selectedUser.phone || '') &&
+        normalizedEmployeeId === oldEmpId &&
+        (editForm.role === selectedUser.user_roles?.[0]?.role)
+      ) {
+        toast({ title: 'No Changes', description: 'No changes to save.', variant: 'default' });
+        return;
+      }
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({
-          full_name: nameTrimmed,
-          department: editForm.department || null,
-          phone: phoneDigits || null,
-          is_department_head: editForm.role === 'department_head',
-          employee_id: editForm.employee_id
-        })
+        .update(updatePayload)
         .eq('id', selectedUser.id);
 
       if (profileError) {
