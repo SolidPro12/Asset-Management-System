@@ -19,6 +19,7 @@ import MyAssets from "./pages/MyAssets";
 import MyTickets from "./pages/MyTickets";
 import TicketQueue from "./pages/TicketQueue";
 
+
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
