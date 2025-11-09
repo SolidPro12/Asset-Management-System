@@ -78,31 +78,39 @@ export function AppSidebar() {
 
   const isActive = (path: string) => currentPath === path;
 
-  const visibleMenuItems = menuItems.filter((item) => {
-    // HR role can only see Dashboard and Asset Requests
+  const visibleMenuItems = (() => {
     if (userRole === 'hr') {
-      return item.title === 'Dashboard' || item.title === 'Asset Requests';
+      // Only show these for HR (order: Dashboard, My Asset, My Tickets, Asset Requests)
+      return [
+        menuItems.find((item) => item.title === 'Dashboard'),
+        menuItems.find((item) => item.title === 'My Asset'),
+        {
+          title: 'My Tickets',
+          url: '/my-tickets',
+          icon: FileText,
+          requiredRole: null,
+        },
+        menuItems.find((item) => item.title === 'Asset Requests'),
+      ].filter(Boolean);
     }
-    // Financer role can only see Dashboard and Assets
     if (userRole === 'financer') {
-      return item.title === 'Dashboard' || item.title === 'Assets';
+      return menuItems.filter(item => item.title === 'Dashboard' || item.title === 'Assets');
     }
-    // For other roles, apply the existing requiredRole logic
-    return !item.requiredRole || item.requiredRole === userRole;
-  }).map((item) => {
-    // Filter subItems based on role
-    if (item.subItems) {
-      const filteredSubItems = item.subItems.filter((subItem: any) => {
-        if (!subItem.requiredRole) return true;
-        if (subItem.requiredRole === 'admin') {
-          return userRole === 'super_admin' || userRole === 'admin';
-        }
-        return subItem.requiredRole === userRole;
-      });
-      return { ...item, subItems: filteredSubItems };
-    }
-    return item;
-  });
+    // Other roles: original logic
+    return menuItems.filter((item) => !item.requiredRole || item.requiredRole === userRole).map((item) => {
+      if (item.subItems) {
+        const filteredSubItems = item.subItems.filter((subItem) => {
+          if (!subItem.requiredRole) return true;
+          if (subItem.requiredRole === 'admin') {
+            return userRole === 'super_admin' || userRole === 'admin';
+          }
+          return subItem.requiredRole === userRole;
+        });
+        return { ...item, subItems: filteredSubItems };
+      }
+      return item;
+    });
+  })();
 
   return (
     <Sidebar collapsible="icon">
