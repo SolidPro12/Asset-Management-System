@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
+import { RecentActions } from '@/components/RecentActions';
 import { Bell, User, LogOut, Settings, Shield, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -158,6 +159,8 @@ export function Layout({ children }: LayoutProps) {
             </div>
 
             <div className="flex items-center gap-2">
+              <RecentActions />
+              
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-5 w-5" />
                 <span className="absolute top-1 right-1 h-2 w-2 bg-destructive rounded-full" />

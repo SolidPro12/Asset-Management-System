@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      asset_activity_log: {
+        Row: {
+          activity_type: string
+          asset_id: string
+          created_at: string
+          description: string
+          id: string
+          metadata: Json | null
+          new_value: string | null
+          old_value: string | null
+          performed_by: string | null
+        }
+        Insert: {
+          activity_type: string
+          asset_id: string
+          created_at?: string
+          description: string
+          id?: string
+          metadata?: Json | null
+          new_value?: string | null
+          old_value?: string | null
+          performed_by?: string | null
+        }
+        Update: {
+          activity_type?: string
+          asset_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          metadata?: Json | null
+          new_value?: string | null
+          old_value?: string | null
+          performed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_activity_log_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asset_allocations: {
         Row: {
           allocated_by: string | null
@@ -439,6 +483,39 @@ export type Database = {
           },
         ]
       }
+      user_activity_log: {
+        Row: {
+          activity_type: Database["public"]["Enums"]["activity_type"]
+          created_at: string
+          description: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          activity_type: Database["public"]["Enums"]["activity_type"]
+          created_at?: string
+          description: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          activity_type?: Database["public"]["Enums"]["activity_type"]
+          created_at?: string
+          description?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -487,6 +564,20 @@ export type Database = {
       }
     }
     Enums: {
+      activity_type:
+        | "login"
+        | "logout"
+        | "ticket_created"
+        | "ticket_updated"
+        | "asset_viewed"
+        | "asset_assigned"
+        | "asset_returned"
+        | "asset_status_changed"
+        | "asset_location_changed"
+        | "profile_updated"
+        | "service_added"
+        | "request_created"
+        | "request_updated"
       app_role:
         | "super_admin"
         | "admin"
@@ -644,6 +735,21 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      activity_type: [
+        "login",
+        "logout",
+        "ticket_created",
+        "ticket_updated",
+        "asset_viewed",
+        "asset_assigned",
+        "asset_returned",
+        "asset_status_changed",
+        "asset_location_changed",
+        "profile_updated",
+        "service_added",
+        "request_created",
+        "request_updated",
+      ],
       app_role: [
         "super_admin",
         "admin",

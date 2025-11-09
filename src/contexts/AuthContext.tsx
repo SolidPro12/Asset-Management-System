@@ -62,12 +62,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error, data } = await supabase.auth.signInWithPassword({
       email,
       password
     });
     
-    if (!error) {
+    if (!error && data.user) {
+      // Log login activity
+      try {
+        await supabase.from("user_activity_log").insert({
+          user_id: data.user.id,
+          activity_type: "login",
+          description: "User logged in",
+          metadata: { timestamp: new Date().toISOString() },
+        });
+      } catch (logError) {
+        console.error("Failed to log login activity:", logError);
+      }
+      
       navigate('/');
     }
     
@@ -75,6 +87,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    // Log logout activity before signing out
+    if (user) {
+      try {
+        await supabase.from("user_activity_log").insert({
+          user_id: user.id,
+          activity_type: "logout",
+          description: "User logged out",
+          metadata: { timestamp: new Date().toISOString() },
+        });
+      } catch (logError) {
+        console.error("Failed to log logout activity:", logError);
+      }
+    }
+    
     await supabase.auth.signOut();
     navigate('/auth');
   };
