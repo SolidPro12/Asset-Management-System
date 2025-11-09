@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users as UsersIcon, Shield, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Users as UsersIcon, Shield, Loader2, Plus, Pencil, Trash2, Upload, Download, X, CheckCircle2 } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -19,6 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -41,6 +49,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { DEPARTMENTS } from '@/lib/constants';
 
 interface UserProfile {
@@ -54,6 +70,19 @@ interface UserProfile {
   user_roles: { role: string }[];
 }
 
+interface ImportUserRow {
+  employee_id: string;
+  full_name: string;
+  email: string;
+  password: string;
+  department: string;
+  phone: string;
+  role: string;
+  rowNumber: number;
+  errors: string[];
+  isValid: boolean;
+}
+
 const Users = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +90,11 @@ const Users = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [importPreviewOpen, setImportPreviewOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [importData, setImportData] = useState<ImportUserRow[]>([]);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [editForm, setEditForm] = useState({
     full_name: '',
     email: '',
@@ -508,6 +541,402 @@ const Users = () => {
     });
   };
 
+  // Validation function for imported user data
+  const validateImportRow = (row: any, rowNumber: number, existingEmployeeIds: Set<string>, existingEmails: Set<string>): ImportUserRow => {
+    const errors: string[] = [];
+    
+    const employeeId = (row['employee_id'] || row['Employee ID'] || '').toString().trim().toUpperCase();
+    const fullName = (row['full_name'] || row['Full Name'] || row['Name'] || '').toString().trim();
+    const email = (row['email'] || row['Email'] || '').toString().trim().toLowerCase();
+    const password = (row['password'] || row['Password'] || '').toString();
+    const department = (row['department'] || row['Department'] || '').toString().trim();
+    const phone = (row['phone'] || row['Phone'] || '').toString().trim();
+    const role = (row['role'] || row['Role'] || 'user').toString().trim().toLowerCase();
+
+    // Required field validations
+    if (!employeeId) {
+      errors.push('Employee ID is required');
+    } else if (employeeId.length > 25) {
+      errors.push('Employee ID must be 25 characters or less');
+    } else if (!/^[A-Za-z0-9_-]+$/.test(employeeId)) {
+      errors.push('Employee ID can only contain letters, numbers, hyphens, and underscores');
+    } else if (existingEmployeeIds.has(employeeId)) {
+      errors.push('Employee ID already exists in file');
+    }
+
+    if (!fullName) {
+      errors.push('Full Name is required');
+    } else if (!/^[A-Za-z ]+$/.test(fullName)) {
+      errors.push('Full Name must contain only letters and spaces');
+    } else if (fullName.length > 25) {
+      errors.push('Full Name must be 25 characters or less');
+    }
+
+    if (!email) {
+      errors.push('Email is required');
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.push('Invalid email format');
+    } else if (existingEmails.has(email)) {
+      errors.push('Email already exists in file');
+    }
+
+    if (!password) {
+      errors.push('Password is required');
+    } else if (password.length < 6) {
+      errors.push('Password must be at least 6 characters');
+    }
+
+    // Optional field validations
+    if (phone) {
+      const phoneDigits = phone.replace(/\D/g, '');
+      if (phoneDigits.length !== 10) {
+        errors.push('Phone must be exactly 10 digits');
+      }
+    }
+
+    const validRoles = ['user', 'hr', 'admin', 'super_admin', 'financer', 'department_head'];
+    if (!validRoles.includes(role)) {
+      errors.push(`Role must be one of: ${validRoles.join(', ')}`);
+    }
+
+    if (role === 'department_head' && !department) {
+      errors.push('Department is required for department head role');
+    }
+
+    if (department && !DEPARTMENTS.includes(department)) {
+      errors.push(`Department must be one of: ${DEPARTMENTS.join(', ')}`);
+    }
+
+    return {
+      employee_id: employeeId,
+      full_name: fullName,
+      email: email,
+      password: password,
+      department: department,
+      phone: phone,
+      role: role,
+      rowNumber: rowNumber,
+      errors: errors,
+      isValid: errors.length === 0
+    };
+  };
+
+  // File upload and parsing handler
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    if (!['csv', 'xlsx', 'xls'].includes(fileExtension || '')) {
+      toast({
+        title: 'Invalid File',
+        description: 'Please upload a CSV or XLSX file',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = e.target?.result;
+          let jsonData: any[] = [];
+
+          if (fileExtension === 'csv') {
+            // Parse CSV
+            const workbook = XLSX.read(data, { type: 'binary', sheetRows: 0 });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            jsonData = XLSX.utils.sheet_to_json(worksheet);
+          } else {
+            // Parse XLSX
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            jsonData = XLSX.utils.sheet_to_json(worksheet);
+          }
+
+          if (jsonData.length === 0) {
+            toast({
+              title: 'Empty File',
+              description: 'The uploaded file contains no data',
+              variant: 'destructive',
+            });
+            return;
+          }
+
+          // Check for existing employee IDs and emails in file
+          const existingEmployeeIds = new Set<string>();
+          const existingEmails = new Set<string>();
+          
+          // Validate and prepare import data
+          const validatedData: ImportUserRow[] = jsonData.map((row, index) => {
+            const employeeId = (row['employee_id'] || row['Employee ID'] || '').toString().trim().toUpperCase();
+            const email = (row['email'] || row['Email'] || '').toString().trim().toLowerCase();
+            
+            if (employeeId) existingEmployeeIds.add(employeeId);
+            if (email) existingEmails.add(email);
+            
+            return validateImportRow(row, index + 2, new Set(), new Set()); // +2 because Excel rows start at 2 (header + 1)
+          });
+
+          // Re-validate with all employee IDs and emails from file
+          const finalValidatedData: ImportUserRow[] = validatedData.map((row, index) => {
+            const allEmployeeIds = new Set(validatedData.map(r => r.employee_id).filter(Boolean));
+            const allEmails = new Set(validatedData.map(r => r.email).filter(Boolean));
+            allEmployeeIds.delete(row.employee_id);
+            allEmails.delete(row.email);
+            return validateImportRow(jsonData[index], index + 2, allEmployeeIds, allEmails);
+          });
+
+          // Check against database for existing employee IDs and emails
+          const existingEmployeeIdsInDb = new Set<string>();
+          const existingEmailsInDb = new Set<string>();
+
+          try {
+            const { data: existingProfiles } = await supabase
+              .from('profiles')
+              .select('employee_id, email')
+              .not('employee_id', 'is', null);
+
+            existingProfiles?.forEach(profile => {
+              if (profile.employee_id) existingEmployeeIdsInDb.add(profile.employee_id.toUpperCase());
+              if (profile.email) existingEmailsInDb.add(profile.email.toLowerCase());
+            });
+          } catch (error) {
+            console.error('Error checking existing users:', error);
+          }
+
+          // Add database duplicate errors
+          const finalDataWithDbCheck: ImportUserRow[] = finalValidatedData.map(row => {
+            const errors = [...row.errors];
+            
+            if (row.employee_id && existingEmployeeIdsInDb.has(row.employee_id)) {
+              errors.push('Employee ID already exists in database');
+            }
+            
+            if (row.email && existingEmailsInDb.has(row.email)) {
+              errors.push('Email already exists in database');
+            }
+
+            return {
+              ...row,
+              errors: errors,
+              isValid: errors.length === 0
+            };
+          });
+
+          setImportData(finalDataWithDbCheck);
+          setImportPreviewOpen(true);
+        } catch (error: any) {
+          toast({
+            title: 'Parse Error',
+            description: error.message || 'Failed to parse file',
+            variant: 'destructive',
+          });
+        }
+      };
+
+      if (fileExtension === 'csv') {
+        reader.readAsBinaryString(file);
+      } else {
+        reader.readAsArrayBuffer(file);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to read file',
+        variant: 'destructive',
+      });
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Bulk import handler
+  const handleBulkImport = async () => {
+    const validRows = importData.filter(row => row.isValid);
+    
+    if (validRows.length === 0) {
+      toast({
+        title: 'No Valid Data',
+        description: 'Please fix the errors before importing',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setImporting(true);
+    const { data: orig } = await supabase.auth.getSession();
+    const originalSession = orig?.session;
+
+    let successCount = 0;
+    let failCount = 0;
+    const failedRows: { row: number; error: string }[] = [];
+
+    try {
+      for (const row of validRows) {
+        try {
+          // Create user via Supabase Auth
+          const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: row.email,
+            password: row.password,
+            options: {
+              data: {
+                full_name: row.full_name,
+                department: row.department || null,
+                phone: row.phone || null,
+                employee_id: row.employee_id
+              }
+            }
+          });
+
+          if (authError) {
+            failCount++;
+            failedRows.push({ row: row.rowNumber, error: authError.message });
+            continue;
+          }
+
+          if (authData.user) {
+            // Wait for profile creation
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Update profile with employee_id, department, phone
+            const phoneDigits = row.phone ? row.phone.replace(/\D/g, '') : null;
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .update({
+                department: row.department || null,
+                phone: phoneDigits || null,
+                is_department_head: row.role === 'department_head',
+                employee_id: row.employee_id
+              })
+              .eq('id', authData.user.id);
+
+            if (profileError) {
+              failCount++;
+              failedRows.push({ row: row.rowNumber, error: profileError.message });
+              continue;
+            }
+
+            // Assign role if different from default
+            if (row.role !== 'user') {
+              await updateUserRole(authData.user.id, row.role);
+            }
+
+            successCount++;
+          }
+        } catch (error: any) {
+          failCount++;
+          failedRows.push({ row: row.rowNumber, error: error.message || 'Unknown error' });
+        }
+      }
+
+      // Restore original session
+      if (originalSession?.access_token && originalSession.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: originalSession.access_token,
+          refresh_token: originalSession.refresh_token,
+        });
+      }
+
+      // Show summary
+      toast({
+        title: 'Import Complete',
+        description: `${successCount} users imported successfully${failCount > 0 ? `, ${failCount} failed` : ''}`,
+        variant: failCount > 0 ? 'default' : 'default',
+      });
+
+      if (failedRows.length > 0) {
+        console.error('Failed rows:', failedRows);
+      }
+
+      setImportPreviewOpen(false);
+      setImportData([]);
+      fetchUsers();
+    } catch (error: any) {
+      // Restore session on error
+      if (originalSession?.access_token && originalSession.refresh_token) {
+        try {
+          await supabase.auth.setSession({
+            access_token: originalSession.access_token,
+            refresh_token: originalSession.refresh_token,
+          });
+        } catch {}
+      }
+
+      toast({
+        title: 'Import Error',
+        description: error.message || 'Failed to import users',
+        variant: 'destructive',
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  // Export functionality
+  const handleExport = (exportFormat: 'csv' | 'xlsx') => {
+    try {
+      if (users.length === 0) {
+        toast({
+          title: 'No Users',
+          description: 'There are no users to export',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const exportData = users.map(user => ({
+        'Employee ID': user.employee_id || '',
+        'Full Name': user.full_name,
+        'Email': user.email,
+        'Department': user.department || '',
+        'Phone': user.phone || '',
+        'Role': getRoleDisplayName(user.user_roles?.[0]?.role || 'user'),
+        'Created At': format(new Date(user.created_at), 'yyyy-MM-dd')
+      }));
+
+      const fileName = `User_List_${format(new Date(), 'yyyy-MM-dd')}`;
+
+      if (exportFormat === 'csv') {
+        // Generate CSV
+        const headers = Object.keys(exportData[0] || {});
+        const csvRows = [
+          headers.join(','),
+          ...exportData.map(row => headers.map(header => `"${row[header as keyof typeof row] || ''}"`).join(','))
+        ];
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${fileName}.csv`;
+        link.click();
+      } else {
+        // Generate XLSX
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Users');
+        XLSX.writeFile(workbook, `${fileName}.xlsx`);
+      }
+
+      toast({
+        title: 'Export Successful',
+        description: `Users exported as ${exportFormat.toUpperCase()}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Export Error',
+        description: error.message || 'Failed to export users',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (userRole !== 'super_admin') {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -556,10 +985,42 @@ const Users = () => {
           </h2>
           <p className="text-muted-foreground">Manage user roles and permissions</p>
         </div>
-        <Button onClick={() => setAddDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add User
-        </Button>
+        <div className="flex items-center gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept=".csv,.xlsx,.xls"
+            className="hidden"
+          />
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Import Users
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Export Users
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExport('csv')}>
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('xlsx')}>
+                Export as XLSX
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={() => setAddDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add User
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -823,6 +1284,131 @@ const Users = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Import Preview Dialog */}
+      <Dialog open={importPreviewOpen} onOpenChange={(open) => {
+        if (!importing) {
+          setImportPreviewOpen(open);
+          if (!open) {
+            setImportData([]);
+          }
+        }
+      }}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Import Preview</DialogTitle>
+            <DialogDescription>
+              Review the data before importing. Invalid rows are highlighted in red.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+              <div className="flex items-center gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Rows</p>
+                  <p className="text-2xl font-bold">{importData.length}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Valid Rows</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {importData.filter(r => r.isValid).length}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Invalid Rows</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {importData.filter(r => !r.isValid).length}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="border rounded-lg overflow-hidden">
+              <div className="max-h-[400px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Row</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Employee ID</TableHead>
+                      <TableHead>Full Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Errors</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {importData.map((row) => (
+                      <TableRow
+                        key={row.rowNumber}
+                        className={row.isValid ? '' : 'bg-red-50'}
+                      >
+                        <TableCell>{row.rowNumber}</TableCell>
+                        <TableCell>
+                          {row.isValid ? (
+                            <Badge className="bg-green-500">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Valid
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive">
+                              <X className="h-3 w-3 mr-1" />
+                              Invalid
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>{row.employee_id}</TableCell>
+                        <TableCell>{row.full_name}</TableCell>
+                        <TableCell>{row.email}</TableCell>
+                        <TableCell>{row.department || '-'}</TableCell>
+                        <TableCell>{row.phone || '-'}</TableCell>
+                        <TableCell>{row.role}</TableCell>
+                        <TableCell>
+                          {row.errors.length > 0 ? (
+                            <div className="text-sm text-red-600">
+                              {row.errors.map((error, idx) => (
+                                <div key={idx}>• {error}</div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-green-600">No errors</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setImportPreviewOpen(false);
+                setImportData([]);
+              }}
+              disabled={importing}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkImport}
+              disabled={importing || importData.filter(r => r.isValid).length === 0}
+            >
+              {importing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                `Import ${importData.filter(r => r.isValid).length} Users`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

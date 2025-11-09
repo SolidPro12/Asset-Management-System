@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { Package, CheckCircle, AlertCircle, Wrench, FileText, Clock, TrendingUp, Download, Users, ArrowRight, Loader2 } from 'lucide-react';
+import { Package, CheckCircle, AlertCircle, Wrench, FileText, Clock, TrendingUp, Download, Users, ArrowRight, Loader2, Zap } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -54,6 +54,13 @@ interface CategoryStat {
   assigned: number;
   utilization: number;
   totalValue: number;
+}
+
+interface AdminCategoryStat {
+  category: string;
+  total: number;
+  assigned: number;
+  utilization: number;
 }
 
 interface RecentRequest {
@@ -107,6 +114,10 @@ const Dashboard = () => {
   const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([]);
   const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
   const [recentAllocations, setRecentAllocations] = useState<RecentAllocation[]>([]);
+  // Admin dashboard state (without cost fields)
+  const [adminCategoryStats, setAdminCategoryStats] = useState<AdminCategoryStat[]>([]);
+  const [adminRecentRequests, setAdminRecentRequests] = useState<RecentRequest[]>([]);
+  const [adminRecentAllocations, setAdminRecentAllocations] = useState<RecentAllocation[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -123,7 +134,7 @@ const Dashboard = () => {
       } else if (userRole === 'financer') {
         fetchDashboardStats(); // Financer uses same as default
       } else if (userRole === 'admin') {
-        fetchDashboardStats(); // Admin uses same as default
+        fetchAdminDashboardData();
       } else {
         fetchDashboardStats(); // User dashboard
       }
@@ -461,6 +472,113 @@ const Dashboard = () => {
     }
   };
 
+  // Admin Dashboard Data Fetching (without cost fields)
+  const fetchAdminDashboardData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchEmployeeCount(),
+        fetchSuperAdminAssetStats(),
+        fetchRequestOverview(),
+        fetchAdminCategoryStats(),
+        fetchAdminRecentRequests(),
+        fetchAdminRecentAllocations(),
+      ]);
+    } catch (error) {
+      console.error('Error fetching admin dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAdminCategoryStats = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('assets')
+        .select('category, status');
+
+      if (error) throw error;
+
+      const categoryMap = new Map<string, { total: number; assigned: number }>();
+
+      data?.forEach((asset) => {
+        const category = asset.category;
+        const current = categoryMap.get(category) || { total: 0, assigned: 0 };
+
+        current.total += 1;
+        if (asset.status === 'assigned') {
+          current.assigned += 1;
+        }
+
+        categoryMap.set(category, current);
+      });
+
+      const statsArray: AdminCategoryStat[] = Array.from(categoryMap.entries()).map(([category, data]) => ({
+        category: category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' '),
+        total: data.total,
+        assigned: data.assigned,
+        utilization: data.total > 0 ? Math.round((data.assigned / data.total) * 100) : 0,
+      }));
+
+      setAdminCategoryStats(statsArray.sort((a, b) => b.total - a.total));
+    } catch (error) {
+      console.error('Error fetching admin category stats:', error);
+      setAdminCategoryStats([
+        { category: 'Laptop', total: 120, assigned: 95, utilization: 79 },
+        { category: 'Monitor', total: 80, assigned: 60, utilization: 75 },
+        { category: 'Keyboard', total: 50, assigned: 35, utilization: 70 },
+      ]);
+    }
+  };
+
+  const fetchAdminRecentRequests = async () => {
+    try {
+      const { data: requestsData, error: requestsError } = await supabase
+        .from('asset_requests')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(8);
+
+      if (requestsError) throw requestsError;
+
+      // Fetch profiles separately
+      const userIds = [...new Set(requestsData?.map((r) => r.requester_id) || [])];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, department')
+        .in('id', userIds);
+
+      // Merge profiles with requests
+      const requestsWithProfiles =
+        requestsData?.map((request) => ({
+          ...request,
+          profiles: profilesData?.find((p) => p.id === request.requester_id),
+        })) || [];
+
+      setAdminRecentRequests(requestsWithProfiles);
+    } catch (error) {
+      console.error('Error fetching admin recent requests:', error);
+      setAdminRecentRequests([]);
+    }
+  };
+
+  const fetchAdminRecentAllocations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('asset_allocations')
+        .select('*')
+        .order('allocated_date', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setAdminRecentAllocations(data || []);
+    } catch (error) {
+      console.error('Error fetching admin recent allocations:', error);
+      setAdminRecentAllocations([]);
+    }
+  };
+
   const handleApproveRequest = async (requestId: string) => {
     if (!user) return;
 
@@ -480,12 +598,16 @@ const Dashboard = () => {
         request_id: requestId,
         action: 'approved',
         performed_by: user.id,
-        remarks: 'Request approved by Super Admin',
+        remarks: userRole === 'admin' ? 'Request approved by Admin' : 'Request approved by Super Admin',
       });
 
       toast.success('Request approved successfully!');
       fetchRecentRequests();
       fetchRequestOverview();
+      // Also refresh admin data if user is admin
+      if (userRole === 'admin') {
+        fetchAdminRecentRequests();
+      }
     } catch (error) {
       console.error('Error approving request:', error);
       toast.error('Failed to approve request');
@@ -879,6 +1001,297 @@ const Dashboard = () => {
                         <TableCell>{allocation.department || 'N/A'}</TableCell>
                         <TableCell>{format(new Date(allocation.allocated_date), 'dd MMM yyyy')}</TableCell>
                         <TableCell>{allocation.employee_name}</TableCell>
+                        <TableCell>{getStatusBadgeForAllocation(allocation.status)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Admin Dashboard
+  if (userRole === 'admin') {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500 bg-[#f8f6ff] min-h-screen -m-6 p-6">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbPage>Dashboard</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+          <p className="text-muted-foreground">Overview of assets, employees, and requests</p>
+        </div>
+
+        {/* Top Summary Cards - 6 cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Card className="rounded-2xl shadow-md border-0 bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Overall Employees</p>
+                  {loading ? (
+                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <p className="text-3xl font-bold text-blue-600">{stats.totalEmployees || 0}</p>
+                  )}
+                </div>
+                <div className="p-3 bg-blue-100 rounded-xl">
+                  <Users className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl shadow-md border-0 bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Assigned Assets</p>
+                  {loading ? (
+                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <p className="text-3xl font-bold text-green-600">{stats.assignedAssets}</p>
+                  )}
+                </div>
+                <div className="p-3 bg-green-100 rounded-xl">
+                  <Package className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl shadow-md border-0 bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Available Assets</p>
+                  {loading ? (
+                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <p className="text-3xl font-bold text-purple-600">{stats.availableAssets}</p>
+                  )}
+                </div>
+                <div className="p-3 bg-purple-100 rounded-xl">
+                  <CheckCircle className="h-6 w-6 text-purple-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl shadow-md border-0 bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Under Maintenance</p>
+                  {loading ? (
+                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <p className="text-3xl font-bold text-red-600">{stats.maintenanceAssets}</p>
+                  )}
+                </div>
+                <div className="p-3 bg-red-100 rounded-xl">
+                  <Wrench className="h-6 w-6 text-red-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl shadow-md border-0 bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Regular Requests</p>
+                  {loading ? (
+                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <p className="text-3xl font-bold text-yellow-600">{stats.regularRequests || 0}</p>
+                  )}
+                </div>
+                <div className="p-3 bg-yellow-100 rounded-xl">
+                  <FileText className="h-6 w-6 text-yellow-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl shadow-md border-0 bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Express Requests</p>
+                  {loading ? (
+                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <p className="text-3xl font-bold text-orange-600">{stats.expressRequests || 0}</p>
+                  )}
+                </div>
+                <div className="p-3 bg-orange-100 rounded-xl">
+                  <Zap className="h-6 w-6 text-orange-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Assets by Category Chart - without cost */}
+          <Card className="rounded-xl shadow-sm border bg-white">
+            <CardHeader>
+              <CardTitle>Assets by Category</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="h-64 flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : adminCategoryStats.length === 0 ? (
+                <div className="h-64 flex items-center justify-center text-muted-foreground">
+                  No category data available
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart
+                      data={adminCategoryStats}
+                      layout="vertical"
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis dataKey="category" type="category" width={100} />
+                      <Tooltip
+                        formatter={(value: any, name: string) => {
+                          if (name === 'utilization') return [`${value}%`, 'Utilization'];
+                          if (name === 'assigned') return [value, 'Assigned'];
+                          if (name === 'total') return [value, 'Total'];
+                          return [value, name];
+                        }}
+                      />
+                      <Bar dataKey="utilization" radius={[0, 8, 8, 0]}>
+                        {adminCategoryStats.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="space-y-2">
+                    {adminCategoryStats.slice(0, 5).map((stat) => (
+                      <div key={stat.category} className="flex items-center justify-between text-sm">
+                        <span className="font-medium">{stat.category}</span>
+                        <div className="flex items-center gap-4">
+                          <span className="text-muted-foreground">{stat.utilization}% utilized</span>
+                          <span className="font-semibold">{stat.assigned}/{stat.total} assets</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent Asset Requests */}
+          <Card className="rounded-xl shadow-sm border bg-white">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Recent Asset Requests</CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/requests')}>
+                View All
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />
+                  ))}
+                </div>
+              ) : adminRecentRequests.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">No recent requests</div>
+              ) : (
+                <div className="space-y-3">
+                  {adminRecentRequests.slice(0, 5).map((request) => (
+                    <Card key={request.id} className="rounded-lg shadow-sm border p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-semibold capitalize">{request.category}</span>
+                            <Badge variant={request.request_type === 'express' ? 'destructive' : 'default'} className="text-xs">
+                              {request.request_type === 'express' ? 'Express' : 'Regular'}
+                            </Badge>
+                            {getStatusBadge(request.status)}
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-1">
+                            {request.profiles?.full_name || 'Unknown'} • {request.profiles?.department || 'N/A'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(request.created_at), 'dd MMM yyyy')}
+                          </p>
+                        </div>
+                        {request.status === 'pending' && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleApproveRequest(request.id)}
+                            className="ml-2"
+                          >
+                            Approve
+                          </Button>
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recently Allocated Assets Table - without cost column */}
+        <Card className="rounded-xl shadow-sm border bg-white">
+          <CardHeader>
+            <CardTitle>Recently Allocated Assets</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+                ))}
+              </div>
+            ) : adminRecentAllocations.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">No allocations found</div>
+            ) : (
+              <div className="rounded-md border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Asset Name</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Assigned Date</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {adminRecentAllocations.map((allocation) => (
+                      <TableRow key={allocation.id} className="hover:bg-muted/50">
+                        <TableCell className="font-medium">{allocation.asset_name}</TableCell>
+                        <TableCell className="capitalize">{allocation.category?.replace(/_/g, ' ') || 'N/A'}</TableCell>
+                        <TableCell>{allocation.employee_name || 'N/A'}</TableCell>
+                        <TableCell>{allocation.department || 'N/A'}</TableCell>
+                        <TableCell>{format(new Date(allocation.allocated_date), 'dd MMM yyyy')}</TableCell>
                         <TableCell>{getStatusBadgeForAllocation(allocation.status)}</TableCell>
                       </TableRow>
                     ))}

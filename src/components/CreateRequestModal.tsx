@@ -30,8 +30,14 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { z } from 'zod';
 import { DEPARTMENTS } from '@/lib/constants';
+import { Constants } from '@/integrations/supabase/types';
 
 const LOCATIONS = ['Guindy', 'Vandalur'];
+
+// Helper function to format category name for display
+const formatCategoryName = (category: string): string => {
+  return category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' ');
+};
 
 const requestSchema = z.object({
   category: z.string().min(1, 'Category is required'),
@@ -74,6 +80,7 @@ export function CreateRequestModal({
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [requestId, setRequestId] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     category: '',
     employment_type: '',
@@ -85,6 +92,47 @@ export function CreateRequestModal({
     request_type: 'regular' as 'regular' | 'express',
     notes: '',
   });
+
+  // Fetch asset categories from database
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        // Get all enum values from Constants (this ensures all possible categories are available)
+        const allEnumCategories = Constants.public.Enums.asset_category || [];
+
+        // Also get distinct categories from assets table to ensure we have any that might be used
+        const { data: assetsData, error: assetsError } = await supabase
+          .from('assets')
+          .select('category')
+          .not('category', 'is', null);
+
+        if (!assetsError && assetsData) {
+          // Extract unique categories from assets
+          const uniqueCategoriesFromAssets = new Set(
+            assetsData.map((asset) => asset.category)
+          );
+
+          // Combine enum categories with any categories found in assets
+          // This ensures we show all possible categories (from enum) and any additional ones
+          const combinedCategories = new Set([
+            ...allEnumCategories,
+            ...Array.from(uniqueCategoriesFromAssets)
+          ]);
+
+          setCategories(Array.from(combinedCategories).sort());
+        } else {
+          // If query fails, use enum values
+          setCategories(allEnumCategories);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        // Fallback to enum values if database query fails
+        setCategories(Constants.public.Enums.asset_category || []);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   // Initialize or reset form when opening/closing or when editRequest changes
   useEffect(() => {
@@ -302,13 +350,11 @@ export function CreateRequestModal({
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="laptop">Laptop</SelectItem>
-                  <SelectItem value="desktop">Desktop</SelectItem>
-                  <SelectItem value="monitor">Monitor</SelectItem>
-                  <SelectItem value="keyboard">Keyboard</SelectItem>
-                  <SelectItem value="mouse">Mouse</SelectItem>
-                  <SelectItem value="headset">Headset</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {formatCategoryName(category)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {errors.category && (
