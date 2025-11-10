@@ -418,6 +418,47 @@ export type Database = {
           },
         ]
       }
+      ticket_history: {
+        Row: {
+          action: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          remarks: string | null
+          ticket_id: string
+        }
+        Insert: {
+          action: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          remarks?: string | null
+          ticket_id: string
+        }
+        Update: {
+          action?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          remarks?: string | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_history_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
           asset_id: string | null
