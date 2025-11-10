@@ -115,6 +115,66 @@ const MyAssets = () => {
     return <Badge variant={variants[status.toLowerCase()] || 'outline'}>{status}</Badge>;
   };
 
+  const formatKeyName = (key: string): string => {
+    // Convert camelCase to Title Case
+    return key
+      .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+      .replace(/^./, (str) => str.toUpperCase()) // Capitalize first letter
+      .trim();
+  };
+
+  const formatSpecifications = (specifications: any): Array<{ key: string; value: any }> => {
+    if (!specifications || typeof specifications !== 'object') {
+      return [];
+    }
+
+    const formatted: Array<{ key: string; value: any }> = [];
+
+    Object.entries(specifications).forEach(([key, value]) => {
+      // Skip null, undefined, or empty string values
+      if (value === null || value === undefined || value === '') {
+        return;
+      }
+
+      // Handle nested objects
+      if (typeof value === 'object' && !Array.isArray(value) && value !== null) {
+        Object.entries(value).forEach(([nestedKey, nestedValue]) => {
+          if (nestedValue !== null && nestedValue !== undefined && nestedValue !== '') {
+            formatted.push({
+              key: `${formatKeyName(key)} - ${formatKeyName(nestedKey)}`,
+              value: nestedValue,
+            });
+          }
+        });
+      } else {
+        // Format the key name
+        const formattedKey = formatKeyName(key);
+        
+        // Format the value based on type
+        let formattedValue = value;
+        
+        // Handle date strings
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+          try {
+            const date = new Date(value);
+            if (!isNaN(date.getTime())) {
+              formattedValue = format(date, 'MMM dd, yyyy');
+            }
+          } catch (e) {
+            // Keep original value if date parsing fails
+          }
+        }
+        
+        formatted.push({
+          key: formattedKey,
+          value: formattedValue,
+        });
+      }
+    });
+
+    return formatted;
+  };
+
   const renderSpecifications = (asset: Asset) => {
     const specs = asset.specifications || {};
     
@@ -291,11 +351,36 @@ const MyAssets = () => {
               </div>
 
               <div>
-                <p className="text-sm text-muted-foreground mb-2">Full Specifications</p>
+                <p className="text-sm font-semibold text-muted-foreground mb-3">Full Specifications</p>
                 <div className="bg-muted p-4 rounded-lg">
-                  <pre className="text-sm whitespace-pre-wrap">
-                    {JSON.stringify(selectedAsset.specifications, null, 2)}
-                  </pre>
+                  {(() => {
+                    const formattedSpecs = formatSpecifications(selectedAsset.specifications);
+                    
+                    if (formattedSpecs.length === 0) {
+                      return (
+                        <p className="text-sm text-muted-foreground italic">
+                          No specifications available
+                        </p>
+                      );
+                    }
+                    
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {formattedSpecs.map((spec, index) => (
+                          <div key={index} className="flex flex-col">
+                            <span className="text-xs text-muted-foreground mb-1">
+                              {spec.key}
+                            </span>
+                            <span className="text-sm font-medium">
+                              {typeof spec.value === 'string' || typeof spec.value === 'number'
+                                ? spec.value
+                                : JSON.stringify(spec.value)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
