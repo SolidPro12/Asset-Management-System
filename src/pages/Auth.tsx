@@ -13,6 +13,7 @@ import { z } from 'zod';
 import assetSlide1 from '@/assets/asset-slide-1.png';
 import assetSlide2 from '@/assets/asset-slide-2.png';
 import assetSlide3 from '@/assets/asset-slide-3.png';
+import ticketSlide1 from '@/assets/ticket-slide-1.png';
 
 const carouselSlides = [
   {
@@ -29,6 +30,11 @@ const carouselSlides = [
     image: assetSlide3,
     title: "Team Collaboration",
     description: "Enable seamless collaboration across departments with role-based access and shared insights"
+  },
+  {
+    image: ticketSlide1,
+    title: "Ticket Management",
+    description: "Streamline issue resolution with priority-based ticket system and real-time status tracking"
   }
 ];
 

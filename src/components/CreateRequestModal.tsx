@@ -122,12 +122,12 @@ export function CreateRequestModal({
           setCategories(Array.from(combinedCategories).sort());
         } else {
           // If query fails, use enum values
-          setCategories(allEnumCategories);
+          setCategories([...allEnumCategories]);
         }
       } catch (error) {
         console.error('Error fetching categories:', error);
         // Fallback to enum values if database query fails
-        setCategories(Constants.public.Enums.asset_category || []);
+        setCategories([...(Constants.public.Enums.asset_category || [])]);
       }
     };
 
