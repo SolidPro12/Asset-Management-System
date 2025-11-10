@@ -418,11 +418,11 @@ const MyTickets = () => {
       </div>
 
       <Card>
-        <CardContent className="p-6">
-          <Table>
+        <CardContent className="p-6 overflow-x-auto">
+          <Table className="min-w-full">
             <TableHeader>
               <TableRow>
-                <TableHead>Ticket ID</TableHead>
+                <TableHead className="min-w-[120px]">Ticket ID</TableHead>
                 <TableHead>Asset ID</TableHead>
                 <TableHead>Asset Name</TableHead>
                 <TableHead>Location</TableHead>
@@ -446,7 +446,7 @@ const MyTickets = () => {
               ) : (
                 tickets.map((ticket) => (
                   <TableRow key={ticket.id}>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <Badge variant="secondary" className="font-mono text-sm px-3 py-1">
                         {ticket.ticket_id}
                       </Badge>

@@ -157,7 +157,7 @@ export function AppSidebar() {
                 
                 return (
                   <React.Fragment key={item.title || index}>
-                    {showSeparator && <SidebarSeparator className="my-2" />}
+                    {showSeparator && <SidebarSeparator className="my-2 bg-white" />}
                     {item.subItems ? (
                       (() => {
                         const isGroupActive = item.subItems.some((subItem: any) => currentPath === subItem.url);
