@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { EditTicketModal } from '@/components/EditTicketModal';
 import { TicketHistoryModal } from '@/components/TicketHistoryModal';
+import { ViewTicketModal } from '@/components/ViewTicketModal';
 import { DEPARTMENTS } from '@/lib/constants';
 import {
   Dialog,
@@ -32,7 +33,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, History, XCircle } from 'lucide-react';
+import { Plus, Pencil, History, XCircle, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import {
@@ -72,9 +73,9 @@ const MyTickets = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [assets, setAssets] = useState<any[]>([]);
   const [editTicket, setEditTicket] = useState<Ticket | null>(null);
+  const [viewTicket, setViewTicket] = useState<Ticket | null>(null);
   const [historyTicket, setHistoryTicket] = useState<{ id: string; ticket_id: string } | null>(null);
   const [cancelTicket, setCancelTicket] = useState<Ticket | null>(null);
-  const [nextTicketId, setNextTicketId] = useState<string>('TKT001');
   const [formData, setFormData] = useState({
     asset_id: '',
     asset_name: '',
@@ -141,45 +142,6 @@ const MyTickets = () => {
     }
   };
 
-  const fetchNextTicketId = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('tickets')
-        .select('ticket_id')
-        .not('ticket_id', 'is', null)
-        .neq('ticket_id', '')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching last ticket:', error);
-        setNextTicketId('TKT001');
-        return;
-      }
-
-      if (data && data.ticket_id && data.ticket_id.trim()) {
-        // Extract number from ticket_id (supports both "TKT001" and "TKT-001" formats)
-        const match = data.ticket_id.match(/TKT-?(\d+)/);
-        if (match && match[1]) {
-          const lastNum = parseInt(match[1], 10);
-          if (!isNaN(lastNum)) {
-            const nextNum = lastNum + 1;
-            // Use format without hyphen for display (database will format it)
-            const nextId = `TKT${nextNum.toString().padStart(3, '0')}`;
-            setNextTicketId(nextId);
-            return;
-          }
-        }
-      }
-      
-      // Default to TKT001 if no valid ticket found
-      setNextTicketId('TKT001');
-    } catch (error) {
-      console.error('Error calculating next ticket ID:', error);
-      setNextTicketId('TKT001');
-    }
-  };
 
   const handleAssetChange = (assetId: string) => {
     const selectedAsset = assets.find((a) => a.id === assetId);
@@ -266,9 +228,9 @@ const MyTickets = () => {
       });
 
       // Prepare insert data, ensuring no empty strings are sent
-      // Use the generated ticket_id directly to avoid trigger issues with empty strings
+      // Let the database trigger handle ticket_id generation automatically
       const insertData: any = {
-        ticket_id: nextTicketId, // Use the pre-generated ticket ID to avoid trigger parsing issues
+        ticket_id: null, // Set to null to let database trigger auto-generate
         asset_id: formData.asset_id || null,
         asset_name: formData.asset_name.trim(),
         location: formData.location.trim(),
@@ -510,6 +472,14 @@ const MyTickets = () => {
                         <Button
                           size="sm"
                           variant="outline"
+                          onClick={() => setViewTicket(ticket)}
+                          title="View Details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => setHistoryTicket({ id: ticket.id, ticket_id: ticket.ticket_id })}
                           title="View History"
                         >
@@ -545,6 +515,12 @@ const MyTickets = () => {
         </CardContent>
       </Card>
 
+      <ViewTicketModal
+        ticket={viewTicket}
+        open={!!viewTicket}
+        onOpenChange={(open) => !open && setViewTicket(null)}
+      />
+
       <EditTicketModal
         open={!!editTicket}
         onOpenChange={(open) => !open && setEditTicket(null)}
@@ -578,9 +554,6 @@ const MyTickets = () => {
         open={isDialogOpen} 
         onOpenChange={(open) => {
           setIsDialogOpen(open);
-          if (open) {
-            fetchNextTicketId();
-          }
         }}
       >
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -592,11 +565,14 @@ const MyTickets = () => {
               <Label htmlFor="ticket_id">Ticket ID</Label>
               <Input
                 id="ticket_id"
-                value={nextTicketId}
+                value="Auto-generated"
                 readOnly
                 disabled
-                className="bg-muted font-mono text-muted-foreground"
+                className="bg-muted font-mono text-muted-foreground italic"
               />
+              <p className="text-xs text-muted-foreground">
+                Ticket ID will be automatically generated when you create the ticket
+              </p>
             </div>
 
             <div className="space-y-2">
