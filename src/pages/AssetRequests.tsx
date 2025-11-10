@@ -357,8 +357,6 @@ export default function AssetRequests() {
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="approved">Approved</SelectItem>
               <SelectItem value="rejected">Rejected</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="fulfilled">Fulfilled</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -366,14 +364,12 @@ export default function AssetRequests() {
         <div className="space-y-2">
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
             <SelectTrigger className="h-10">
-              <SelectValue placeholder="All Priorities" />
+              <SelectValue placeholder="All Request Types" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Priorities</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="urgent">Urgent</SelectItem>
+              <SelectItem value="all">All Request Types</SelectItem>
+              <SelectItem value="express">Express</SelectItem>
+              <SelectItem value="regular">Regular</SelectItem>
             </SelectContent>
           </Select>
         </div>
