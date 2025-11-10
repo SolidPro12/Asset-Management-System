@@ -239,30 +239,63 @@ export function CreateRequestModal({
     try {
       if (editRequest) {
         // Update existing request
-        const { error: updateError } = await supabase
+        // Ensure empty strings are converted to null for optional fields
+        const updateData: any = {
+          category: formData.category as any,
+          employment_type: formData.employment_type && formData.employment_type.trim() ? formData.employment_type.trim() : null,
+          quantity: formData.quantity,
+          specification: formData.specification.trim() || null,
+          location: formData.location && formData.location.trim() ? formData.location.trim() : null,
+          department: formData.department && formData.department.trim() ? formData.department.trim() : null,
+          expected_delivery_date: formData.expected_delivery_date ? formData.expected_delivery_date.toISOString().split('T')[0] : null,
+          request_type: formData.request_type as any,
+          notes: formData.notes && formData.notes.trim() ? formData.notes.trim() : null,
+          reason: formData.specification.trim() || null, // Keep reason for backward compatibility
+        };
+
+        console.log('Updating request with data:', updateData);
+        console.log('Request ID:', editRequest.id);
+
+        const { error: updateError, data: updateDataResult } = await supabase
           .from('asset_requests')
-          .update({
-            category: formData.category as any,
-            employment_type: formData.employment_type || null,
-            quantity: formData.quantity,
-            specification: formData.specification.trim() || null,
-            location: formData.location.trim() || null,
-            department: formData.department || null,
-            expected_delivery_date: formData.expected_delivery_date?.toISOString().split('T')[0] || null,
-            request_type: formData.request_type as any,
-            notes: formData.notes.trim() || null,
-            reason: formData.specification.trim() || null, // Keep reason for backward compatibility
-          })
-          .eq('id', editRequest.id);
+          .update(updateData)
+          .eq('id', editRequest.id)
+          .select();
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('Update error details:', {
+            message: updateError.message,
+            details: updateError.details,
+            hint: updateError.hint,
+            code: updateError.code,
+          });
+          
+          // Provide user-friendly error messages
+          if (updateError.code === '42501') {
+            throw new Error('Permission denied: You do not have permission to update this request. Please contact an administrator.');
+          } else if (updateError.code === '23505') {
+            throw new Error('A request with these details already exists.');
+          } else if (updateError.message) {
+            throw new Error(updateError.message);
+          } else {
+            throw updateError;
+          }
+        }
 
-        await supabase.from('request_history').insert({
-          request_id: editRequest.id,
-          action: 'updated',
-          performed_by: user.id,
-          remarks: 'Request updated',
-        });
+        console.log('Update successful, result:', updateDataResult);
+
+        // Add to history (this might fail for HR users, so we'll catch and log but not block)
+        try {
+          await supabase.from('request_history').insert({
+            request_id: editRequest.id,
+            action: 'updated',
+            performed_by: user.id,
+            remarks: 'Request updated',
+          });
+        } catch (historyError: any) {
+          console.warn('Failed to add history entry (non-critical):', historyError);
+          // Don't throw - history is not critical for the update
+        }
 
         toast.success('Request updated successfully');
       } else {
@@ -307,9 +340,26 @@ export function CreateRequestModal({
       onSuccess();
       onOpenChange(false);
       setErrors({});
-    } catch (error) {
+    } catch (error: any) {
       console.error(editRequest ? 'Error updating request:' : 'Error creating request:', error);
-      toast.error(editRequest ? 'Failed to update request' : 'Failed to create request');
+      
+      // Display detailed error message
+      const errorMessage = error?.message || 
+                          (error?.details ? `${error.message}: ${error.details}` : null) ||
+                          (editRequest ? 'Failed to update request. Please check your permissions and try again.' : 'Failed to create request');
+      
+      toast.error(errorMessage);
+      
+      // If it's a validation error, set field errors
+      if (error?.issues && Array.isArray(error.issues)) {
+        const fieldErrors: Record<string, string> = {};
+        error.issues.forEach((err: any) => {
+          if (err.path && err.path[0]) {
+            fieldErrors[err.path[0].toString()] = err.message;
+          }
+        });
+        setErrors(fieldErrors);
+      }
     } finally {
       setLoading(false);
     }
