@@ -93,9 +93,8 @@ const Auth = () => {
       .regex(/[0-9]/, 'Password must contain a number'),
     employeeId: z.string()
       .trim()
-      .min(1, 'Employee ID is required')
-      .max(25, 'Employee ID must be at most 25 characters')
-      .regex(/^[A-Za-z0-9_-]+$/, 'Employee ID must contain only letters, numbers, hyphens, and underscores')
+      .length(7, 'Employee ID must be exactly 7 digits')
+      .regex(/^[0-9]+$/, 'Employee ID must contain only numbers')
       .optional(),
     Name: z.string()
       .trim()
@@ -113,12 +112,12 @@ const Auth = () => {
         toast.error('Employee ID is required');
         return;
       }
-      if (employeeId.trim().length > 25) {
-        toast.error('Employee ID must be at most 25 characters');
+      if (employeeId.trim().length !== 7) {
+        toast.error('Employee ID must be exactly 7 digits');
         return;
       }
-      if (!/^[A-Za-z0-9_-]+$/.test(employeeId.trim())) {
-        toast.error('Employee ID must contain only letters, numbers, hyphens, and underscores');
+      if (!/^[0-9]+$/.test(employeeId.trim())) {
+        toast.error('Employee ID must contain only numbers');
         return;
       }
     }
@@ -155,7 +154,7 @@ const Auth = () => {
           toast.error(error.message.includes('Invalid login credentials') ? 'Invalid email or password' : error.message);
         }
       } else {
-        const normalizedEmployeeId = employeeId ? employeeId.trim().toUpperCase() : '';
+        const normalizedEmployeeId = employeeId ? employeeId.trim() : '';
         const { error } = await signUp(email, password, Name, normalizedEmployeeId);
         if (error) toast.error(error.message.includes('already registered') ? 'This email is already registered' : error.message);
         else toast.success('Account created successfully!');
@@ -290,17 +289,17 @@ const Auth = () => {
                     <Label>Employee ID</Label>
                     <Input
                       type="text"
-                      placeholder="EMP001"
+                      placeholder="1234567"
                       value={employeeId}
                       onChange={(e) => {
                         const raw = e.target.value || '';
-                        const filtered = raw.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 25);
+                        const filtered = raw.replace(/[^0-9]/g, '').slice(0, 7);
                         setEmployeeId(filtered);
                       }}
                       required
                     />
                     <p className="text-xs text-muted-foreground">
-                      Employee ID will be converted to uppercase
+                      7 digits required (numbers only)
                     </p>
                   </div>
 

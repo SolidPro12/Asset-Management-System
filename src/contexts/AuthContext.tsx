@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
     
     if (employeeId) {
-      userData.employee_id = employeeId.trim().toUpperCase();
+      userData.employee_id = employeeId.trim();
     }
     
     const { error } = await supabase.auth.signUp({
