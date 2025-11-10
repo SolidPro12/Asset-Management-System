@@ -58,7 +58,6 @@ const MyTickets = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [assets, setAssets] = useState<any[]>([]);
-  const [ticketId, setTicketId] = useState('');
   const [formData, setFormData] = useState({
     asset_id: '',
     asset_name: '',
@@ -76,23 +75,6 @@ const MyTickets = () => {
       fetchMyAssets();
     }
   }, [user]);
-
-  useEffect(() => {
-    if (isDialogOpen) {
-      fetchNextTicketId();
-    }
-  }, [isDialogOpen]);
-
-  const fetchNextTicketId = async () => {
-    try {
-      const { data, error } = await supabase.rpc('generate_ticket_id');
-      if (error) throw error;
-      setTicketId(data);
-    } catch (error) {
-      console.error('Error fetching ticket ID:', error);
-      setTicketId('TKT???');
-    }
-  };
 
   const fetchMyTickets = async () => {
     try {
@@ -338,10 +320,10 @@ const MyTickets = () => {
               <Label htmlFor="ticket_id">Ticket ID</Label>
               <Input
                 id="ticket_id"
-                value={ticketId}
+                value="Auto-generated (e.g., TKT-001)"
                 readOnly
                 disabled
-                className="bg-muted font-mono"
+                className="bg-muted font-mono text-muted-foreground"
               />
             </div>
 
