@@ -1,6 +1,7 @@
 import { Home, Package, FileText, History, Users, UserCheck, ChevronDown } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import React from 'react';
 import {
   Sidebar,
   SidebarContent,
@@ -14,6 +15,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
   SidebarHeader,
+  SidebarSeparator,
   useSidebar,
 } from '@/components/ui/sidebar';
 import {
@@ -96,6 +98,21 @@ export function AppSidebar() {
     if (userRole === 'financer') {
       return menuItems.filter(item => item.title === 'Dashboard' || item.title === 'Assets');
     }
+    if (userRole === 'user') {
+      // Only show Dashboard, My Asset, and Service Desk - My Tickets for user role
+      return [
+        menuItems.find((item) => item.title === 'Dashboard'),
+        menuItems.find((item) => item.title === 'My Asset'),
+        {
+          title: 'Service Desk',
+          icon: FileText,
+          requiredRole: null,
+          subItems: [
+            { title: 'My Tickets', url: '/my-tickets', requiredRole: null },
+          ],
+        },
+      ].filter(Boolean);
+    }
     // Other roles: original logic
     return menuItems.filter((item) => !item.requiredRole || item.requiredRole === userRole).map((item) => {
       if (item.subItems) {
@@ -132,46 +149,54 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleMenuItems.map((item) => {
-                if (item.subItems) {
-                  const isGroupActive = item.subItems.some((subItem: any) => currentPath === subItem.url);
-                  return (
-                    <Collapsible key={item.title} defaultOpen={isGroupActive} asChild>
-                      <SidebarMenuItem>
-                        <CollapsibleTrigger asChild>
-                          <SidebarMenuButton isActive={isGroupActive}>
-                            <item.icon className="h-4 w-4" />
-                            <span>{item.title}</span>
-                            <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
-                          </SidebarMenuButton>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <SidebarMenuSub>
-                            {item.subItems.map((subItem) => (
-                              <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton asChild isActive={currentPath === subItem.url}>
-                                  <NavLink to={subItem.url}>
-                                    <span>{subItem.title}</span>
-                                  </NavLink>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            ))}
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </SidebarMenuItem>
-                    </Collapsible>
-                  );
-                }
+              {visibleMenuItems.map((item, index) => {
+                const isServiceDesk = item.title === 'Service Desk';
+                const showSeparator = isServiceDesk && index > 0;
                 
                 return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={isActive(item.url!)}>
-                      <NavLink to={item.url!}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  <React.Fragment key={item.title || index}>
+                    {showSeparator && <SidebarSeparator className="my-2" />}
+                    {item.subItems ? (
+                      (() => {
+                        const isGroupActive = item.subItems.some((subItem: any) => currentPath === subItem.url);
+                        return (
+                          <Collapsible key={item.title} defaultOpen={isGroupActive} asChild>
+                            <SidebarMenuItem>
+                              <CollapsibleTrigger asChild>
+                                <SidebarMenuButton isActive={isGroupActive}>
+                                  <item.icon className="h-4 w-4" />
+                                  <span>{item.title}</span>
+                                  <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
+                                </SidebarMenuButton>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <SidebarMenuSub>
+                                  {item.subItems.map((subItem) => (
+                                    <SidebarMenuSubItem key={subItem.title}>
+                                      <SidebarMenuSubButton asChild isActive={currentPath === subItem.url}>
+                                        <NavLink to={subItem.url}>
+                                          <span>{subItem.title}</span>
+                                        </NavLink>
+                                      </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                  ))}
+                                </SidebarMenuSub>
+                              </CollapsibleContent>
+                            </SidebarMenuItem>
+                          </Collapsible>
+                        );
+                      })()
+                    ) : (
+                      <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={isActive(item.url!)}>
+                          <NavLink to={item.url!}>
+                            <item.icon className="h-4 w-4" />
+                            <span>{item.title}</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </SidebarMenu>
