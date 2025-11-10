@@ -29,11 +29,13 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { DEPARTMENTS } from '@/lib/constants';
 
 interface Asset {
   id: string;
   asset_name: string;
   category: string;
+  location?: string;
 }
 
 interface Employee {
@@ -50,6 +52,7 @@ interface AllocationData {
   department: string;
   allocated_date: string;
   condition: string;
+  location?: string;
 }
 
 interface AllocateAssetModalProps {
@@ -58,6 +61,8 @@ interface AllocateAssetModalProps {
   allocation?: AllocationData | null;
   onSuccess: () => void;
 }
+
+const LOCATIONS = ['Guindy', 'Vandalur'];
 
 export function AllocateAssetModal({
   open,
@@ -70,6 +75,8 @@ export function AllocateAssetModal({
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [department, setDepartment] = useState('');
+  const [location, setLocation] = useState('');
   const [allocatedDate, setAllocatedDate] = useState<Date>(new Date());
   const [condition, setCondition] = useState('good');
   const [notes, setNotes] = useState('');
@@ -84,10 +91,37 @@ export function AllocateAssetModal({
         // Editing mode
         setCondition(allocation.condition);
         setAllocatedDate(new Date(allocation.allocated_date));
+        setDepartment(allocation.department || '');
+        setLocation(allocation.location || '');
+        
+        // Fetch asset location if not provided
+        if (allocation.id && !allocation.location) {
+          supabase
+            .from('asset_allocations')
+            .select('asset_id')
+            .eq('id', allocation.id)
+            .single()
+            .then(({ data }) => {
+              if (data?.asset_id) {
+                supabase
+                  .from('assets')
+                  .select('location')
+                  .eq('id', data.asset_id)
+                  .single()
+                  .then(({ data: assetData }) => {
+                    if (assetData?.location) {
+                      setLocation(assetData.location);
+                    }
+                  });
+              }
+            });
+        }
       } else {
         // Reset for new allocation
         setSelectedAssetId('');
         setSelectedEmployeeId('');
+        setDepartment('');
+        setLocation('');
         setAllocatedDate(new Date());
         setCondition('good');
         setNotes('');
@@ -95,11 +129,31 @@ export function AllocateAssetModal({
     }
   }, [open, allocation]);
 
+  // Auto-fill department when employee is selected
+  useEffect(() => {
+    if (selectedEmployeeId && !allocation) {
+      const employee = employees.find((e) => e.id === selectedEmployeeId);
+      if (employee && employee.department) {
+        setDepartment(employee.department);
+      }
+    }
+  }, [selectedEmployeeId, employees, allocation]);
+
+  // Auto-fill location when asset is selected
+  useEffect(() => {
+    if (selectedAssetId && !allocation) {
+      const asset = assets.find((a) => a.id === selectedAssetId);
+      if (asset && asset.location) {
+        setLocation(asset.location);
+      }
+    }
+  }, [selectedAssetId, assets, allocation]);
+
   const fetchAssets = async () => {
     try {
       const { data, error } = await supabase
         .from('assets')
-        .select('id, asset_name, category')
+        .select('id, asset_name, category, location')
         .eq('status', 'available')
         .order('asset_name');
 
@@ -125,7 +179,7 @@ export function AllocateAssetModal({
   };
 
   const handleSubmit = async () => {
-    if (!selectedAssetId || !selectedEmployeeId) {
+    if (!allocation && (!selectedAssetId || !selectedEmployeeId)) {
       toast({
         title: 'Error',
         description: 'Please select both asset and employee',
@@ -134,12 +188,21 @@ export function AllocateAssetModal({
       return;
     }
 
+    if (!department || !location) {
+      toast({
+        title: 'Error',
+        description: 'Please select both department and location',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      const asset = assets.find((a) => a.id === selectedAssetId);
-      const employee = employees.find((e) => e.id === selectedEmployeeId);
+      const asset = allocation ? null : assets.find((a) => a.id === selectedAssetId);
+      const employee = allocation ? null : employees.find((e) => e.id === selectedEmployeeId);
 
-      if (!asset || !employee) {
+      if (!allocation && (!asset || !employee)) {
         throw new Error('Invalid asset or employee selection');
       }
 
@@ -148,6 +211,7 @@ export function AllocateAssetModal({
         const { error } = await supabase
           .from('asset_allocations')
           .update({
+            department,
             condition,
             notes,
             allocated_date: allocatedDate.toISOString().split('T')[0],
@@ -155,6 +219,22 @@ export function AllocateAssetModal({
           .eq('id', allocation.id);
 
         if (error) throw error;
+
+        // Update asset location if changed
+        if (location) {
+          const { data: allocationData } = await supabase
+            .from('asset_allocations')
+            .select('asset_id')
+            .eq('id', allocation.id)
+            .single();
+
+          if (allocationData?.asset_id) {
+            await supabase
+              .from('assets')
+              .update({ location })
+              .eq('id', allocationData.asset_id);
+          }
+        }
 
         toast({
           title: 'Success',
@@ -167,11 +247,11 @@ export function AllocateAssetModal({
           .insert([
             {
               asset_id: selectedAssetId,
-              asset_name: asset.asset_name,
-              category: asset.category as any,
+              asset_name: asset!.asset_name,
+              category: asset!.category as any,
               employee_id: selectedEmployeeId,
-              employee_name: employee.full_name,
-              department: employee.department,
+              employee_name: employee!.full_name,
+              department,
               allocated_date: allocatedDate.toISOString().split('T')[0],
               condition,
               notes,
@@ -182,10 +262,18 @@ export function AllocateAssetModal({
 
         if (insertError) throw insertError;
 
-        // Update asset status to assigned
+        // Update asset status to assigned and location
+        const updateData: any = {
+          status: 'assigned',
+          current_assignee_id: selectedEmployeeId,
+        };
+        if (location) {
+          updateData.location = location;
+        }
+
         const { error: updateError } = await supabase
           .from('assets')
-          .update({ status: 'assigned', current_assignee_id: selectedEmployeeId })
+          .update(updateData)
           .eq('id', selectedAssetId);
 
         if (updateError) throw updateError;
@@ -247,6 +335,74 @@ export function AllocateAssetModal({
                     {employees.map((employee) => (
                       <SelectItem key={employee.id} value={employee.id}>
                         {employee.full_name} - {employee.department}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Department *</Label>
+                <Select value={department} onValueChange={setDepartment} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DEPARTMENTS.map((dept) => (
+                      <SelectItem key={dept} value={dept}>
+                        {dept}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Location *</Label>
+                <Select value={location} onValueChange={setLocation} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOCATIONS.map((loc) => (
+                      <SelectItem key={loc} value={loc}>
+                        {loc}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+
+          {allocation && (
+            <>
+              <div className="space-y-2">
+                <Label>Department *</Label>
+                <Select value={department} onValueChange={setDepartment} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DEPARTMENTS.map((dept) => (
+                      <SelectItem key={dept} value={dept}>
+                        {dept}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Location *</Label>
+                <Select value={location} onValueChange={setLocation} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOCATIONS.map((loc) => (
+                      <SelectItem key={loc} value={loc}>
+                        {loc}
                       </SelectItem>
                     ))}
                   </SelectContent>

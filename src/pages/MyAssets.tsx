@@ -79,6 +79,8 @@ const MyAssets = () => {
             ...allocation.assets,
             allocated_date: allocation.allocated_date,
             allocated_by_name: allocatedByName,
+            department: allocation.department || allocation.assets?.department || 'N/A',
+            location: allocation.assets?.location || 'N/A',
           };
         })
       );
