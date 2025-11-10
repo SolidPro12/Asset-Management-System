@@ -85,6 +85,7 @@ const statusConfig = {
   pending: { label: 'Pending', color: 'bg-orange-500', icon: Clock },
   approved: { label: 'Approved', color: 'bg-green-500', icon: CheckCircle },
   rejected: { label: 'Rejected', color: 'bg-red-500', icon: XCircle },
+  cancelled: { label: 'Cancelled', color: 'bg-gray-500', icon: XCircle },
   in_progress: { label: 'In Progress', color: 'bg-blue-500', icon: RefreshCw },
   fulfilled: { label: 'Fulfilled', color: 'bg-purple-500', icon: Package },
 };
@@ -276,6 +277,39 @@ export default function AssetRequests() {
     }
   };
 
+  const handleCancel = async (requestId: string) => {
+    if (!user) return;
+    
+    const reason = prompt('Please provide a reason for cancellation:');
+    if (!reason) return;
+
+    try {
+      const { error: updateError } = await supabase
+        .from('asset_requests')
+        .update({
+          status: 'cancelled',
+          rejection_reason: reason || 'Cancelled by HR',
+        })
+        .eq('id', requestId);
+
+      if (updateError) throw updateError;
+
+      // Add to history
+      await supabase.from('request_history').insert({
+        request_id: requestId,
+        action: 'rejected',
+        performed_by: user.id,
+        remarks: reason || 'Request cancelled by HR',
+      });
+
+      toast.success('Request cancelled successfully');
+      fetchRequests();
+    } catch (error) {
+      console.error('Error cancelling request:', error);
+      toast.error('Failed to cancel request');
+    }
+  };
+
   const handleDelete = async (requestId: string) => {
     if (!user) return;
     
@@ -357,6 +391,7 @@ export default function AssetRequests() {
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="approved">Approved</SelectItem>
               <SelectItem value="rejected">Rejected</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -417,11 +452,11 @@ export default function AssetRequests() {
       {/* Status Cards */}
       <div className={cn(
         "grid gap-4",
-        userRole === 'hr' ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1 md:grid-cols-5"
+        userRole === 'hr' ? "grid-cols-1 md:grid-cols-4" : "grid-cols-1 md:grid-cols-6"
       )}>
         {Object.entries(statusConfig)
           .filter(([status]) => {
-            // For HR role, exclude in_progress and fulfilled status cards
+            // For HR role, exclude in_progress and fulfilled status cards, but include cancelled
             if (userRole === 'hr') {
               return status !== 'in_progress' && status !== 'fulfilled';
             }
@@ -556,6 +591,17 @@ export default function AssetRequests() {
                             <X className="h-3 w-3" />
                           </Button>
                         </>
+                      )}
+                      {userRole === 'hr' && (request.status === 'pending' || request.status === 'approved') && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCancel(request.id)}
+                          className="h-8 border-orange-500 text-orange-600 hover:bg-orange-50"
+                          title="Cancel Request"
+                        >
+                          <XCircle className="h-3 w-3" />
+                        </Button>
                       )}
                       {userRole !== 'hr' && (
                         <Button

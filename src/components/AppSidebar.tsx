@@ -82,17 +82,19 @@ export function AppSidebar() {
 
   const visibleMenuItems = (() => {
     if (userRole === 'hr') {
-      // Only show these for HR (order: Dashboard, My Asset, My Tickets, Asset Requests)
+      // Only show these for HR (order: Dashboard, My Asset, Asset Requests, then Service Desk with My Tickets)
       return [
         menuItems.find((item) => item.title === 'Dashboard'),
         menuItems.find((item) => item.title === 'My Asset'),
+        menuItems.find((item) => item.title === 'Asset Requests'),
         {
-          title: 'My Tickets',
-          url: '/my-tickets',
+          title: 'Service Desk',
           icon: FileText,
           requiredRole: null,
+          subItems: [
+            { title: 'My Tickets', url: '/my-tickets', requiredRole: null },
+          ],
         },
-        menuItems.find((item) => item.title === 'Asset Requests'),
       ].filter(Boolean);
     }
     if (userRole === 'financer') {
