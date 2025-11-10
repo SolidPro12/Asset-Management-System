@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { EditTicketModal } from '@/components/EditTicketModal';
+import { TicketHistoryModal } from '@/components/TicketHistoryModal';
 import {
   Dialog,
   DialogContent,
@@ -29,9 +31,19 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus } from 'lucide-react';
+import { Plus, Pencil, History, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Ticket {
   id: string;
@@ -58,6 +70,9 @@ const MyTickets = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [assets, setAssets] = useState<any[]>([]);
+  const [editTicket, setEditTicket] = useState<Ticket | null>(null);
+  const [historyTicket, setHistoryTicket] = useState<{ id: string; ticket_id: string } | null>(null);
+  const [cancelTicket, setCancelTicket] = useState<Ticket | null>(null);
   const [formData, setFormData] = useState({
     asset_id: '',
     asset_name: '',
@@ -211,6 +226,33 @@ const MyTickets = () => {
     }
   };
 
+  const handleCancelTicket = async () => {
+    if (!cancelTicket) return;
+
+    try {
+      const { error } = await supabase
+        .from('tickets')
+        .update({ status: 'closed' })
+        .eq('id', cancelTicket.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Ticket cancelled successfully',
+      });
+
+      setCancelTicket(null);
+      fetchMyTickets();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const getPriorityBadge = (priority: string) => {
     const variants: Record<string, any> = {
       low: 'secondary',
@@ -269,12 +311,13 @@ const MyTickets = () => {
                 <TableHead>Assigned To</TableHead>
                 <TableHead>Created Date</TableHead>
                 <TableHead>Completed Date</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tickets.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center text-muted-foreground">
                     No tickets found. Create your first ticket!
                   </TableCell>
                 </TableRow>
@@ -302,6 +345,38 @@ const MyTickets = () => {
                         ? format(new Date(ticket.completed_at), 'MMM dd, yyyy')
                         : '-'}
                     </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setHistoryTicket({ id: ticket.id, ticket_id: ticket.ticket_id })}
+                          title="View History"
+                        >
+                          <History className="h-4 w-4" />
+                        </Button>
+                        {ticket.status === 'open' && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditTicket(ticket)}
+                              title="Edit Ticket"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => setCancelTicket(ticket)}
+                              title="Cancel Ticket"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -309,6 +384,35 @@ const MyTickets = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <EditTicketModal
+        open={!!editTicket}
+        onOpenChange={(open) => !open && setEditTicket(null)}
+        ticket={editTicket}
+        onSuccess={fetchMyTickets}
+      />
+
+      <TicketHistoryModal
+        open={!!historyTicket}
+        onOpenChange={(open) => !open && setHistoryTicket(null)}
+        ticketId={historyTicket?.id || ''}
+        ticketNumber={historyTicket?.ticket_id || ''}
+      />
+
+      <AlertDialog open={!!cancelTicket} onOpenChange={(open) => !open && setCancelTicket(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Ticket</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel ticket {cancelTicket?.ticket_id}? This action will close the ticket.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, keep it</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelTicket}>Yes, cancel ticket</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
