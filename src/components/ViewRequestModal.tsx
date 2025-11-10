@@ -230,7 +230,7 @@ export function ViewRequestModal({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">Request Details</DialogTitle>
-          <p className="text-sm text-muted-foreground">Request ID: #{request.id.slice(0, 8)}</p>
+          <p className="text-sm text-muted-foreground">Request ID: {request.request_id || 'N/A'}</p>
         </DialogHeader>
 
         {/* Request Information Card */}
@@ -265,7 +265,7 @@ export function ViewRequestModal({
             </div>
             <div className="space-y-1">
               <Label className="text-sm text-muted-foreground">Request ID</Label>
-              <p className="font-medium break-all">{request.id}</p>
+              <p className="font-medium">{request.request_id || 'N/A'}</p>
             </div>
             <div className="space-y-1">
               <Label className="text-sm text-muted-foreground">Expected Delivery Date</Label>
