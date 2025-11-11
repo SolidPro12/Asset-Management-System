@@ -172,6 +172,8 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           category: Database["public"]["Enums"]["asset_category"]
           created_at: string
           department: string | null
@@ -193,6 +195,8 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           category: Database["public"]["Enums"]["asset_category"]
           created_at?: string
           department?: string | null
@@ -214,6 +218,8 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           category?: Database["public"]["Enums"]["asset_category"]
           created_at?: string
           department?: string | null

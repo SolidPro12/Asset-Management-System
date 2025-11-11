@@ -74,6 +74,8 @@ interface AssetRequest {
   specification?: string | null;
   employment_type?: string | null;
   location?: string | null;
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
   created_at: string;
   updated_at: string;
   profiles?: {
@@ -283,30 +285,65 @@ export default function AssetRequests() {
     }
   };
 
-  const openCancelDialog = (requestId: string) => {
-    setCancelRequestId(requestId);
+  const canCancelRequest = (request: AssetRequest): { canCancel: boolean; reason?: string } => {
+    // Cannot cancel if already cancelled
+    if (request.status === 'cancelled') {
+      return { canCancel: false, reason: 'Request is already cancelled' };
+    }
+    
+    // Cannot cancel if in progress
+    if (request.status === 'in_progress') {
+      return { canCancel: false, reason: 'Cannot cancel requests in progress' };
+    }
+    
+    // Cannot cancel if already fulfilled
+    if (request.status === 'fulfilled') {
+      return { canCancel: false, reason: 'Cannot cancel fulfilled requests' };
+    }
+    
+    // Can only cancel pending requests for HR
+    if (userRole === 'hr' && request.status !== 'pending') {
+      return { canCancel: false, reason: 'HR can only cancel pending requests' };
+    }
+    
+    return { canCancel: true };
+  };
+
+  const openCancelDialog = (request: AssetRequest) => {
+    const { canCancel, reason } = canCancelRequest(request);
+    
+    if (!canCancel) {
+      toast.error(reason || 'Cannot cancel this request');
+      return;
+    }
+    
+    setCancelRequestId(request.id);
     setCancelDialogOpen(true);
   };
 
   const confirmCancel = async () => {
     if (!user || !cancelRequestId) return;
+    
     setCancelSubmitting(true);
     try {
+      // Update the request with cancellation data
       const { error: updateError } = await supabase
         .from('asset_requests')
         .update({
           status: 'cancelled',
-          rejection_reason: 'Request cancelled by HR',
+          cancelled_at: new Date().toISOString(),
+          cancelled_by: user.id,
         })
         .eq('id', cancelRequestId);
 
       if (updateError) throw updateError;
 
+      // Add to history with proper action type
       await supabase.from('request_history').insert({
         request_id: cancelRequestId,
-        action: 'rejected',
+        action: 'cancelled',
         performed_by: user.id,
-        remarks: 'Request cancelled by HR',
+        remarks: 'Request cancelled by user',
       });
 
       toast.success('Request cancelled successfully');
@@ -626,17 +663,26 @@ export default function AssetRequests() {
                           </Button>
                         </>
                       )}
-                      {userRole === 'hr' && (request.status === 'pending' || request.status === 'approved') && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openCancelDialog(request.id)}
-                          className="h-8 border-orange-500 text-orange-600 hover:bg-orange-50"
-                          title="Cancel Request"
-                        >
-                          <XCircle className="h-3 w-3" />
-                        </Button>
-                      )}
+                      {userRole === 'hr' && (() => {
+                        const { canCancel } = canCancelRequest(request);
+                        return (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openCancelDialog(request)}
+                            disabled={!canCancel}
+                            className={cn(
+                              "h-8",
+                              canCancel 
+                                ? "border-orange-500 text-orange-600 hover:bg-orange-50" 
+                                : "opacity-50 cursor-not-allowed"
+                            )}
+                            title={canCancel ? "Cancel Request" : canCancelRequest(request).reason}
+                          >
+                            <XCircle className="h-3 w-3" />
+                          </Button>
+                        );
+                      })()}
                       {userRole !== 'hr' && (
                         <Button
                           variant="outline"

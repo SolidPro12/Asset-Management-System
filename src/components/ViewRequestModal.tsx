@@ -203,6 +203,8 @@ export function ViewRequestModal({
         return 'bg-green-100 text-green-700 border-green-200';
       case 'rejected':
         return 'bg-red-100 text-red-700 border-red-200';
+      case 'cancelled':
+        return 'bg-gray-100 text-gray-700 border-gray-200';
       case 'in_progress':
         return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'fulfilled':
@@ -302,12 +304,21 @@ export function ViewRequestModal({
             </div>
           )}
 
-          {request.rejection_reason && (
+          {request.rejection_reason && request.status === 'rejected' && (
             <div className="mt-4 space-y-1">
               <Label className="text-sm text-muted-foreground">Rejection Reason</Label>
               <p className="text-sm text-destructive bg-red-50 p-3 rounded-lg border border-red-200">
                 {request.rejection_reason}
               </p>
+            </div>
+          )}
+
+          {request.status === 'cancelled' && request.cancelled_at && (
+            <div className="mt-4 space-y-1">
+              <Label className="text-sm text-muted-foreground">Cancellation Details</Label>
+              <div className="text-sm bg-gray-50 p-3 rounded-lg border border-gray-200">
+                <p className="font-medium">Cancelled on: {format(new Date(request.cancelled_at), 'dd MMM yyyy, HH:mm')}</p>
+              </div>
             </div>
           )}
         </div>
@@ -326,7 +337,11 @@ export function ViewRequestModal({
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <Badge variant={record.action === 'approved' ? 'default' : 'secondary'}>
+                        <Badge variant={
+                          record.action === 'approved' ? 'default' : 
+                          record.action === 'cancelled' ? 'outline' : 
+                          'secondary'
+                        }>
                           {record.action.toUpperCase()}
                         </Badge>
                         <span className="text-sm text-muted-foreground">
