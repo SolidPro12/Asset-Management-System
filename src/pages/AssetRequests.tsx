@@ -649,15 +649,21 @@ export default function AssetRequests() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8"
-                        onClick={() => { setEditRequest(request); setIsCreateModalOpen(true); }}
-                      >
-                        <Edit className="h-3 w-3 mr-1" />
-                        Edit
-                      </Button>
+                      {/* Edit button - Show for HR on their own requests, hide for others */}
+                      {(userRole === 'hr' && request.requester_id === user?.id) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8"
+                          onClick={() => { setEditRequest(request); setIsCreateModalOpen(true); }}
+                          disabled={request.status !== 'pending'}
+                          title={request.status !== 'pending' ? "Can only edit pending requests" : "Edit Request"}
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Edit
+                        </Button>
+                      )}
+                      {/* Approve/Reject buttons - Only for admins on pending/in_progress requests */}
                       {userRole !== 'hr' && (request.status === 'pending' || request.status === 'in_progress') && (
                         <>
                           <Button
@@ -678,6 +684,7 @@ export default function AssetRequests() {
                           </Button>
                         </>
                       )}
+                      {/* Cancel button - Only for HR on pending requests */}
                       {userRole === 'hr' && (() => {
                         const { canCancel } = canCancelRequest(request);
                         return (
@@ -698,6 +705,7 @@ export default function AssetRequests() {
                           </Button>
                         );
                       })()}
+                      {/* Delete button - Only for admins */}
                       {userRole !== 'hr' && (
                         <Button
                           variant="outline"
