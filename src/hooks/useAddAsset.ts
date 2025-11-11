@@ -8,6 +8,17 @@ export const useAddAsset = () => {
   const addAsset = async (formData: Record<string, any>, category: string) => {
     setIsSubmitting(true);
     try {
+      // Validate required field
+      if (!formData.assetId) {
+        toast({
+          title: 'Error',
+          description: 'Asset ID is required.',
+          variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        return false;
+      }
+
       // Map category to database enum values
       const getCategoryEnum = (cat: string): string => {
         const mapping: Record<string, string> = {

@@ -92,6 +92,7 @@ const Assets = () => {
   const filteredAssets = assets.filter(asset => {
     const matchesSearch = 
       asset.asset_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      asset.asset_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       asset.asset_tag.toLowerCase().includes(searchQuery.toLowerCase()) ||
       asset.category.toLowerCase().includes(searchQuery.toLowerCase());
     
@@ -447,7 +448,7 @@ const Assets = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search by model, tag, cost..."
+              placeholder="Search by asset ID, model, tag..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
