@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react';
+import React, { ReactNode, useEffect, useState } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { RecentActions } from '@/components/RecentActions';
@@ -9,9 +9,17 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 
 interface LayoutProps {
   children: ReactNode;
@@ -25,11 +33,61 @@ export function Layout({ children }: LayoutProps) {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
-  const getPageTitle = () => {
+  const getBreadcrumbs = () => {
     const path = location.pathname;
-    if (path.includes('profile')) return 'Profile';
-    if (path.includes('assets')) return 'Assets';
-    return 'Dashboard';
+    const breadcrumbs: Array<{ label: string; path?: string }> = [];
+
+    // Always start with Dashboard
+    breadcrumbs.push({ label: 'Dashboard', path: '/' });
+
+    // Handle different routes
+    if (path === '/') {
+      // Dashboard - only show Dashboard
+      return breadcrumbs.slice(0, 1);
+    } else if (path === '/assets') {
+      breadcrumbs.push({ label: 'Assets' });
+    } else if (path === '/my-assets') {
+      breadcrumbs.push({ label: 'My Assets' });
+    } else if (path === '/allocations') {
+      breadcrumbs.push({ label: 'Asset Allocations' });
+    } else if (path === '/requests') {
+      breadcrumbs.push({ label: 'Asset Requests' });
+    } else if (path === '/my-tickets') {
+      breadcrumbs.push({ label: 'Service Desk' });
+      breadcrumbs.push({ label: 'My Tickets' });
+    } else if (path === '/ticket-queue') {
+      breadcrumbs.push({ label: 'Service Desk' });
+      breadcrumbs.push({ label: 'Ticket Queue' });
+    } else if (path === '/history') {
+      breadcrumbs.push({ label: 'History' });
+      breadcrumbs.push({ label: 'Asset History' });
+    } else if (path === '/service-history') {
+      breadcrumbs.push({ label: 'History' });
+      breadcrumbs.push({ label: 'Service History' });
+    } else if (path === '/users') {
+      breadcrumbs.push({ label: 'Users' });
+    } else if (path === '/profile') {
+      breadcrumbs.push({ label: 'Profile' });
+    } else if (path === '/settings') {
+      breadcrumbs.push({ label: 'Settings' });
+    } else {
+      // Unknown route - just show Dashboard and the path
+      const pathParts = path.split('/').filter(Boolean);
+      pathParts.forEach((part, index) => {
+        const fullPath = '/' + pathParts.slice(0, index + 1).join('/');
+        const label = part
+          .split('-')
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+        if (index === pathParts.length - 1) {
+          breadcrumbs.push({ label });
+        } else {
+          breadcrumbs.push({ label, path: fullPath });
+        }
+      });
+    }
+
+    return breadcrumbs;
   };
 
   useEffect(() => {
@@ -153,9 +211,32 @@ export function Layout({ children }: LayoutProps) {
         <AppSidebar />
         <div className="flex-1 flex flex-col">
           <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-card px-6 shadow-sm justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
               <SidebarTrigger />
-              <h1 className="text-xl font-semibold text-foreground">Asset Management System</h1>
+              <Breadcrumb>
+                <BreadcrumbList>
+                  {(() => {
+                    const breadcrumbs = getBreadcrumbs();
+                    return breadcrumbs.map((crumb, index) => {
+                      const isLast = index === breadcrumbs.length - 1;
+                      return (
+                        <React.Fragment key={index}>
+                          {index > 0 && <BreadcrumbSeparator />}
+                          <BreadcrumbItem>
+                            {isLast || !crumb.path ? (
+                              <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                            ) : (
+                              <BreadcrumbLink asChild>
+                                <Link to={crumb.path}>{crumb.label}</Link>
+                              </BreadcrumbLink>
+                            )}
+                          </BreadcrumbItem>
+                        </React.Fragment>
+                      );
+                    });
+                  })()}
+                </BreadcrumbList>
+              </Breadcrumb>
             </div>
 
             <div className="flex items-center gap-2">
