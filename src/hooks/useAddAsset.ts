@@ -69,9 +69,10 @@ export const useAddAsset = () => {
 
       return true;
     } catch (error: any) {
+      console.error('Asset creation error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to add asset. Please try again.',
+        description: error?.message || 'Failed to add asset. Please try again.',
         variant: 'destructive',
       });
       return false;
