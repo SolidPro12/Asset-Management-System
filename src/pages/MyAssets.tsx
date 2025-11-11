@@ -235,8 +235,8 @@ const MyAssets = () => {
       </div>
 
       {assets.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center">
+        <Card className="bg-white border border-gray-200">
+          <CardContent className="p-12 text-center bg-white">
             <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground">No assets assigned to you yet.</p>
           </CardContent>
@@ -244,8 +244,8 @@ const MyAssets = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {assets.map((asset) => (
-            <Card key={asset.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
+            <Card key={asset.id} className="bg-white border border-gray-200 hover:shadow-lg transition-shadow">
+              <CardHeader className="bg-white">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     {getAssetIcon(asset.category)}
@@ -259,7 +259,7 @@ const MyAssets = () => {
                   {getStatusBadge(asset.status)}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 bg-white">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Asset ID:</span>

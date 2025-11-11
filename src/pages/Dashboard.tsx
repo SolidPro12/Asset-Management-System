@@ -1524,7 +1524,7 @@ const Dashboard = () => {
         {/* Approved Assets Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Approved Assets ({approvedAssets.length})</CardTitle>
+            <CardTitle>Approved Assets</CardTitle>
           </CardHeader>
           <CardContent>
             {approvedAssets.length === 0 ? (
@@ -1558,10 +1558,10 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* My Asset Requests Status Table */}
+        {/* Asset Requests Status Table */}
         <Card>
           <CardHeader>
-            <CardTitle>My Asset Requests Status</CardTitle>
+            <CardTitle>Asset Requests Status</CardTitle>
           </CardHeader>
           <CardContent>
             {myRequests.length === 0 ? (
@@ -1572,7 +1572,7 @@ const Dashboard = () => {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left py-2 px-4 font-medium">Request ID</th>
-                      <th className="text-left py-2 px-4 font-medium">Category</th>
+                      <th className="text-left py-2 px-4 font-medium">Asset Category</th>
                       <th className="text-left py-2 px-4 font-medium">Type</th>
                       <th className="text-left py-2 px-4 font-medium">Department</th>
                       <th className="text-left py-2 px-4 font-medium">Request Date</th>

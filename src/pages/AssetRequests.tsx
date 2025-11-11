@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { DEPARTMENTS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -111,6 +112,10 @@ export default function AssetRequests() {
   const [viewRequest, setViewRequest] = useState<AssetRequest | null>(null);
   const [editRequest, setEditRequest] = useState<AssetRequest | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelRequestId, setCancelRequestId] = useState<string | null>(null);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -199,6 +204,7 @@ export default function AssetRequests() {
     }
 
     setFilteredRequests(filtered);
+    setCurrentPage(1);
   };
 
   const resetFilters = () => {
@@ -277,36 +283,41 @@ export default function AssetRequests() {
     }
   };
 
-  const handleCancel = async (requestId: string) => {
-    if (!user) return;
-    
-    const reason = prompt('Please provide a reason for cancellation:');
-    if (!reason) return;
+  const openCancelDialog = (requestId: string) => {
+    setCancelRequestId(requestId);
+    setCancelDialogOpen(true);
+  };
 
+  const confirmCancel = async () => {
+    if (!user || !cancelRequestId) return;
+    setCancelSubmitting(true);
     try {
       const { error: updateError } = await supabase
         .from('asset_requests')
         .update({
           status: 'cancelled',
-          rejection_reason: reason || 'Cancelled by HR',
+          rejection_reason: 'Request cancelled by HR',
         })
-        .eq('id', requestId);
+        .eq('id', cancelRequestId);
 
       if (updateError) throw updateError;
 
-      // Add to history
       await supabase.from('request_history').insert({
-        request_id: requestId,
+        request_id: cancelRequestId,
         action: 'rejected',
         performed_by: user.id,
-        remarks: reason || 'Request cancelled by HR',
+        remarks: 'Request cancelled by HR',
       });
 
       toast.success('Request cancelled successfully');
+      setCancelDialogOpen(false);
+      setCancelRequestId(null);
       fetchRequests();
     } catch (error) {
       console.error('Error cancelling request:', error);
       toast.error('Failed to cancel request');
+    } finally {
+      setCancelSubmitting(false);
     }
   };
 
@@ -344,6 +355,11 @@ export default function AssetRequests() {
     new Set(requests.map((r) => r.department || r.profiles?.department).filter(Boolean))
   );
 
+  const pageSize = 3;
+  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const currentPageData = filteredRequests.slice(startIndex, startIndex + pageSize);
+
   return (
     <div className="space-y-6 bg-[#f8f6ff] min-h-screen -m-6 p-6">
       <Breadcrumb>
@@ -362,8 +378,26 @@ export default function AssetRequests() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Asset Requests</h1>
-          <p className="text-muted-foreground">Manage all asset requests and approvals</p>
         </div>
+
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Request</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-muted-foreground">
+            Are you sure you want to cancel this request?
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)} disabled={cancelSubmitting}>
+              No
+            </Button>
+            <Button onClick={confirmCancel} disabled={cancelSubmitting} className="bg-orange-600 hover:bg-orange-700">
+              {cancelSubmitting ? 'Cancelling...' : 'Yes, Cancel'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
         <Button onClick={() => setIsCreateModalOpen(true)} className="rounded-lg">
           <Plus className="h-4 w-4 mr-2" />
           New Request
@@ -377,13 +411,13 @@ export default function AssetRequests() {
             placeholder="Search requests..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-10"
+            className="h-10 bg-white"
           />
         </div>
 
         <div className="space-y-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-10">
+            <SelectTrigger className="h-10 bg-white">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
@@ -398,7 +432,7 @@ export default function AssetRequests() {
 
         <div className="space-y-2">
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="h-10">
+            <SelectTrigger className="h-10 bg-white">
               <SelectValue placeholder="All Request Types" />
             </SelectTrigger>
             <SelectContent>
@@ -411,7 +445,7 @@ export default function AssetRequests() {
 
         <div className="space-y-2">
           <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-            <SelectTrigger className="h-10">
+            <SelectTrigger className="h-10 bg-white">
               <SelectValue placeholder="All Departments" />
             </SelectTrigger>
             <SelectContent>
@@ -428,7 +462,7 @@ export default function AssetRequests() {
         <div className="flex gap-2">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="h-10 flex-1">
+              <Button variant="outline" className="h-10 flex-1 bg-white">
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {dateFilter ? format(dateFilter, 'dd-MM-yyyy') : 'dd-mm-yyyy'}
               </Button>
@@ -443,7 +477,7 @@ export default function AssetRequests() {
               />
             </PopoverContent>
           </Popover>
-          <Button variant="outline" size="icon" onClick={resetFilters} className="h-10">
+          <Button variant="outline" size="icon" onClick={resetFilters} className="h-10 bg-white">
             <RotateCcw className="h-4 w-4" />
           </Button>
         </div>
@@ -524,7 +558,7 @@ export default function AssetRequests() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRequests.map((request, index) => (
+              currentPageData.map((request, index) => (
                 <TableRow key={request.id} className={index % 2 === 1 ? 'bg-muted/50' : ''}>
                   <TableCell className="font-mono text-sm font-semibold">{request.request_id || 'N/A'}</TableCell>
                   <TableCell className="font-medium">{request.category}</TableCell>
@@ -596,7 +630,7 @@ export default function AssetRequests() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleCancel(request.id)}
+                          onClick={() => openCancelDialog(request.id)}
                           className="h-8 border-orange-500 text-orange-600 hover:bg-orange-50"
                           title="Cancel Request"
                         >
@@ -620,6 +654,25 @@ export default function AssetRequests() {
             )}
           </TableBody>
         </Table>
+        <div className="p-4 border-t flex items-center justify-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage <= 1}
+          >
+            {'<'}
+          </Button>
+          <span className="text-sm">{currentPage}/{totalPages}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage >= totalPages}
+          >
+            {'>'}
+          </Button>
+        </div>
       </div>
 
       <CreateRequestModal
