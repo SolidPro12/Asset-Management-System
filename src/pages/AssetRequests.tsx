@@ -301,12 +301,22 @@ export default function AssetRequests() {
       return { canCancel: false, reason: 'Cannot cancel fulfilled requests' };
     }
     
-    // Can only cancel pending requests for HR
-    if (userRole === 'hr' && request.status !== 'pending') {
-      return { canCancel: false, reason: 'HR can only cancel pending requests' };
+    // Cannot cancel if already rejected
+    if (request.status === 'rejected') {
+      return { canCancel: false, reason: 'Cannot cancel rejected requests' };
     }
     
-    return { canCancel: true };
+    // HR can cancel pending and approved requests
+    if (userRole === 'hr' && (request.status === 'pending' || request.status === 'approved')) {
+      return { canCancel: true };
+    }
+    
+    // Admins can cancel any valid status
+    if (userRole === 'admin' || userRole === 'super_admin') {
+      return { canCancel: true };
+    }
+    
+    return { canCancel: false, reason: 'You do not have permission to cancel this request' };
   };
 
   const openCancelDialog = (request: AssetRequest) => {
