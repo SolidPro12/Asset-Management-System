@@ -42,6 +42,7 @@ import * as XLSX from 'xlsx';
 
 interface Asset {
   id: string;
+  asset_id: string;
   asset_name: string;
   asset_tag: string;
   category: string;
@@ -160,6 +161,7 @@ const Assets = () => {
       }
 
       const exportData = filteredAssets.map(asset => ({
+        'Asset ID': asset.asset_id || '',
         'Asset Name': asset.asset_name,
         'Asset Tag': asset.asset_tag,
         'Category': asset.category,
@@ -230,6 +232,7 @@ const Assets = () => {
 
           // Map the imported data to match database schema
           const assetsToImport = jsonData.map((row) => ({
+            asset_id: row['Asset ID'] || row['asset_id'] || `ASSET-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             asset_name: row['Asset Name'] || row['asset_name'] || '',
             asset_tag: row['Asset Tag'] || row['asset_tag'] || `TAG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             category: (row['Category'] || row['category'] || '').toLowerCase().replace(/ /g, '_'),
@@ -307,6 +310,7 @@ const Assets = () => {
 
   const handleDownloadTemplate = () => {
     const templateData = [{
+      'Asset ID': 'ASSET-001',
       'Asset Name': 'Example Laptop',
       'Asset Tag': 'LAP-001',
       'Category': 'laptop',
@@ -544,6 +548,7 @@ const Assets = () => {
                         <table className="w-full text-xs">
                           <thead className="bg-muted/50">
                             <tr>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Asset ID</th>
                               <th className="text-left px-4 py-2 font-medium text-muted-foreground">Model</th>
                               <th className="text-left px-4 py-2 font-medium text-muted-foreground">Service Tag</th>
                               <th className="text-left px-4 py-2 font-medium text-muted-foreground">Status</th>
@@ -569,6 +574,7 @@ const Assets = () => {
                                   index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
                                 }`}
                               >
+                                <td className="px-4 py-3 font-semibold text-primary">{asset.asset_id || '-'}</td>
                                 <td className="px-4 py-3 font-medium">{asset.model || '-'}</td>
                                 <td className="px-4 py-3">{asset.serial_number || asset.asset_tag}</td>
                                 <td className="px-4 py-3">

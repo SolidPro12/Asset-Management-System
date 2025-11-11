@@ -242,6 +242,7 @@ export type Database = {
       }
       assets: {
         Row: {
+          asset_id: string
           asset_name: string
           asset_tag: string
           brand: string | null
@@ -263,6 +264,7 @@ export type Database = {
           warranty_end_date: string | null
         }
         Insert: {
+          asset_id: string
           asset_name: string
           asset_tag: string
           brand?: string | null
@@ -284,6 +286,7 @@ export type Database = {
           warranty_end_date?: string | null
         }
         Update: {
+          asset_id?: string
           asset_name?: string
           asset_tag?: string
           brand?: string | null

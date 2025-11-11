@@ -28,6 +28,7 @@ export const useAddAsset = () => {
       };
 
       const assetData = {
+        asset_id: formData.assetId,
         asset_name: formData.model || category,
         asset_tag: formData.serviceTag || `${category}-${Date.now()}`,
         category: getCategoryEnum(category) as any,

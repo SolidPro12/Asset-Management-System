@@ -37,17 +37,18 @@ const ASSET_CATEGORIES = [
 ];
 
 const getAssetFields = (category: string) => {
-  const baseFields = ['model', 'serviceTag', 'purchaseDate', 'cost', 'note'];
+  // Asset ID is always the first field for all categories
+  const baseFields = ['assetId', 'model', 'serviceTag', 'purchaseDate', 'cost', 'note'];
   
   switch (category) {
     case 'Laptop':
-      return ['model', 'serviceTag', 'ram', 'processor', 'organizationId', 'purchaseDate', 'cost', 'note'];
+      return ['assetId', 'model', 'serviceTag', 'ram', 'processor', 'organizationId', 'purchaseDate', 'cost', 'note'];
     case 'Monitor':
-      return ['model', 'serviceTag', 'screenSize', 'resolution', 'refreshRate', 'connectivity', 'purchaseDate', 'cost', 'note'];
+      return ['assetId', 'model', 'serviceTag', 'screenSize', 'resolution', 'refreshRate', 'connectivity', 'purchaseDate', 'cost', 'note'];
     case 'Headphones':
-      return ['model', 'serviceTag', 'connectivity', 'purchaseDate', 'cost', 'note'];
+      return ['assetId', 'model', 'serviceTag', 'connectivity', 'purchaseDate', 'cost', 'note'];
     case 'TV':
-      return ['model', 'serviceTag', 'screenSize', 'smartTV', 'purchaseDate', 'cost', 'note'];
+      return ['assetId', 'model', 'serviceTag', 'screenSize', 'smartTV', 'purchaseDate', 'cost', 'note'];
     default:
       return baseFields;
   }
@@ -55,6 +56,7 @@ const getAssetFields = (category: string) => {
 
 const getFieldLabel = (field: string) => {
   const labels: Record<string, string> = {
+    assetId: 'Asset ID',
     model: 'Model',
     serviceTag: 'Service Tag',
     ram: 'RAM',
@@ -141,7 +143,7 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess }: AddAssetDialog
       <div key={field} className="space-y-2">
         <Label htmlFor={field}>
           {getFieldLabel(field)}
-          {['model', 'serviceTag'].includes(field) && <span className="text-destructive ml-1">*</span>}
+          {['assetId', 'model', 'serviceTag'].includes(field) && <span className="text-destructive ml-1">*</span>}
         </Label>
         <Input
           id={field}
@@ -149,7 +151,7 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess }: AddAssetDialog
           value={formData[field] || ''}
           onChange={(e) => handleInputChange(field, e.target.value)}
           placeholder={`Enter ${getFieldLabel(field).toLowerCase()}`}
-          required={['model', 'serviceTag'].includes(field)}
+          required={['assetId', 'model', 'serviceTag'].includes(field)}
         />
       </div>
     );
