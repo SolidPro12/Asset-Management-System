@@ -649,15 +649,14 @@ export default function AssetRequests() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {/* Edit button - Show for HR on their own requests, hide for others */}
-                      {(userRole === 'hr' && request.requester_id === user?.id) && (
+                      {/* Edit button - Show for HR on requests created by HR */}
+                      {userRole === 'hr' && request.status === 'pending' && (
                         <Button
                           variant="outline"
                           size="sm"
                           className="h-8"
                           onClick={() => { setEditRequest(request); setIsCreateModalOpen(true); }}
-                          disabled={request.status !== 'pending'}
-                          title={request.status !== 'pending' ? "Can only edit pending requests" : "Edit Request"}
+                          title="Edit Request"
                         >
                           <Edit className="h-3 w-3 mr-1" />
                           Edit
