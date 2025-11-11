@@ -291,6 +291,11 @@ export default function AssetRequests() {
       return { canCancel: false, reason: 'Request is already cancelled' };
     }
     
+    // Cannot cancel if already approved
+    if (request.status === 'approved') {
+      return { canCancel: false, reason: 'Cannot cancel approved requests' };
+    }
+    
     // Cannot cancel if in progress
     if (request.status === 'in_progress') {
       return { canCancel: false, reason: 'Cannot cancel requests in progress' };
@@ -306,8 +311,8 @@ export default function AssetRequests() {
       return { canCancel: false, reason: 'Cannot cancel rejected requests' };
     }
     
-    // HR can cancel pending and approved requests
-    if (userRole === 'hr' && (request.status === 'pending' || request.status === 'approved')) {
+    // HR can only cancel pending requests
+    if (userRole === 'hr' && request.status === 'pending') {
       return { canCancel: true };
     }
     
