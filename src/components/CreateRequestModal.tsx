@@ -114,20 +114,45 @@ export function CreateRequestModal({
 
           // Combine enum categories with any categories found in assets
           // This ensures we show all possible categories (from enum) and any additional ones
-          const combinedCategories = new Set([
+          const combinedCategories = new Set<string>([
             ...allEnumCategories,
-            ...Array.from(uniqueCategoriesFromAssets)
+            ...Array.from(uniqueCategoriesFromAssets),
+            'webcam',
+            'software',
           ]);
 
-          setCategories(Array.from(combinedCategories).sort());
+          const sorted = Array.from(combinedCategories).sort((a, b) => {
+            const ai = a.toLowerCase();
+            const bi = b.toLowerCase();
+            if (ai === 'other' && bi !== 'other') return 1;
+            if (bi === 'other' && ai !== 'other') return -1;
+            return ai.localeCompare(bi);
+          });
+          setCategories(sorted);
         } else {
           // If query fails, use enum values
-          setCategories([...allEnumCategories]);
+          const base = new Set<string>([...allEnumCategories, 'webcam', 'software']);
+          const sorted = Array.from(base).sort((a, b) => {
+            const ai = a.toLowerCase();
+            const bi = b.toLowerCase();
+            if (ai === 'other' && bi !== 'other') return 1;
+            if (bi === 'other' && ai !== 'other') return -1;
+            return ai.localeCompare(bi);
+          });
+          setCategories(sorted);
         }
       } catch (error) {
         console.error('Error fetching categories:', error);
         // Fallback to enum values if database query fails
-        setCategories([...(Constants.public.Enums.asset_category || [])]);
+        const base = new Set<string>([...(Constants.public.Enums.asset_category || []), 'webcam', 'software']);
+        const sorted = Array.from(base).sort((a, b) => {
+          const ai = a.toLowerCase();
+          const bi = b.toLowerCase();
+          if (ai === 'other' && bi !== 'other') return 1;
+          if (bi === 'other' && ai !== 'other') return -1;
+          return ai.localeCompare(bi);
+        });
+        setCategories(sorted);
       }
     };
 

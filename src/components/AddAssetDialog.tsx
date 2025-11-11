@@ -32,6 +32,8 @@ const ASSET_CATEGORIES = [
   'Jabra Devices',
   'Pendrives',
   'TV',
+  'Webcam',
+  'Software',
 ];
 
 const getAssetFields = (category: string) => {
@@ -170,7 +172,15 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess }: AddAssetDialog
                 <SelectValue placeholder="Select asset category" />
               </SelectTrigger>
               <SelectContent>
-                {ASSET_CATEGORIES.map((cat) => (
+                {[...ASSET_CATEGORIES]
+                  .sort((a, b) => {
+                    const ai = a.toLowerCase();
+                    const bi = b.toLowerCase();
+                    if (ai === 'other' && bi !== 'other') return 1;
+                    if (bi === 'other' && ai !== 'other') return -1;
+                    return ai.localeCompare(bi);
+                  })
+                  .map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat}
                   </SelectItem>
