@@ -405,14 +405,14 @@ export function CreateRequestModal({
                 id="request_id"
                 value={requestId}
                 readOnly
-                className="bg-muted font-mono"
+                className="bg-muted font-mono border border-muted-foreground/30 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-muted-foreground/50"
               />
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="category">Asset Category *</Label>
+              <Label htmlFor="category">Asset Category <span className="text-red-500">*</span></Label>
               <Select
                 value={formData.category}
                 onValueChange={(value) => {
@@ -438,7 +438,7 @@ export function CreateRequestModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="employment_type">Employment Type *</Label>
+              <Label htmlFor="employment_type">Employment Type <span className="text-red-500">*</span></Label>
               <Select
                 value={formData.employment_type}
                 onValueChange={(value) => {
@@ -463,7 +463,7 @@ export function CreateRequestModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="quantity">Count *</Label>
+            <Label htmlFor="quantity">Count <span className="text-red-500">*</span></Label>
             <Input
               id="quantity"
               type="number"
@@ -483,7 +483,7 @@ export function CreateRequestModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="specification">Specification *</Label>
+            <Label htmlFor="specification">Specification <span className="text-red-500">*</span></Label>
             <Textarea
               id="specification"
               value={formData.specification}
@@ -504,7 +504,7 @@ export function CreateRequestModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="location">Location *</Label>
+              <Label htmlFor="location">Location <span className="text-red-500">*</span></Label>
               <Select
                 value={formData.location}
                 onValueChange={(value) => {
@@ -530,7 +530,7 @@ export function CreateRequestModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="department">Department *</Label>
+              <Label htmlFor="department">Department <span className="text-red-500">*</span></Label>
               <Select
                 value={formData.department}
                 onValueChange={(value) => {
@@ -557,7 +557,7 @@ export function CreateRequestModal({
           </div>
 
           <div className="space-y-2">
-            <Label>Expected Delivery Date *</Label>
+            <Label>Expected Delivery Date <span className="text-red-500">*</span></Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -595,7 +595,7 @@ export function CreateRequestModal({
           </div>
 
           <div className="space-y-2">
-            <Label>Priority *</Label>
+            <Label>Priority <span className="text-red-500">*</span></Label>
             <div className="flex gap-3">
               <Button
                 type="button"

@@ -140,7 +140,7 @@ export function AppSidebar() {
           </div>
           {state === 'expanded' && (
             <div className="flex flex-col">
-              <h2 className="text-sm font-semibold text-sidebar-foreground">Solidpro</h2>
+              <h2 className="text-sm font-semibold text-sidebar-foreground">SOLIDPRO</h2>
               <p className="text-xs text-sidebar-foreground/60">Asset Management</p>
             </div>
           )}

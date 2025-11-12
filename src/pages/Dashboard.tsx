@@ -8,12 +8,7 @@ import { Package, CheckCircle, AlertCircle, Wrench, FileText, Clock, TrendingUp,
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from '@/components/ui/breadcrumb';
+ 
 import {
   Table,
   TableBody,
@@ -728,13 +723,7 @@ const Dashboard = () => {
   if (userRole === 'super_admin') {
     return (
       <div className="space-y-6 animate-in fade-in duration-500 bg-[#f8f6ff] min-h-screen -m-6 p-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage>Dashboard</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+
 
         {/* Header */}
         <div>
@@ -1018,13 +1007,7 @@ const Dashboard = () => {
   if (userRole === 'admin') {
     return (
       <div className="space-y-6 animate-in fade-in duration-500 bg-[#f8f6ff] min-h-screen -m-6 p-6">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage>Dashboard</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+
 
         {/* Header */}
         <div>
@@ -1309,13 +1292,7 @@ const Dashboard = () => {
   if (userRole === 'financer') {
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage>Dashboard</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+
 
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Finance & Management Dashboard</h2>
@@ -1442,13 +1419,7 @@ const Dashboard = () => {
   if (userRole === 'hr') {
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbPage>Dashboard</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+
 
         <div>
           <h2 className="text-3xl font-bold tracking-tight">HR Dashboard</h2>
@@ -1615,13 +1586,7 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbPage>Dashboard</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+
 
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
