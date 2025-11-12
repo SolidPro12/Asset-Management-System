@@ -358,6 +358,13 @@ const Assets = () => {
   };
 
   const assetCategories = Array.from(new Set(assets.map(a => a.category)));
+  const sortedAssetCategories = [...assetCategories].sort((a, b) => {
+    const al = (a || '').toLowerCase();
+    const bl = (b || '').toLowerCase();
+    if (al === 'other' && bl !== 'other') return 1;
+    if (bl === 'other' && al !== 'other') return -1;
+    return al.localeCompare(bl);
+  });
 
   // Calculate category counts for Super Admin dashboard
   const categoryCounts = assets.reduce((acc, asset) => {
@@ -465,7 +472,7 @@ const Assets = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              {assetCategories.map((cat) => (
+              {sortedAssetCategories.map((cat) => (
                 <SelectItem key={cat} value={cat}>
                   {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                 </SelectItem>
@@ -495,7 +502,15 @@ const Assets = () => {
       {userRole === 'super_admin' && Object.keys(categoryCounts).length > 0 && (
         <div className="w-full overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <div className="flex gap-4 min-w-max">
-            {Object.entries(categoryCounts).map(([categoryName, data]) => {
+            {Object.entries(categoryCounts)
+              .sort(([a], [b]) => {
+                const al = a.toLowerCase();
+                const bl = b.toLowerCase();
+                if (al === 'other' && bl !== 'other') return 1;
+                if (bl === 'other' && al !== 'other') return -1;
+                return al.localeCompare(bl);
+              })
+              .map(([categoryName, data]) => {
               return (
                 <Card 
                   key={categoryName} 
@@ -540,7 +555,15 @@ const Assets = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
-            {Object.entries(groupedAssets).map(([categoryName, categoryAssets]) => {
+            {Object.entries(groupedAssets)
+              .sort(([a], [b]) => {
+                const al = a.toLowerCase();
+                const bl = b.toLowerCase();
+                if (al === 'other' && bl !== 'other') return 1;
+                if (bl === 'other' && al !== 'other') return -1;
+                return al.localeCompare(bl);
+              })
+              .map(([categoryName, categoryAssets]) => {
               const isExpanded = expandedCategories.has(categoryName);
               return (
                 <Collapsible
@@ -583,6 +606,7 @@ const Assets = () => {
                               <th className="text-left px-4 py-2 font-medium text-muted-foreground">Purchase Date</th>
                               <th className="text-left px-4 py-2 font-medium text-muted-foreground">RAM</th>
                               <th className="text-left px-4 py-2 font-medium text-muted-foreground">Processor</th>
+                              <th className="text-left px-4 py-2 font-medium text-muted-foreground">Graphics Card</th>
                               <th className="text-left px-4 py-2 font-medium text-muted-foreground">Organization ID</th>
                               <th className="text-left px-4 py-2 font-medium text-muted-foreground">Notes</th>
                               <th className="text-left px-4 py-2 font-medium text-muted-foreground">Cost</th>
@@ -621,6 +645,7 @@ const Assets = () => {
                                 </td>
                                 <td className="px-4 py-3">{asset.specifications?.ram || '-'}</td>
                                 <td className="px-4 py-3">{asset.specifications?.processor || '-'}</td>
+                                <td className="px-4 py-3">{asset.specifications?.graphicsCard || asset.specifications?.gpu || '-'}</td>
                                 <td className="px-4 py-3">{asset.specifications?.organizationId || '-'}</td>
                                 <td className="px-4 py-3 max-w-[150px] truncate" title={asset.notes || ''}>
                                   {asset.notes || '-'}

@@ -392,7 +392,7 @@ export function CreateRequestModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{editRequest ? 'Edit Request' : 'Create New Request'}</DialogTitle>
         </DialogHeader>
@@ -462,24 +462,64 @@ export function CreateRequestModal({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="quantity">Count <span className="text-red-500">*</span></Label>
-            <Input
-              id="quantity"
-              type="number"
-              min="1"
-              max="100"
-              value={formData.quantity}
-              onChange={(e) => {
-                setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 });
-                setErrors({ ...errors, quantity: '' });
-              }}
-              className={errors.quantity ? 'border-red-500' : ''}
-              required
-            />
-            {errors.quantity && (
-              <p className="text-sm text-destructive">{errors.quantity}</p>
-            )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Count <span className="text-red-500">*</span></Label>
+              <Input
+                id="quantity"
+                type="number"
+                min="1"
+                max="100"
+                value={formData.quantity}
+                onChange={(e) => {
+                  setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 });
+                  setErrors({ ...errors, quantity: '' });
+                }}
+                className={errors.quantity ? 'border-red-500' : ''}
+                required
+              />
+              {errors.quantity && (
+                <p className="text-sm text-destructive">{errors.quantity}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Expected Delivery Date <span className="text-red-500">*</span></Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'w-full justify-start text-left font-normal',
+                      !formData.expected_delivery_date && 'text-muted-foreground',
+                      errors.expected_delivery_date && 'border-red-500'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.expected_delivery_date ? (
+                      format(formData.expected_delivery_date, 'PPP')
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={formData.expected_delivery_date}
+                    onSelect={(date) => {
+                      setFormData({ ...formData, expected_delivery_date: date });
+                      setErrors({ ...errors, expected_delivery_date: '' });
+                    }}
+                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              {errors.expected_delivery_date && (
+                <p className="text-sm text-destructive">{errors.expected_delivery_date}</p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -554,44 +594,6 @@ export function CreateRequestModal({
                 <p className="text-sm text-destructive">{errors.department}</p>
               )}
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Expected Delivery Date <span className="text-red-500">*</span></Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    'w-full justify-start text-left font-normal',
-                    !formData.expected_delivery_date && 'text-muted-foreground',
-                    errors.expected_delivery_date && 'border-red-500'
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.expected_delivery_date ? (
-                    format(formData.expected_delivery_date, 'PPP')
-                  ) : (
-                    <span>Pick a date</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={formData.expected_delivery_date}
-                  onSelect={(date) => {
-                    setFormData({ ...formData, expected_delivery_date: date });
-                    setErrors({ ...errors, expected_delivery_date: '' });
-                  }}
-                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            {errors.expected_delivery_date && (
-              <p className="text-sm text-destructive">{errors.expected_delivery_date}</p>
-            )}
           </div>
 
           <div className="space-y-2">

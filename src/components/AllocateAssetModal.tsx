@@ -334,7 +334,7 @@ export function AllocateAssetModal({
                   <SelectContent>
                     {employees.map((employee) => (
                       <SelectItem key={employee.id} value={employee.id}>
-                        {employee.full_name} - {employee.department}
+                        {employee.full_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
