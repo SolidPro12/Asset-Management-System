@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -53,6 +54,7 @@ interface Asset {
 }
 
 const Assets = () => {
+  const { user } = useAuth();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,11 +62,29 @@ const Assets = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [userRole, setUserRole] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchAssets();
-  }, []);
+    if (user) {
+      checkUserRole();
+    }
+  }, [user]);
+
+  const checkUserRole = async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      setUserRole(data?.role || null);
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+    }
+  };
 
   const fetchAssets = async () => {
     try {
@@ -339,6 +359,17 @@ const Assets = () => {
 
   const assetCategories = Array.from(new Set(assets.map(a => a.category)));
 
+  // Calculate category counts for Super Admin dashboard
+  const categoryCounts = assets.reduce((acc, asset) => {
+    const categoryName = asset.specifications?.originalCategory || asset.category;
+    const displayName = categoryName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    if (!acc[displayName]) {
+      acc[displayName] = { count: 0, originalCategory: categoryName };
+    }
+    acc[displayName].count++;
+    return acc;
+  }, {} as Record<string, { count: number; originalCategory: string }>);
+
   const groupedAssets = filteredAssets.reduce((acc, asset) => {
     const categoryName = asset.specifications?.originalCategory || asset.category;
     if (!acc[categoryName]) {
@@ -417,18 +448,10 @@ const Assets = () => {
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-medium">Advanced Filters</CardTitle>
-            <Button variant="ghost" size="sm" onClick={handleReset}>
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <Card className="p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by asset ID, model, tag..."
               value={searchQuery}
@@ -436,43 +459,65 @@ const Assets = () => {
               className="pl-9"
             />
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Category</label>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {assetCategories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Status</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="assigned">Assigned</SelectItem>
-                  <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
-                  <SelectItem value="retired">Retired</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {assetCategories.map((cat) => (
+                <SelectItem key={cat} value={cat}>
+                  {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex gap-2">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="assigned">Assigned</SelectItem>
+                <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
+                <SelectItem value="retired">Retired</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" size="icon" onClick={handleReset} title="Reset filters">
+              <RotateCcw className="h-4 w-4" />
+            </Button>
           </div>
-        </CardContent>
+        </div>
       </Card>
+
+      {userRole === 'super_admin' && Object.keys(categoryCounts).length > 0 && (
+        <div className="w-full overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+          <div className="flex gap-4 min-w-max">
+            {Object.entries(categoryCounts).map(([categoryName, data]) => {
+              return (
+                <Card 
+                  key={categoryName} 
+                  className="w-[180px] flex-shrink-0"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex flex-col items-center justify-center gap-3 text-center">
+                      <div className="p-3 bg-primary/10 rounded-lg w-fit">
+                        {getCategoryIcon(data.originalCategory)}
+                      </div>
+                      <div className="w-full">
+                        <p className="text-sm font-medium text-muted-foreground truncate">{categoryName}</p>
+                        <p className="text-3xl font-bold mt-1">{data.count}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {filteredAssets.length === 0 ? (
         <Card>

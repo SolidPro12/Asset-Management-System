@@ -289,17 +289,19 @@ export function Layout({ children }: LayoutProps) {
                         <User className="h-4 w-4 mr-2" />
                         Profile
                       </Button>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start text-sm h-9"
-                        onClick={() => {
-                          setIsPopoverOpen(false);
-                          navigate('/settings');
-                        }}
-                      >
-                        <Settings className="h-4 w-4 mr-2" />
-                        Settings
-                      </Button>
+                      {(userRole === 'super_admin' || userRole === 'admin') && (
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start text-sm h-9"
+                          onClick={() => {
+                            setIsPopoverOpen(false);
+                            navigate('/settings');
+                          }}
+                        >
+                          <Settings className="h-4 w-4 mr-2" />
+                          Settings
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         className="w-full justify-start text-sm h-9 text-destructive hover:text-destructive hover:bg-destructive/10"

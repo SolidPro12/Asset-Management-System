@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -14,6 +15,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Calendar,
   MapPin,
@@ -23,9 +32,17 @@ import {
   AlertCircle,
   ArrowLeft,
   FileDown,
+  Search,
+  Eye,
+  CalendarIcon,
 } from "lucide-react";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
+import { AssetHistoryFilters } from "@/components/AssetHistoryFilters";
+import { AssetHistoryTable } from "@/components/AssetHistoryTable";
+import { ViewAssetHistoryModal } from "@/components/ViewAssetHistoryModal";
+import { useAssetHistory } from "@/hooks/useAssetHistory";
+import type { AssetHistoryRecord, HistoryFilters } from "@/pages/AssetMovementHistory";
 
 interface ActivityLog {
   id: string;
@@ -73,28 +90,89 @@ interface TicketRecord {
   priority: string;
   created_at: string;
   completed_at: string | null;
+  asset_id: string;
 }
 
 const AssetHistory = () => {
   const { toast } = useToast();
   const { assetId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [asset, setAsset] = useState<Asset | null>(null);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [serviceRecords, setServiceRecords] = useState<ServiceRecord[]>([]);
   const [tickets, setTickets] = useState<TicketRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedRecord, setSelectedRecord] = useState<AssetHistoryRecord | null>(null);
+  const [filters, setFilters] = useState<HistoryFilters>({
+    search: '',
+    category: 'all',
+    action: 'all',
+    dateFrom: undefined,
+    dateTo: undefined,
+  });
+
+  const { records, loading: historyLoading, refetch } = useAssetHistory(filters);
+
+  // Check user role
+  useEffect(() => {
+    if (user) {
+      checkUserRole();
+    }
+  }, [user]);
+
+  const checkUserRole = async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      setUserRole(data?.role || null);
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+    }
+  };
 
   useEffect(() => {
     if (assetId) {
       fetchAssetData();
       logAssetView();
+    } else if (userRole === 'super_admin') {
+      // For super admin without assetId, show movement history
+      setLoading(false);
     }
-  }, [assetId]);
+  }, [assetId, userRole]);
+
+  // Fetch tickets for all assets in movement history
+  useEffect(() => {
+    if (!assetId && userRole === 'super_admin' && records.length > 0) {
+      fetchTicketsForAssets();
+    }
+  }, [records, assetId, userRole]);
+
+  const fetchTicketsForAssets = async () => {
+    try {
+      const assetIds = records.map(r => r.asset_id).filter(Boolean);
+      if (assetIds.length === 0) return;
+
+      const { data: ticketsData, error: ticketsError } = await supabase
+        .from("tickets")
+        .select("*")
+        .in("asset_id", assetIds)
+        .order("created_at", { ascending: false });
+
+      if (ticketsError) throw ticketsError;
+      setTickets(ticketsData || []);
+    } catch (error) {
+      console.error("Error fetching tickets:", error);
+    }
+  };
 
   const logAssetView = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (user && assetId) {
         await supabase.from("user_activity_log").insert({
           user_id: user.id,
@@ -256,6 +334,172 @@ const AssetHistory = () => {
     }
   };
 
+  const getTicketsForAsset = (assetId: string) => {
+    return tickets.filter(t => t.asset_id === assetId);
+  };
+
+  const handleViewRecord = (record: AssetHistoryRecord) => {
+    setSelectedRecord(record);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedRecord(null);
+  };
+
+  // Super Admin Movement History View (no assetId)
+  if (!assetId && userRole === 'super_admin') {
+    return (
+      <div className="container mx-auto p-6">
+        <Breadcrumb className="mb-6">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Asset History</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold">Asset History</h1>
+          <p className="text-muted-foreground mt-2">
+            Track all asset movements including assignments, returns, maintenance, and repairs with related tickets
+          </p>
+        </div>
+
+        <AssetHistoryFilters
+          filters={filters}
+          onFiltersChange={setFilters}
+          totalRecords={records.length}
+        />
+
+        {/* Enhanced Asset History Table with Tickets */}
+        <Card className="shadow-sm mt-6">
+          <CardHeader>
+            <CardTitle>Asset Movement History</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Showing {records.length} record{records.length !== 1 ? 's' : ''}
+            </p>
+          </CardHeader>
+          <CardContent>
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <p className="text-muted-foreground">Fetching asset history...</p>
+              </div>
+            ) : records.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <p className="text-muted-foreground text-lg">No asset records found</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Try adjusting your filters or check back later
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-md border overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="text-left p-4 font-semibold">Asset</th>
+                      <th className="text-left p-4 font-semibold">Action</th>
+                      <th className="text-left p-4 font-semibold">Details</th>
+                      <th className="text-left p-4 font-semibold">Date</th>
+                      <th className="text-left p-4 font-semibold">Performed By</th>
+                      <th className="text-left p-4 font-semibold">Condition</th>
+                      <th className="text-left p-4 font-semibold">Tickets</th>
+                      <th className="text-right p-4 font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {records.map((record, index) => {
+                      const assetTickets = getTicketsForAsset(record.asset_id);
+                      return (
+                        <tr
+                          key={record.id}
+                          className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                        >
+                          <td className="p-4">
+                            <div className="space-y-1">
+                              <p className="font-medium text-sm">{record.asset_name || 'N/A'}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {record.asset_code || 'N/A'}
+                              </p>
+                              <Badge variant="outline" className="text-xs">
+                                {record.category || 'N/A'}
+                              </Badge>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <Badge className="bg-blue-100 text-blue-700">
+                              {record.action ? record.action.charAt(0).toUpperCase() + record.action.slice(1) : 'N/A'}
+                            </Badge>
+                          </td>
+                          <td className="p-4 max-w-xs">
+                            <p className="text-sm line-clamp-2">{record.details || 'No details'}</p>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-2 text-sm">
+                              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                              {record.action_date ? format(new Date(record.action_date), "yyyy-MM-dd") : 'N/A'}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <p className="text-sm">{record.performed_by_email || 'System'}</p>
+                          </td>
+                          <td className="p-4">
+                            <Badge className="bg-green-100 text-green-700">
+                              {record.condition ? record.condition.charAt(0).toUpperCase() + record.condition.slice(1) : 'N/A'}
+                            </Badge>
+                          </td>
+                          <td className="p-4">
+                            {assetTickets.length > 0 ? (
+                              <div className="space-y-1">
+                                {assetTickets.slice(0, 2).map((ticket) => (
+                                  <Badge key={ticket.id} variant="outline" className="text-xs block">
+                                    {ticket.ticket_id} - {ticket.status}
+                                  </Badge>
+                                ))}
+                                {assetTickets.length > 2 && (
+                                  <p className="text-xs text-muted-foreground">
+                                    +{assetTickets.length - 2} more
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">No tickets</span>
+                            )}
+                          </td>
+                          <td className="p-4 text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewRecord(record)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {selectedRecord && (
+          <ViewAssetHistoryModal
+            record={selectedRecord}
+            open={!!selectedRecord}
+            onClose={handleCloseModal}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // Individual Asset History View (with assetId)
   if (!assetId) {
     return (
       <div className="flex items-center justify-center h-screen">

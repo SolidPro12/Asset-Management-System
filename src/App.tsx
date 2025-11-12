@@ -84,18 +84,10 @@ const App = () => (
               }
             />
             <Route
-              path="/history"
+              path="/history/:assetId?"
               element={
                 <ProtectedRoute>
                   <AssetHistory />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/asset-movement-history"
-              element={
-                <ProtectedRoute>
-                  <AssetMovementHistory />
                 </ProtectedRoute>
               }
             />
