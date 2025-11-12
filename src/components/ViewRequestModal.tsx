@@ -256,6 +256,10 @@ export function ViewRequestModal({
               <p className="font-medium">{request.department || request.profiles?.department || 'N/A'}</p>
             </div>
             <div className="space-y-1">
+              <Label className="text-sm text-muted-foreground">Location</Label>
+              <p className="font-medium">{request.location || 'N/A'}</p>
+            </div>
+            <div className="space-y-1">
               <Label className="text-sm text-muted-foreground">Requested By</Label>
               <p className="font-medium">{request.profiles?.full_name || 'Unknown'}</p>
             </div>

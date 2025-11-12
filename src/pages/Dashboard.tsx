@@ -113,6 +113,14 @@ const Dashboard = () => {
   const [adminCategoryStats, setAdminCategoryStats] = useState<AdminCategoryStat[]>([]);
   const [adminRecentRequests, setAdminRecentRequests] = useState<RecentRequest[]>([]);
   const [adminRecentAllocations, setAdminRecentAllocations] = useState<RecentAllocation[]>([]);
+  // Super Admin lists pagination
+  const [suRecentReqPage, setSuRecentReqPage] = useState(1);
+  const [suAllocPage, setSuAllocPage] = useState(1);
+  const suPageSize = 5;
+  // HR tables pagination
+  const [hrApprovedPage, setHrApprovedPage] = useState(1);
+  const [hrMyReqPage, setHrMyReqPage] = useState(1);
+  const hrPageSize = 5;
 
   useEffect(() => {
     if (user) {
@@ -331,12 +339,14 @@ const Dashboard = () => {
 
       if (error) throw error;
 
+      const total = data?.length || 0;
       const assigned = data?.filter((a) => a.status === 'assigned').length || 0;
       const available = data?.filter((a) => a.status === 'available').length || 0;
       const maintenance = data?.filter((a) => a.status === 'under_maintenance').length || 0;
 
       setStats((prev) => ({
         ...prev,
+        totalAssets: total,
         assignedAssets: assigned,
         availableAssets: available,
         maintenanceAssets: maintenance,
@@ -345,6 +355,7 @@ const Dashboard = () => {
       console.error('Error fetching asset stats:', error);
       setStats((prev) => ({
         ...prev,
+        totalAssets: 0,
         assignedAssets: 189,
         availableAssets: 156,
         maintenanceAssets: 12,
@@ -409,7 +420,15 @@ const Dashboard = () => {
         totalValue: data.totalValue,
       }));
 
-      setCategoryStats(statsArray.sort((a, b) => b.totalValue - a.totalValue));
+      setCategoryStats(
+        statsArray.sort((a, b) => {
+          const al = a.category.toLowerCase();
+          const bl = b.category.toLowerCase();
+          if (al === 'other' && bl !== 'other') return 1;
+          if (bl === 'other' && al !== 'other') return -1;
+          return a.category.localeCompare(b.category);
+        })
+      );
     } catch (error) {
       console.error('Error fetching category stats:', error);
       setCategoryStats([
@@ -722,19 +741,19 @@ const Dashboard = () => {
   // Super Admin Dashboard
   if (userRole === 'super_admin') {
     return (
-      <div className="space-y-6 animate-in fade-in duration-500 bg-[#f8f6ff] min-h-screen -m-6 p-6">
+      <div className="space-y-4 animate-in fade-in duration-500 bg-[#f8f6ff] min-h-screen -m-6 p-4">
 
 
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Super Admin Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">Comprehensive overview of assets, employees, and requests</p>
         </div>
 
         {/* Top Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
           <Card className="rounded-2xl shadow-md border-0 bg-white">
-            <CardContent className="p-6">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">Overall Employees</p>
@@ -746,6 +765,24 @@ const Dashboard = () => {
                 </div>
                 <div className="p-3 bg-blue-100 rounded-xl">
                   <Users className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl shadow-md border-0 bg-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Total Assets</p>
+                  {loading ? (
+                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <p className="text-3xl font-bold text-sky-600">{stats.totalAssets}</p>
+                  )}
+                </div>
+                <div className="p-3 bg-sky-100 rounded-xl">
+                  <Package className="h-6 w-6 text-sky-600" />
                 </div>
               </div>
             </CardContent>
@@ -845,13 +882,13 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Assets by Category Chart */}
           <Card className="rounded-xl shadow-sm border bg-white">
             <CardHeader>
               <CardTitle>Assets by Category</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
               {loading ? (
                 <div className="h-64 flex items-center justify-center">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -862,7 +899,7 @@ const Dashboard = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height={240}>
                     <BarChart
                       data={categoryStats}
                       layout="vertical"
@@ -910,7 +947,7 @@ const Dashboard = () => {
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
               {loading ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map((i) => (
@@ -921,34 +958,59 @@ const Dashboard = () => {
                 <div className="text-center py-8 text-muted-foreground">No recent requests</div>
               ) : (
                 <div className="space-y-3">
-                  {recentRequests.slice(0, 5).map((request) => (
-                    <Card key={request.id} className="rounded-lg shadow-sm border p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-semibold capitalize">{request.category}</span>
-                            {getStatusBadge(request.status)}
+                  <div className="max-h-[360px] overflow-y-auto pr-1 space-y-3">
+                    {recentRequests
+                      .slice((suRecentReqPage - 1) * suPageSize, suRecentReqPage * suPageSize)
+                      .map((request) => (
+                      <Card key={request.id} className="rounded-lg shadow-sm border p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-semibold capitalize">{request.category}</span>
+                              {getStatusBadge(request.status)}
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-1">
+                              {request.profiles?.full_name || 'Unknown'} • {request.profiles?.department || 'N/A'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(request.created_at), 'dd MMM yyyy')}
+                            </p>
                           </div>
-                          <p className="text-sm text-muted-foreground mb-1">
-                            {request.profiles?.full_name || 'Unknown'} • {request.profiles?.department || 'N/A'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(request.created_at), 'dd MMM yyyy')}
-                          </p>
+                          {request.status === 'pending' && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleApproveRequest(request.id)}
+                              className="ml-2"
+                            >
+                              Approve
+                            </Button>
+                          )}
                         </div>
-                        {request.status === 'pending' && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleApproveRequest(request.id)}
-                            className="ml-2"
-                          >
-                            Approve
-                          </Button>
-                        )}
-                      </div>
-                    </Card>
-                  ))}
+                      </Card>
+                    ))}
+                  </div>
+                  <div className="pt-2 flex items-center justify-center gap-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSuRecentReqPage((p) => Math.max(1, p - 1))}
+                      disabled={suRecentReqPage <= 1}
+                    >
+                      {'<'}
+                    </Button>
+                    <span className="text-sm">
+                      {suRecentReqPage}/{Math.max(1, Math.ceil(recentRequests.length / suPageSize))}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSuRecentReqPage((p) => Math.min(Math.max(1, Math.ceil(recentRequests.length / suPageSize)), p + 1))}
+                      disabled={suRecentReqPage >= Math.max(1, Math.ceil(recentRequests.length / suPageSize))}
+                    >
+                      {'>'}
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -960,7 +1022,7 @@ const Dashboard = () => {
           <CardHeader>
             <CardTitle>Recently Allocated Assets</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4">
             {loading ? (
               <div className="space-y-3">
                 {[1, 2, 3, 4, 5].map((i) => (
@@ -975,7 +1037,7 @@ const Dashboard = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Asset Name</TableHead>
-                      <TableHead>Category</TableHead>
+                      <TableHead>Asset Category</TableHead>
                       <TableHead>Department</TableHead>
                       <TableHead>Assigned Date</TableHead>
                       <TableHead>Employee</TableHead>
@@ -983,7 +1045,9 @@ const Dashboard = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {recentAllocations.map((allocation) => (
+                    {recentAllocations
+                      .slice((suAllocPage - 1) * suPageSize, suAllocPage * suPageSize)
+                      .map((allocation) => (
                       <TableRow key={allocation.id} className="hover:bg-muted/50">
                         <TableCell className="font-medium">{allocation.asset_name}</TableCell>
                         <TableCell className="capitalize">{allocation.category.replace(/_/g, ' ')}</TableCell>
@@ -995,6 +1059,27 @@ const Dashboard = () => {
                     ))}
                   </TableBody>
                 </Table>
+                <div className="p-3 flex items-center justify-center gap-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSuAllocPage((p) => Math.max(1, p - 1))}
+                    disabled={suAllocPage <= 1}
+                  >
+                    {'<'}
+                  </Button>
+                  <span className="text-sm">
+                    {suAllocPage}/{Math.max(1, Math.ceil(recentAllocations.length / suPageSize))}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSuAllocPage((p) => Math.min(Math.max(1, Math.ceil(recentAllocations.length / suPageSize)), p + 1))}
+                    disabled={suAllocPage >= Math.max(1, Math.ceil(recentAllocations.length / suPageSize))}
+                  >
+                    {'>'}
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
@@ -1513,7 +1598,9 @@ const Dashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {approvedRequestsList.map((request) => (
+                    {approvedRequestsList
+                      .slice((hrApprovedPage - 1) * hrPageSize, hrApprovedPage * hrPageSize)
+                      .map((request) => (
                       <tr key={request.request_id || request.id} className="border-b hover:bg-muted/50">
                         <td className="py-3 px-4 font-mono text-sm font-semibold">{request.request_id || 'N/A'}</td>
                         <td className="py-3 px-4 capitalize">{request.category}</td>
@@ -1524,6 +1611,28 @@ const Dashboard = () => {
                     ))}
                   </tbody>
                 </table>
+                {/* Pagination controls for Approved Assets */}
+                <div className="p-3 flex items-center justify-center gap-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setHrApprovedPage((p) => Math.max(1, p - 1))}
+                    disabled={hrApprovedPage <= 1}
+                  >
+                    {'<'}
+                  </Button>
+                  <span className="text-sm">
+                    {hrApprovedPage}/{Math.max(1, Math.ceil(approvedRequestsList.length / hrPageSize))}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setHrApprovedPage((p) => Math.min(Math.max(1, Math.ceil(approvedRequestsList.length / hrPageSize)), p + 1))}
+                    disabled={hrApprovedPage >= Math.max(1, Math.ceil(approvedRequestsList.length / hrPageSize))}
+                  >
+                    {'>'}
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
@@ -1551,7 +1660,9 @@ const Dashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {myRequests.map((request) => (
+                    {myRequests
+                      .slice((hrMyReqPage - 1) * hrPageSize, hrMyReqPage * hrPageSize)
+                      .map((request) => (
                       <tr key={request.request_id || request.id} className="border-b hover:bg-muted/50">
                         <td className="py-3 px-4 font-mono text-sm font-semibold">{request.request_id || 'N/A'}</td>
                         <td className="py-3 px-4 capitalize">{request.category}</td>
@@ -1576,6 +1687,28 @@ const Dashboard = () => {
                     ))}
                   </tbody>
                 </table>
+                {/* Pagination controls for Asset Requests Status */}
+                <div className="p-3 flex items-center justify-center gap-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setHrMyReqPage((p) => Math.max(1, p - 1))}
+                    disabled={hrMyReqPage <= 1}
+                  >
+                    {'<'}
+                  </Button>
+                  <span className="text-sm">
+                    {hrMyReqPage}/{Math.max(1, Math.ceil(myRequests.length / hrPageSize))}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setHrMyReqPage((p) => Math.min(Math.max(1, Math.ceil(myRequests.length / hrPageSize)), p + 1))}
+                    disabled={hrMyReqPage >= Math.max(1, Math.ceil(myRequests.length / hrPageSize))}
+                  >
+                    {'>'}
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

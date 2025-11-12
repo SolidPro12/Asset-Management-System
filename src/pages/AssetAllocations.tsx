@@ -26,12 +26,11 @@ import {
   Search,
   Laptop,
   RotateCcw,
-  AlertTriangle,
-  Building2,
   Eye,
   Edit,
   Trash2,
   User,
+  Building2,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { AllocateAssetModal } from '@/components/AllocateAssetModal';
@@ -46,7 +45,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
- 
 
 interface Allocation {
   id: string;
@@ -74,6 +72,7 @@ export default function AssetAllocations() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [allocationToDelete, setAllocationToDelete] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     fetchAllocations();
@@ -104,6 +103,12 @@ export default function AssetAllocations() {
     }
   };
 
+  // Pagination (5 per page)
+  const pageSize = 5;
+  const totalPages = Math.max(1, Math.ceil(filteredAllocations.length / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const currentPageData = filteredAllocations.slice(startIndex, startIndex + pageSize);
+
   const filterAllocations = () => {
     let filtered = [...allocations];
 
@@ -128,6 +133,7 @@ export default function AssetAllocations() {
     }
 
     setFilteredAllocations(filtered);
+    setCurrentPage(1);
   };
 
   const handleReturn = async (id: string) => {
@@ -200,8 +206,6 @@ export default function AssetAllocations() {
 
   const activeCount = allocations.filter((a) => a.status === 'active').length;
   const returnedCount = allocations.filter((a) => a.status === 'returned').length;
-  const fairConditionCount = allocations.filter((a) => a.condition === 'fair').length;
-  const departments = [...new Set(allocations.map((a) => a.department).filter(Boolean))];
 
   const exportToCSV = () => {
     const headers = ['Asset', 'Category', 'Employee', 'Department', 'Allocated Date', 'Status', 'Condition'];
@@ -300,7 +304,7 @@ export default function AssetAllocations() {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-100 rounded-lg">
@@ -320,28 +324,6 @@ export default function AssetAllocations() {
             <div>
               <p className="text-sm text-muted-foreground">Returned Assets</p>
               <p className="text-2xl font-bold">{returnedCount}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <AlertTriangle className="h-5 w-5 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Fair Condition</p>
-              <p className="text-2xl font-bold">{fairConditionCount}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-100 rounded-lg">
-              <Building2 className="h-5 w-5 text-indigo-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Departments</p>
-              <p className="text-2xl font-bold">{departments.length}</p>
             </div>
           </div>
         </Card>
@@ -384,14 +366,14 @@ export default function AssetAllocations() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredAllocations.map((allocation) => (
+                currentPageData.map((allocation) => (
                   <TableRow key={allocation.id}>
                     <TableCell className="font-medium">{allocation.asset_name}</TableCell>
                     <TableCell className="capitalize">{allocation.category}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
-                        {allocation.employee_name}
+                        {(allocation.employee_name || '').split('•')[0].split('-')[0].trim()}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -453,6 +435,25 @@ export default function AssetAllocations() {
               )}
             </TableBody>
           </Table>
+        </div>
+        <div className="p-4 border-t flex items-center justify-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage <= 1}
+          >
+            {'<'}
+          </Button>
+          <span className="text-sm">{currentPage}/{totalPages}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage >= totalPages}
+          >
+            {'>'}
+          </Button>
         </div>
       </Card>
 

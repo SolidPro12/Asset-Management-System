@@ -620,7 +620,7 @@ const MyTickets = () => {
           setIsDialogOpen(open);
         }}
       >
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Create New Ticket</DialogTitle>
           </DialogHeader>
@@ -639,30 +639,32 @@ const MyTickets = () => {
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label>Asset ID *</Label>
-              <Select value={formData.asset_id} onValueChange={handleAssetChange} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an asset" />
-                </SelectTrigger>
-                <SelectContent>
-                  {assets.map((asset) => (
-                    <SelectItem key={asset.id} value={asset.id}>
-                      {asset.asset_tag} - {asset.asset_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Asset ID <span className="text-red-500">*</span></Label>
+                <Select value={formData.asset_id} onValueChange={handleAssetChange} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an asset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {assets.map((asset) => (
+                      <SelectItem key={asset.id} value={asset.id}>
+                        {asset.asset_tag} - {asset.asset_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-2">
-              <Label>Asset Name</Label>
-              <Input value={formData.asset_name} disabled />
+              <div className="space-y-2">
+                <Label>Asset Name</Label>
+                <Input value={formData.asset_name} disabled />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Location *</Label>
+                <Label>Location <span className="text-red-500">*</span></Label>
                 <Select
                   value={formData.location}
                   onValueChange={(value) => setFormData({ ...formData, location: value })}
@@ -679,7 +681,7 @@ const MyTickets = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Department *</Label>
+                <Label>Department <span className="text-red-500">*</span></Label>
                 <Select
                   value={formData.department}
                   onValueChange={(value) => setFormData({ ...formData, department: value })}
@@ -700,7 +702,7 @@ const MyTickets = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Title *</Label>
+              <Label>Title <span className="text-red-500">*</span></Label>
               <Input
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -710,7 +712,7 @@ const MyTickets = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Description *</Label>
+              <Label>Description <span className="text-red-500">*</span></Label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -720,27 +722,29 @@ const MyTickets = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Deadline Date</Label>
-              <Input
-                type="date"
-                value={formData.deadline}
-                onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-              />
-            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Deadline Date</Label>
+                <Input
+                  type="date"
+                  value={formData.deadline}
+                  onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label>Attachment (PNG damage photo)</Label>
-              <Input
-                type="file"
-                accept="image/png"
-                onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)}
-              />
+              <div className="space-y-2">
+                <Label>Attachment (PNG damage photo)</Label>
+                <Input
+                  type="file"
+                  accept="image/png"
+                  onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Priority *</Label>
+                <Label>Priority <span className="text-red-500">*</span></Label>
                 <Select
                   value={formData.priority}
                   onValueChange={(value) => setFormData({ ...formData, priority: value })}
@@ -759,7 +763,7 @@ const MyTickets = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Issue Category *</Label>
+                <Label>Issue Category <span className="text-red-500">*</span></Label>
                 <Select
                   value={formData.issue_category}
                   onValueChange={(value) => setFormData({ ...formData, issue_category: value })}

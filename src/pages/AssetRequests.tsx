@@ -400,7 +400,7 @@ export default function AssetRequests() {
     new Set(requests.map((r) => r.department || r.profiles?.department).filter(Boolean))
   );
 
-  const pageSize = 3;
+  const pageSize = 5;
   const totalPages = Math.max(1, Math.ceil(filteredRequests.length / pageSize));
   const startIndex = (currentPage - 1) * pageSize;
   const currentPageData = filteredRequests.slice(startIndex, startIndex + pageSize);
@@ -519,18 +519,9 @@ export default function AssetRequests() {
       </div>
 
       {/* Status Cards */}
-      <div className={cn(
-        "grid gap-4",
-        userRole === 'hr' ? "grid-cols-1 md:grid-cols-4" : "grid-cols-1 md:grid-cols-6"
-      )}>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {Object.entries(statusConfig)
-          .filter(([status]) => {
-            // For HR role, exclude in_progress and fulfilled status cards, but include cancelled
-            if (userRole === 'hr') {
-              return status !== 'in_progress' && status !== 'fulfilled';
-            }
-            return true;
-          })
+          .filter(([status]) => status !== 'in_progress' && status !== 'fulfilled')
           .map(([status, config]) => {
             const Icon = config.icon;
             const count = getStatusCount(status);
@@ -539,8 +530,7 @@ export default function AssetRequests() {
                 key={status}
                 onClick={() => setStatusFilter(status)}
                 className={cn(
-                  'bg-card rounded-lg p-4 border-2 transition-all hover:shadow-md',
-                  statusFilter === status ? 'border-primary' : 'border-transparent'
+                  'bg-card rounded-lg p-4 border-2 border-transparent transition-all hover:shadow-md'
                 )}
               >
                 <div className="flex items-center gap-3">
@@ -564,7 +554,9 @@ export default function AssetRequests() {
             Asset Requests ({filteredRequests.length})
           </h2>
         </div>
-        <Table>
+        {/* Scrollable table area */}
+        <div className="max-h-[60vh] overflow-y-auto">
+        <Table className="min-w-full">
           <TableHeader>
             <TableRow>
               <TableHead>Request ID</TableHead>
@@ -705,6 +697,7 @@ export default function AssetRequests() {
             )}
           </TableBody>
         </Table>
+        </div>
         <div className="p-4 border-t flex items-center justify-center gap-4">
           <Button
             variant="outline"
