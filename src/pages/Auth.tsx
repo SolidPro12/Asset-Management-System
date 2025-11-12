@@ -8,12 +8,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Package } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { z } from 'zod';
 import assetSlide1 from '@/assets/asset-slide-1.png';
 import assetSlide2 from '@/assets/asset-slide-2.png';
 import assetSlide3 from '@/assets/asset-slide-3.png';
 import ticketSlide1 from '@/assets/ticket-slide-1.png';
+import solidproLogo from '@/assets/solidpro-logo.svg';
 
 const carouselSlides = [
   {
@@ -209,9 +210,7 @@ const Auth = () => {
         <Card className="w-full max-w-md shadow-lg">
           <CardHeader className="space-y-1 text-center">
             <div className="flex justify-center mb-4">
-              <div className="p-3 bg-primary rounded-xl">
-                <Package className="h-8 w-8 text-primary-foreground" />
-              </div>
+              <img src={solidproLogo} alt="Solidpro Logo" className="h-16 w-16" />
             </div>
             <CardTitle className="text-2xl font-bold">Solidpro Asset Management</CardTitle>
             <CardDescription>
