@@ -129,33 +129,57 @@ export type Database = {
       }
       asset_history: {
         Row: {
+          action: string | null
+          action_date: string | null
+          asset_code: string | null
           asset_id: string
+          asset_name: string | null
           assigned_by: string | null
           assigned_date: string
           assigned_to: string
+          category: string | null
+          condition: string | null
           created_at: string
+          details: string | null
           id: string
           notes: string | null
+          performed_by_email: string | null
           return_date: string | null
         }
         Insert: {
+          action?: string | null
+          action_date?: string | null
+          asset_code?: string | null
           asset_id: string
+          asset_name?: string | null
           assigned_by?: string | null
           assigned_date?: string
           assigned_to: string
+          category?: string | null
+          condition?: string | null
           created_at?: string
+          details?: string | null
           id?: string
           notes?: string | null
+          performed_by_email?: string | null
           return_date?: string | null
         }
         Update: {
+          action?: string | null
+          action_date?: string | null
+          asset_code?: string | null
           asset_id?: string
+          asset_name?: string | null
           assigned_by?: string | null
           assigned_date?: string
           assigned_to?: string
+          category?: string | null
+          condition?: string | null
           created_at?: string
+          details?: string | null
           id?: string
           notes?: string | null
+          performed_by_email?: string | null
           return_date?: string | null
         }
         Relationships: [

@@ -48,6 +48,7 @@ const menuItems = [
     subItems: [
       { title: 'Asset History', url: '/history' },
       { title: 'Service History', url: '/service-history' },
+      { title: 'Movement History', url: '/asset-movement-history', requiredRole: 'super_admin' },
     ]
   },
   { title: 'Users', url: '/users', icon: Users, requiredRole: 'super_admin' },
