@@ -19,6 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+// Configurable bucket name for ticket attachments
+const TICKET_BUCKET = (import.meta as any).env?.VITE_SUPABASE_TICKET_BUCKET || 'ticket-attachments';
 
 interface EditTicketModalProps {
   open: boolean;
@@ -50,6 +52,7 @@ export function EditTicketModal({
     issue_category: 'hardware',
     location: '',
   });
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (ticket) {
@@ -69,15 +72,47 @@ export function EditTicketModal({
 
     setLoading(true);
     try {
+      // Optional: upload new attachment
+      let attachmentUrl: string | null = null;
+      if (attachmentFile) {
+        if (attachmentFile.type !== 'image/png') {
+          toast.error('Only PNG files are allowed for damage evidence.');
+          setLoading(false);
+          return;
+        }
+        const fileExt = attachmentFile.name.split('.').pop();
+        const filePath = `tickets/${ticket.id}/${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from(TICKET_BUCKET)
+          .upload(filePath, attachmentFile, { upsert: true });
+        if (uploadError) {
+          const msg = (uploadError as any).message?.toLowerCase() || '';
+          const code = (uploadError as any).error || '';
+          if (msg.includes('bucket') || code === 'Bucket not found') {
+            toast.error(`Storage bucket "${TICKET_BUCKET}" was not found. Updating ticket without attachment.`);
+          } else {
+            throw uploadError;
+          }
+        } else {
+          const { data: publicData } = supabase.storage
+            .from(TICKET_BUCKET)
+            .getPublicUrl(filePath);
+          attachmentUrl = publicData.publicUrl;
+        }
+      }
+
+      const updatePayload: any = {
+        title: formData.title,
+        description: formData.description,
+        priority: formData.priority as 'low' | 'medium' | 'high' | 'critical',
+        issue_category: formData.issue_category as 'hardware' | 'software' | 'network' | 'access',
+        location: formData.location,
+      };
+      if (attachmentUrl) updatePayload.attachments = attachmentUrl;
+
       const { error } = await supabase
         .from('tickets')
-        .update({
-          title: formData.title,
-          description: formData.description,
-          priority: formData.priority as 'low' | 'medium' | 'high' | 'critical',
-          issue_category: formData.issue_category as 'hardware' | 'software' | 'network' | 'access',
-          location: formData.location,
-        })
+        .update(updatePayload)
         .eq('id', ticket.id);
 
       if (error) throw error;
@@ -180,6 +215,15 @@ export function EditTicketModal({
                 <SelectItem value="Vandalur">Vandalur</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Attachment (PNG)</Label>
+            <Input
+              type="file"
+              accept="image/png"
+              onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)}
+            />
           </div>
 
           <DialogFooter>

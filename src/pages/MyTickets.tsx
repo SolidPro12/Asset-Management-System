@@ -47,6 +47,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+// Configurable bucket name for ticket attachments
+const TICKET_BUCKET = (import.meta as any).env?.VITE_SUPABASE_TICKET_BUCKET || 'ticket-attachments';
+
 interface Ticket {
   id: string;
   ticket_id: string;
@@ -85,7 +88,10 @@ const MyTickets = () => {
     priority: 'medium',
     issue_category: 'hardware',
     department: '',
+    deadline : '',
   });
+
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -215,6 +221,10 @@ const MyTickets = () => {
     }
 
     try {
+      if (attachmentFile && attachmentFile.type !== 'image/png') {
+        toast({ title: 'Invalid file', description: 'Only PNG files are allowed for damage evidence.', variant: 'destructive' });
+        return;
+      }
       console.log('Creating ticket with data:', {
         asset_id: formData.asset_id,
         asset_name: formData.asset_name,
@@ -225,10 +235,37 @@ const MyTickets = () => {
         issue_category: formData.issue_category,
         department: formData.department,
         created_by: user?.id,
+        deadline: formData.deadline,
       });
 
       // Prepare insert data, ensuring no empty strings are sent
       // Let the database trigger handle ticket_id generation automatically
+      // Upload attachment if provided
+      let attachmentUrl: string | null = null;
+      if (attachmentFile && user?.id) {
+        const fileExt = attachmentFile.name.split('.').pop();
+        const filePath = `tickets/${user.id}/${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from(TICKET_BUCKET)
+          .upload(filePath, attachmentFile, { upsert: true });
+        if (uploadError) {
+          if ((uploadError as any).message?.toLowerCase().includes('bucket') || (uploadError as any).error === 'Bucket not found') {
+            toast({
+              title: 'Storage bucket missing',
+              description: `Bucket "${TICKET_BUCKET}" was not found. Ticket will be created without attachment. Configure the bucket to enable uploads.`,
+              variant: 'destructive',
+            });
+            attachmentUrl = null; // continue without attachment
+          } else {
+            throw uploadError;
+          }
+        } else {
+          const { data: publicData } = supabase.storage
+            .from(TICKET_BUCKET)
+            .getPublicUrl(filePath);
+          attachmentUrl = publicData.publicUrl;
+        }
+      }
       const insertData: any = {
         ticket_id: null, // Set to null to let database trigger auto-generate
         asset_id: formData.asset_id || null,
@@ -240,7 +277,11 @@ const MyTickets = () => {
         issue_category: formData.issue_category as 'hardware' | 'software' | 'network' | 'access',
         department: formData.department.trim(),
         created_by: user?.id || null,
+        attachments: attachmentUrl,
       };
+      if (formData.deadline) {
+        insertData.deadline = formData.deadline;
+      }
 
       // Convert empty strings to null for optional fields
       if (!insertData.asset_id || insertData.asset_id === '') insertData.asset_id = null;
@@ -288,7 +329,21 @@ const MyTickets = () => {
         return;
       }
 
-      const { data: newTicket, error } = await supabase.from('tickets').insert([insertData]).select().single();
+      let newTicket: any = null;
+      let error: any = null;
+      try {
+        const res = await supabase.from('tickets').insert([insertData]).select().maybeSingle();
+        newTicket = res.data; error = res.error;
+      } catch (e: any) {
+        error = e;
+      }
+
+      // If column doesn't exist yet (42703), retry without deadline
+      if (error && (error.code === '42703' || (error.message || '').toLowerCase().includes('deadline'))) {
+        delete insertData.deadline;
+        const retry = await supabase.from('tickets').insert([insertData]).select().maybeSingle();
+        newTicket = retry.data; error = retry.error;
+      }
 
       if (error) {
         console.error('Ticket creation error details:', {
@@ -337,7 +392,9 @@ const MyTickets = () => {
         priority: 'medium',
         issue_category: 'hardware',
         department: '',
+        deadline: '',
       });
+      setAttachmentFile(null);
       fetchMyTickets();
     } catch (error: any) {
       toast({
@@ -352,17 +409,21 @@ const MyTickets = () => {
     if (!cancelTicket) return;
 
     try {
-      const { error } = await supabase
+      // Set to 'closed' which is guaranteed in queue/status mappings
+      const { data, error } = await supabase
         .from('tickets')
         .update({ status: 'closed' })
-        .eq('id', cancelTicket.id);
-
+        .eq('id', cancelTicket.id)
+        .select('id,status')
+        .single();
       if (error) throw error;
 
-      toast({
-        title: 'Success',
-        description: 'Ticket cancelled successfully',
-      });
+      // Apply returned status to UI immediately
+      if (data?.status) {
+        setTickets((prev) => prev.map((t) => t.id === cancelTicket.id ? { ...t, status: data.status as any } : t));
+      }
+
+      toast({ title: 'Success', description: 'Ticket cancelled successfully' });
 
       setCancelTicket(null);
       fetchMyTickets();
@@ -391,10 +452,13 @@ const MyTickets = () => {
       in_progress: 'secondary',
       resolved: 'outline',
       closed: 'secondary',
+      on_hold: 'outline',
+      cancelled: 'destructive',
     };
+    const variant = variants[status] ?? 'secondary';
     return (
-      <Badge variant={variants[status]}>
-        {status.replace('_', ' ').toUpperCase()}
+      <Badge variant={variant}>
+        {String(status || '').replace('_', ' ').toUpperCase() || 'UNKNOWN'}
       </Badge>
     );
   };
@@ -653,6 +717,24 @@ const MyTickets = () => {
                 placeholder="Detailed description of the issue"
                 rows={4}
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Deadline Date</Label>
+              <Input
+                type="date"
+                value={formData.deadline}
+                onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Attachment (PNG damage photo)</Label>
+              <Input
+                type="file"
+                accept="image/png"
+                onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)}
               />
             </div>
 
