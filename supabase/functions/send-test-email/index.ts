@@ -41,11 +41,16 @@ serve(async (req) => {
         global: {
           headers: { Authorization: authHeader },
         },
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
       }
     );
 
-    // Verify user is authenticated and is super admin
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    // Verify user is authenticated and is super admin using the bearer token (avoid session requirement)
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
     
     if (authError) {
       console.error('Authentication error:', authError);
