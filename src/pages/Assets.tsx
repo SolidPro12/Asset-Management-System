@@ -26,11 +26,17 @@ import {
   ChevronRight,
   Eye,
   Edit,
-  Trash2
+  Trash2,
+  LayoutGrid,
+  List,
+  CheckCircle,
+  UserCheck
 } from 'lucide-react';
 import { AddAssetDialog } from '@/components/AddAssetDialog';
+import { ViewAssetModal } from '@/components/ViewAssetModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { toast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
@@ -63,6 +69,10 @@ const Assets = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [editAsset, setEditAsset] = useState<Asset | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -371,11 +381,21 @@ const Assets = () => {
     const categoryName = asset.specifications?.originalCategory || asset.category;
     const displayName = categoryName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     if (!acc[displayName]) {
-      acc[displayName] = { count: 0, originalCategory: categoryName };
+      acc[displayName] = { 
+        count: 0, 
+        available: 0,
+        assigned: 0,
+        originalCategory: categoryName 
+      };
     }
     acc[displayName].count++;
+    if (asset.status === 'available') {
+      acc[displayName].available++;
+    } else if (asset.status === 'assigned') {
+      acc[displayName].assigned++;
+    }
     return acc;
-  }, {} as Record<string, { count: number; originalCategory: string }>);
+  }, {} as Record<string, { count: number; available: number; assigned: number; originalCategory: string }>);
 
   const groupedAssets = filteredAssets.reduce((acc, asset) => {
     const categoryName = asset.specifications?.originalCategory || asset.category;
@@ -455,84 +475,117 @@ const Assets = () => {
         </div>
       </div>
 
-      <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by asset ID, model, tag..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
+      {/* Asset Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-primary/10 rounded-lg">
+              <Package className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total Assets</p>
+              <p className="text-2xl font-bold">{filteredAssets.length}</p>
+            </div>
           </div>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="All Categories" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {sortedAssetCategories.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="flex gap-2">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-green-100 rounded-lg">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Available Assets</p>
+              <p className="text-2xl font-bold">
+                {filteredAssets.filter(asset => asset.status === 'available').length}
+              </p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <UserCheck className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Assigned Assets</p>
+              <p className="text-2xl font-bold">
+                {filteredAssets.filter(asset => asset.status === 'assigned').length}
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <Card className="p-4">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by asset ID, model, tag..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="All Status" />
+                <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="available">Available</SelectItem>
-                <SelectItem value="assigned">Assigned</SelectItem>
-                <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
-                <SelectItem value="retired">Retired</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
+                {sortedAssetCategories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            <Button variant="ghost" size="icon" onClick={handleReset} title="Reset filters">
-              <RotateCcw className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter} className="flex-1">
+                <SelectTrigger>
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="assigned">Assigned</SelectItem>
+                  <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
+                  <SelectItem value="retired">Retired</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="ghost" size="icon" onClick={handleReset} title="Reset filters">
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="flex items-center justify-end">
+            <ToggleGroup 
+              type="single" 
+              value={viewMode} 
+              onValueChange={(value) => value && setViewMode(value as 'grid' | 'list')} 
+              className="inline-flex items-center rounded-lg border bg-muted/30 p-1"
+            >
+              <ToggleGroupItem 
+                value="grid" 
+                aria-label="Grid view" 
+                className="data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm rounded-md px-3 py-1.5"
+              >
+                <LayoutGrid className="h-4 w-4 mr-2" />
+                <span>Grid</span>
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="list" 
+                aria-label="List view" 
+                className="data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm rounded-md px-3 py-1.5"
+              >
+                <List className="h-4 w-4 mr-2" />
+                <span>List</span>
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
         </div>
       </Card>
-
-      {userRole === 'super_admin' && Object.keys(categoryCounts).length > 0 && (
-        <div className="w-full overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-          <div className="flex gap-4 min-w-max">
-            {Object.entries(categoryCounts)
-              .sort(([a], [b]) => {
-                const al = a.toLowerCase();
-                const bl = b.toLowerCase();
-                if (al === 'other' && bl !== 'other') return 1;
-                if (bl === 'other' && al !== 'other') return -1;
-                return al.localeCompare(bl);
-              })
-              .map(([categoryName, data]) => {
-              return (
-                <Card 
-                  key={categoryName} 
-                  className="w-[180px] flex-shrink-0"
-                >
-                  <CardContent className="p-4">
-                    <div className="flex flex-col items-center justify-center gap-3 text-center">
-                      <div className="p-3 bg-primary/10 rounded-lg w-fit">
-                        {getCategoryIcon(data.originalCategory)}
-                      </div>
-                      <div className="w-full">
-                        <p className="text-sm font-medium text-muted-foreground truncate">{categoryName}</p>
-                        <p className="text-3xl font-bold mt-1">{data.count}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {filteredAssets.length === 0 ? (
         <Card>
@@ -544,6 +597,91 @@ const Assets = () => {
             </p>
           </CardContent>
         </Card>
+      ) : viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredAssets.map((asset) => {
+            const categoryName = asset.specifications?.originalCategory || asset.category;
+            return (
+              <Card key={asset.id} className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        {getCategoryIcon(asset.category)}
+                      </div>
+                      <div>
+                        <CardTitle className="text-base font-semibold">{asset.asset_name}</CardTitle>
+                        <p className="text-xs text-muted-foreground mt-1">{categoryName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Asset ID</span>
+                      <span className="font-mono font-medium">{asset.asset_id || '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Model</span>
+                      <span className="font-medium">{asset.model || '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Status</span>
+                      <Badge className={getStatusColor(asset.status)} variant="secondary">
+                        {asset.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                    {asset.serial_number && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Serial</span>
+                        <span className="font-mono text-xs">{asset.serial_number}</span>
+                      </div>
+                    )}
+                    {asset.location && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Location</span>
+                        <span>{asset.location}</span>
+                      </div>
+                    )}
+                    {asset.purchase_cost && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Cost</span>
+                        <span className="font-medium">₹{asset.purchase_cost.toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 pt-2 border-t">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => {
+                        setSelectedAsset(asset);
+                        setIsViewModalOpen(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => {
+                        setEditAsset(asset);
+                        setIsAddDialogOpen(true);
+                      }}
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       ) : (
         <Card>
           <CardHeader>
@@ -668,10 +806,26 @@ const Assets = () => {
                                 <td className="px-4 py-3">{asset.specifications?.storage || '-'}</td>
                                 <td className="px-4 py-3">
                                   <div className="flex items-center gap-1">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-7 w-7"
+                                      onClick={() => {
+                                        setSelectedAsset(asset);
+                                        setIsViewModalOpen(true);
+                                      }}
+                                    >
                                       <Eye className="h-3.5 w-3.5" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-7 w-7"
+                                      onClick={() => {
+                                        setEditAsset(asset);
+                                        setIsAddDialogOpen(true);
+                                      }}
+                                    >
                                       <Edit className="h-3.5 w-3.5" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
@@ -695,8 +849,28 @@ const Assets = () => {
       
       <AddAssetDialog 
         open={isAddDialogOpen} 
-        onOpenChange={setIsAddDialogOpen}
-        onSuccess={fetchAssets}
+        onOpenChange={(open) => {
+          setIsAddDialogOpen(open);
+          if (!open) setEditAsset(null);
+        }}
+        onSuccess={() => {
+          fetchAssets();
+          setEditAsset(null);
+        }}
+        editAsset={editAsset}
+      />
+      
+      <ViewAssetModal
+        asset={selectedAsset}
+        open={isViewModalOpen}
+        onOpenChange={setIsViewModalOpen}
+        onEdit={() => {
+          setIsViewModalOpen(false);
+          if (selectedAsset) {
+            setEditAsset(selectedAsset);
+            setIsAddDialogOpen(true);
+          }
+        }}
       />
       
       <input

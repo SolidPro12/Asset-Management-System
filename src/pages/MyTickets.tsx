@@ -415,28 +415,37 @@ const MyTickets = () => {
     if (!cancelTicket) return;
 
     try {
-      // Set to 'closed' which is guaranteed in queue/status mappings
+      // Update ticket status to 'cancelled'
       const { data, error } = await supabase
         .from('tickets')
-        .update({ status: 'closed' })
+        .update({ status: 'cancelled' })
         .eq('id', cancelTicket.id)
         .select('id,status')
         .single();
+      
       if (error) throw error;
 
-      // Apply returned status to UI immediately
-      if (data?.status) {
-        setTickets((prev) => prev.map((t) => t.id === cancelTicket.id ? { ...t, status: data.status as any } : t));
-      }
+      // Update the ticket in the local state immediately
+      setTickets((prev) => 
+        prev.map((t) => 
+          t.id === cancelTicket.id 
+            ? { ...t, status: 'cancelled' as any } 
+            : t
+        )
+      );
 
-      toast({ title: 'Success', description: 'Ticket cancelled successfully' });
+      toast({ 
+        title: 'Success', 
+        description: `Ticket ${cancelTicket.ticket_id} has been cancelled successfully` 
+      });
 
       setCancelTicket(null);
+      // Optionally refresh to get latest data
       fetchMyTickets();
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to cancel ticket',
         variant: 'destructive',
       });
     }
@@ -620,71 +629,91 @@ const MyTickets = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredTickets.map((ticket) => (
-                  <TableRow key={ticket.id}>
-                    <TableCell className="whitespace-nowrap">
-                      <Badge variant="secondary" className="font-mono text-sm px-3 py-1">
-                        {ticket.ticket_id}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {ticket.asset_id.slice(0, 8)}...
-                    </TableCell>
-                    <TableCell className="font-medium">{ticket.asset_name}</TableCell>
-                    <TableCell>{ticket.location}</TableCell>
-                    <TableCell>{ticket.title}</TableCell>
-                    <TableCell>{getPriorityBadge(ticket.priority)}</TableCell>
-                    <TableCell>{ticket.issue_category}</TableCell>
-                    <TableCell>{getStatusBadge(ticket.status)}</TableCell>
-                    <TableCell>{ticket.assigned_to_name}</TableCell>
-                    <TableCell>{format(new Date(ticket.created_at), 'MMM dd, yyyy')}</TableCell>
-                    <TableCell>
-                      {ticket.completed_at
-                        ? format(new Date(ticket.completed_at), 'MMM dd, yyyy')
-                        : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setViewTicket(ticket)}
-                          title="View Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setHistoryTicket({ id: ticket.id, ticket_id: ticket.ticket_id })}
-                          title="View History"
-                        >
-                          <History className="h-4 w-4" />
-                        </Button>
-                        {ticket.status === 'open' && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setEditTicket(ticket)}
-                              title="Edit Ticket"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => setCancelTicket(ticket)}
-                              title="Cancel Ticket"
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredTickets.map((ticket) => {
+                  const isCancelled = ticket.status === 'cancelled' || ticket.status === 'closed';
+                  return (
+                    <TableRow 
+                      key={ticket.id}
+                      className={isCancelled ? 'opacity-60 bg-muted/30' : ''}
+                    >
+                      <TableCell className="whitespace-nowrap">
+                        <Badge variant="secondary" className="font-mono text-sm px-3 py-1">
+                          {ticket.ticket_id}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {ticket.asset_id.slice(0, 8)}...
+                      </TableCell>
+                      <TableCell className={`font-medium ${isCancelled ? 'text-muted-foreground' : ''}`}>
+                        {ticket.asset_name}
+                      </TableCell>
+                      <TableCell className={isCancelled ? 'text-muted-foreground' : ''}>
+                        {ticket.location}
+                      </TableCell>
+                      <TableCell className={isCancelled ? 'text-muted-foreground' : ''}>
+                        {ticket.title}
+                      </TableCell>
+                      <TableCell>{getPriorityBadge(ticket.priority)}</TableCell>
+                      <TableCell className={isCancelled ? 'text-muted-foreground' : ''}>
+                        {ticket.issue_category}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(ticket.status)}</TableCell>
+                      <TableCell className={isCancelled ? 'text-muted-foreground' : ''}>
+                        {ticket.department}
+                      </TableCell>
+                      <TableCell className={isCancelled ? 'text-muted-foreground' : ''}>
+                        {format(new Date(ticket.created_at), 'MMM dd, yyyy')}
+                      </TableCell>
+                      <TableCell className={isCancelled ? 'text-muted-foreground' : ''}>
+                        {ticket.completed_at
+                          ? format(new Date(ticket.completed_at), 'MMM dd, yyyy')
+                          : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setViewTicket(ticket)}
+                            title="View Details"
+                            disabled={false}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setHistoryTicket({ id: ticket.id, ticket_id: ticket.ticket_id })}
+                            title="View History"
+                            disabled={false}
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                          {!isCancelled && ticket.status === 'open' && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setEditTicket(ticket)}
+                                title="Edit Ticket"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => setCancelTicket(ticket)}
+                                title="Cancel Ticket"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -716,12 +745,17 @@ const MyTickets = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Ticket</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to cancel ticket {cancelTicket?.ticket_id}? This action will close the ticket.
+              Are you sure you want to cancel ticket <strong>{cancelTicket?.ticket_id}</strong>?
+              <br />
+              <br />
+              This action will mark the ticket as cancelled and you will not be able to edit it afterwards.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>No, keep it</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancelTicket}>Yes, cancel ticket</AlertDialogAction>
+            <AlertDialogAction onClick={handleCancelTicket} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Yes, cancel ticket
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -793,7 +827,7 @@ const MyTickets = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Department <span className="text-red-500">*</span></Label>
+                <Label>Assigned To <span className="text-red-500">*</span></Label>
                 <Select
                   value={formData.department}
                   onValueChange={(value) => setFormData({ ...formData, department: value })}

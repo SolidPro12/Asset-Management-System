@@ -147,7 +147,7 @@ export function ViewTicketModal({
                 <p className="text-sm">{ticket.location}</p>
               </div>
               <div className="space-y-2">
-                <Label className="text-sm font-semibold text-muted-foreground">Department</Label>
+                <Label className="text-sm font-semibold text-muted-foreground">Assigned To</Label>
                 <p className="text-sm">{ticket.department}</p>
               </div>
             </div>
