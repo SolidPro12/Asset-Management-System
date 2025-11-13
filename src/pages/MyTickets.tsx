@@ -33,9 +33,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, History, XCircle, Eye } from 'lucide-react';
+import { Plus, Pencil, History, XCircle, Eye, Search, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { CardHeader, CardTitle } from '@/components/ui/card';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -92,6 +93,11 @@ const MyTickets = () => {
   });
 
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -463,6 +469,47 @@ const MyTickets = () => {
     );
   };
 
+  const filteredTickets = tickets.filter(ticket => {
+    // Search filter
+    const matchesSearch = 
+      !searchQuery ||
+      ticket.ticket_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ticket.asset_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ticket.description.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Priority filter
+    const matchesPriority = priorityFilter === 'all' || ticket.priority === priorityFilter;
+    
+    // Status filter
+    const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter;
+    
+    // Date filter
+    let matchesDate = true;
+    if (dateFrom) {
+      const ticketDate = new Date(ticket.created_at);
+      const fromDate = new Date(dateFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      if (ticketDate < fromDate) matchesDate = false;
+    }
+    if (dateTo) {
+      const ticketDate = new Date(ticket.created_at);
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      if (ticketDate > toDate) matchesDate = false;
+    }
+    
+    return matchesSearch && matchesPriority && matchesStatus && matchesDate;
+  });
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setPriorityFilter('all');
+    setStatusFilter('all');
+    setDateFrom('');
+    setDateTo('');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -480,6 +527,69 @@ const MyTickets = () => {
           Create Ticket
         </Button>
       </div>
+
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-medium">Filters</CardTitle>
+            <Button variant="ghost" size="sm" onClick={handleResetFilters}>
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reset
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search tickets..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Priorities" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priorities</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="critical">Critical</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="resolved">Resolved</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+                <SelectItem value="on_hold">On Hold</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              type="date"
+              placeholder="From Date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+            />
+            <Input
+              type="date"
+              placeholder="To Date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-6 overflow-x-auto">
@@ -501,14 +611,16 @@ const MyTickets = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tickets.length === 0 ? (
+              {filteredTickets.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={12} className="text-center text-muted-foreground">
-                    No tickets found. Create your first ticket!
+                    {tickets.length === 0 
+                      ? 'No tickets found. Create your first ticket!'
+                      : 'No tickets match the current filters.'}
                   </TableCell>
                 </TableRow>
               ) : (
-                tickets.map((ticket) => (
+                filteredTickets.map((ticket) => (
                   <TableRow key={ticket.id}>
                     <TableCell className="whitespace-nowrap">
                       <Badge variant="secondary" className="font-mono text-sm px-3 py-1">
