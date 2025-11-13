@@ -464,7 +464,7 @@ export function CreateRequestModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="quantity">Count <span className="text-red-500">*</span></Label>
+              <Label htmlFor="quantity">Set Count <span className="text-red-500">*</span></Label>
               <Input
                 id="quantity"
                 type="number"
@@ -484,7 +484,7 @@ export function CreateRequestModal({
             </div>
 
             <div className="space-y-2">
-              <Label>Expected Delivery Date <span className="text-red-500">*</span></Label>
+              <Label>Expected Joining Date <span className="text-red-500">*</span></Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -610,7 +610,11 @@ export function CreateRequestModal({
               <Button
                 type="button"
                 variant={formData.request_type === 'express' ? 'default' : 'outline'}
-                className="flex-1"
+                className={cn(
+                  'flex-1',
+                  formData.request_type === 'express' && 'bg-red-600 hover:bg-red-700',
+                  formData.request_type !== 'express' && 'hover:bg-red-600'
+                )}
                 onClick={() => setFormData({ ...formData, request_type: 'express' })}
               >
                 Express Request

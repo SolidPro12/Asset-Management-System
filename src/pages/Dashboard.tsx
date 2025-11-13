@@ -113,6 +113,10 @@ const Dashboard = () => {
   const [adminCategoryStats, setAdminCategoryStats] = useState<AdminCategoryStat[]>([]);
   const [adminRecentRequests, setAdminRecentRequests] = useState<RecentRequest[]>([]);
   const [adminRecentAllocations, setAdminRecentAllocations] = useState<RecentAllocation[]>([]);
+  // Admin lists pagination
+  const [adminRecentReqPage, setAdminRecentReqPage] = useState(1);
+  const [adminAllocPage, setAdminAllocPage] = useState(1);
+  const adminPageSize = 5;
   // Super Admin lists pagination
   const [suRecentReqPage, setSuRecentReqPage] = useState(1);
   const [suAllocPage, setSuAllocPage] = useState(1);
@@ -728,7 +732,7 @@ const Dashboard = () => {
                 <div className="h-4 w-24 bg-muted rounded" />
                 <div className="h-4 w-4 bg-muted rounded" />
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4">
                 <div className="h-8 w-16 bg-muted rounded" />
               </CardContent>
             </Card>
@@ -771,7 +775,7 @@ const Dashboard = () => {
           </Card>
 
           <Card className="rounded-2xl shadow-md border-0 bg-white">
-            <CardContent className="p-6">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">Total Assets</p>
@@ -789,7 +793,7 @@ const Dashboard = () => {
           </Card>
 
           <Card className="rounded-2xl shadow-md border-0 bg-white">
-            <CardContent className="p-6">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">Assigned Assets</p>
@@ -807,7 +811,7 @@ const Dashboard = () => {
           </Card>
 
           <Card className="rounded-2xl shadow-md border-0 bg-white">
-            <CardContent className="p-6">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">Available Assets</p>
@@ -825,7 +829,7 @@ const Dashboard = () => {
           </Card>
 
           <Card className="rounded-2xl shadow-md border-0 bg-white">
-            <CardContent className="p-6">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">Under Maintenance</p>
@@ -1096,14 +1100,14 @@ const Dashboard = () => {
 
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Overview of assets, employees, and requests</p>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">Comprehensive overview of assets, employees, and requests</p>
         </div>
 
-        {/* Top Summary Cards - 6 cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Top Summary Cards - reduced padding and added Total Assets */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
           <Card className="rounded-2xl shadow-md border-0 bg-white">
-            <CardContent className="p-6">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">Overall Employees</p>
@@ -1115,6 +1119,25 @@ const Dashboard = () => {
                 </div>
                 <div className="p-3 bg-blue-100 rounded-xl">
                   <Users className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Total Assets */}
+          <Card className="rounded-2xl shadow-md border-0 bg-white">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Total Assets</p>
+                  {loading ? (
+                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <p className="text-3xl font-bold text-sky-600">{stats.totalAssets}</p>
+                  )}
+                </div>
+                <div className="p-3 bg-sky-100 rounded-xl">
+                  <Package className="h-6 w-6 text-sky-600" />
                 </div>
               </div>
             </CardContent>
@@ -1174,41 +1197,43 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl shadow-md border-0 bg-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Regular Requests</p>
-                  {loading ? (
-                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
-                  ) : (
-                    <p className="text-3xl font-bold text-yellow-600">{stats.regularRequests || 0}</p>
-                  )}
+          <div className="col-span-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="rounded-2xl shadow-md border-0 bg-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Regular Requests</p>
+                    {loading ? (
+                      <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                    ) : (
+                      <p className="text-3xl font-bold text-yellow-600">{stats.regularRequests || 0}</p>
+                    )}
+                  </div>
+                  <div className="p-3 bg-yellow-100 rounded-xl">
+                    <FileText className="h-6 w-6 text-yellow-600" />
+                  </div>
                 </div>
-                <div className="p-3 bg-yellow-100 rounded-xl">
-                  <FileText className="h-6 w-6 text-yellow-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="rounded-2xl shadow-md border-0 bg-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Express Requests</p>
-                  {loading ? (
-                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
-                  ) : (
-                    <p className="text-3xl font-bold text-orange-600">{stats.expressRequests || 0}</p>
-                  )}
+            <Card className="rounded-2xl shadow-md border-0 bg-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Express Requests</p>
+                    {loading ? (
+                      <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                    ) : (
+                      <p className="text-3xl font-bold text-orange-600">{stats.expressRequests || 0}</p>
+                    )}
+                  </div>
+                  <div className="p-3 bg-orange-100 rounded-xl">
+                    <Zap className="h-6 w-6 text-orange-600" />
+                  </div>
                 </div>
-                <div className="p-3 bg-orange-100 rounded-xl">
-                  <Zap className="h-6 w-6 text-orange-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1228,7 +1253,7 @@ const Dashboard = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height={240}>
                     <BarChart
                       data={adminCategoryStats}
                       layout="vertical"
@@ -1288,7 +1313,10 @@ const Dashboard = () => {
                 <div className="text-center py-8 text-muted-foreground">No recent requests</div>
               ) : (
                 <div className="space-y-3">
-                  {adminRecentRequests.slice(0, 5).map((request) => (
+                  <div className="max-h-[360px] overflow-y-auto pr-1 space-y-3">
+                    {adminRecentRequests
+                      .slice((adminRecentReqPage - 1) * adminPageSize, adminRecentReqPage * adminPageSize)
+                      .map((request) => (
                     <Card key={request.id} className="rounded-lg shadow-sm border p-4 hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -1319,6 +1347,28 @@ const Dashboard = () => {
                       </div>
                     </Card>
                   ))}
+                  </div>
+                  <div className="pt-2 flex items-center justify-center gap-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAdminRecentReqPage((p) => Math.max(1, p - 1))}
+                      disabled={adminRecentReqPage <= 1}
+                    >
+                      {'<'}
+                    </Button>
+                    <span className="text-sm">
+                      {adminRecentReqPage}/{Math.max(1, Math.ceil(adminRecentRequests.length / adminPageSize))}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAdminRecentReqPage((p) => Math.min(Math.max(1, Math.ceil(adminRecentRequests.length / adminPageSize)), p + 1))}
+                      disabled={adminRecentReqPage >= Math.max(1, Math.ceil(adminRecentRequests.length / adminPageSize))}
+                    >
+                      {'>'}
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -1345,7 +1395,7 @@ const Dashboard = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Asset Name</TableHead>
-                      <TableHead>Category</TableHead>
+                      <TableHead>Asset Category</TableHead>
                       <TableHead>User</TableHead>
                       <TableHead>Department</TableHead>
                       <TableHead>Assigned Date</TableHead>
@@ -1353,7 +1403,9 @@ const Dashboard = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {adminRecentAllocations.map((allocation) => (
+                    {adminRecentAllocations
+                      .slice((adminAllocPage - 1) * adminPageSize, adminAllocPage * adminPageSize)
+                      .map((allocation) => (
                       <TableRow key={allocation.id} className="hover:bg-muted/50">
                         <TableCell className="font-medium">{allocation.asset_name}</TableCell>
                         <TableCell className="capitalize">{allocation.category?.replace(/_/g, ' ') || 'N/A'}</TableCell>
@@ -1365,6 +1417,27 @@ const Dashboard = () => {
                     ))}
                   </TableBody>
                 </Table>
+                <div className="p-3 flex items-center justify-center gap-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAdminAllocPage((p) => Math.max(1, p - 1))}
+                    disabled={adminAllocPage <= 1}
+                  >
+                    {'<'}
+                  </Button>
+                  <span className="text-sm">
+                    {adminAllocPage}/{Math.max(1, Math.ceil(adminRecentAllocations.length / adminPageSize))}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAdminAllocPage((p) => Math.min(Math.max(1, Math.ceil(adminRecentAllocations.length / adminPageSize)), p + 1))}
+                    disabled={adminAllocPage >= Math.max(1, Math.ceil(adminRecentAllocations.length / adminPageSize))}
+                  >
+                    {'>'}
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
@@ -1404,14 +1477,14 @@ const Dashboard = () => {
           <Card className="transition-all hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Assets In Use
+                Total Assets
               </CardTitle>
               <div className="p-2 rounded-lg bg-primary/10">
                 <TrendingUp className="h-4 w-4 text-primary" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.assignedAssets}</div>
+              <div className="text-2xl font-bold text-primary">{stats.totalAssets}</div>
               <p className="text-xs text-muted-foreground mt-1">Utilization rate 75%</p>
             </CardContent>
           </Card>
