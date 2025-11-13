@@ -472,7 +472,7 @@ const MyTickets = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 animate-in fade-in duration-500 bg-[#f8f6ff] min-h-screen -m-6 p-4">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">My Tickets</h1>
         <Button onClick={() => setIsDialogOpen(true)}>

@@ -117,6 +117,15 @@ const Dashboard = () => {
   const [adminRecentReqPage, setAdminRecentReqPage] = useState(1);
   const [adminAllocPage, setAdminAllocPage] = useState(1);
   const adminPageSize = 5;
+  // User dashboard state
+  const [userName, setUserName] = useState<string>('');
+  const [userStats, setUserStats] = useState({
+    assigned: 0,
+    raised: 0,
+    inProgress: 0,
+    resolved: 0,
+    upcoming: 0,
+  });
   // Super Admin lists pagination
   const [suRecentReqPage, setSuRecentReqPage] = useState(1);
   const [suAllocPage, setSuAllocPage] = useState(1);
@@ -143,7 +152,7 @@ const Dashboard = () => {
       } else if (userRole === 'admin') {
         fetchAdminDashboardData();
       } else {
-        fetchDashboardStats(); // User dashboard
+        fetchUserDashboardData(); // User dashboard
       }
     }
   }, [userRole]);
@@ -250,6 +259,72 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Error fetching HR dashboard data:', error);
       toast.error('Failed to load HR dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUserDashboardData = async () => {
+    setLoading(true);
+    try {
+      if (!user) return;
+      // Fetch user name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+      setUserName(profile?.full_name || 'User');
+
+      // Assigned assets count
+      const { count: assignedCount } = await supabase
+        .from('asset_allocations')
+        .select('id', { count: 'exact', head: true })
+        .eq('employee_id', user.id)
+        .eq('status', 'active');
+
+      // Tickets raised
+      const { count: raisedCount } = await supabase
+        .from('tickets')
+        .select('id', { count: 'exact', head: true })
+        .eq('created_by', user.id);
+
+      // Tickets in progress
+      const { count: inProgressCount } = await supabase
+        .from('tickets')
+        .select('id', { count: 'exact', head: true })
+        .eq('created_by', user.id)
+        .eq('status', 'in_progress');
+
+      // Tickets resolved
+      const { count: resolvedCount } = await supabase
+        .from('tickets')
+        .select('id', { count: 'exact', head: true })
+        .eq('created_by', user.id)
+        .eq('status', 'resolved');
+
+      // Upcoming maintenance (optional placeholder)
+      let upcoming = 0;
+      try {
+        const { count: upcomingCount } = await supabase
+          .from('asset_maintenance')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gt('due_date', new Date().toISOString());
+        upcoming = upcomingCount || 0;
+      } catch (_) {
+        upcoming = 0;
+      }
+
+      setUserStats({
+        assigned: assignedCount || 0,
+        raised: raisedCount || 0,
+        inProgress: inProgressCount || 0,
+        resolved: resolvedCount || 0,
+        upcoming,
+      });
+    } catch (e) {
+      // silently ignore for user view
     } finally {
       setLoading(false);
     }
@@ -1791,56 +1866,81 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-
-
+    <div className="space-y-6 animate-in fade-in duration-500 bg-[#f8f6ff] min-h-screen -m-6 p-4">
+      {/* Welcome Header */}
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground">Overview of your asset management system</p>
+        <h1 className="text-3xl font-bold tracking-tight">Welcome back, {userName || 'User'}</h1>
+        <p className="text-muted-foreground">Here’s a quick summary of your assets and tickets.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat, index) => (
-          <Card 
-            key={stat.title} 
-            className="transition-all hover:shadow-md hover:scale-105 duration-200"
-            style={{ animationDelay: `${index * 50}ms` }}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+      {/* User Summary Cards */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-5">
+        <Card className="rounded-2xl shadow-md border-0 bg-white">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">My Assigned Assets</p>
+                <p className="text-3xl font-bold text-sky-600">{userStats.assigned}</p>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Navigate to different sections using the sidebar menu to manage assets, view requests, and more.
-            </p>
+              <div className="p-3 bg-sky-100 rounded-xl">
+                <Package className="h-6 w-6 text-sky-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>System Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
-              <p className="text-sm text-muted-foreground">All systems operational</p>
+        <Card className="rounded-2xl shadow-md border-0 bg-white">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Tickets Raised</p>
+                <p className="text-3xl font-bold text-blue-600">{userStats.raised}</p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-xl">
+                <FileText className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl shadow-md border-0 bg-white">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Tickets In Progress</p>
+                <p className="text-3xl font-bold text-blue-500">{userStats.inProgress}</p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-xl">
+                <Clock className="h-6 w-6 text-blue-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl shadow-md border-0 bg-white">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Tickets Resolved</p>
+                <p className="text-3xl font-bold text-green-600">{userStats.resolved}</p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-xl">
+                <CheckCircle className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl shadow-md border-0 bg-white">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Upcoming Maintenance</p>
+                <p className="text-3xl font-bold text-purple-600">{userStats.upcoming}</p>
+              </div>
+              <div className="p-3 bg-purple-100 rounded-xl">
+                <Wrench className="h-6 w-6 text-purple-600" />
+              </div>
             </div>
           </CardContent>
         </Card>

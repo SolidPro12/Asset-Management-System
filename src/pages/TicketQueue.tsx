@@ -228,7 +228,7 @@ const TicketQueue = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500 bg-[#f8f6ff] min-h-screen -m-6 p-4">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Ticket Management</h1>
