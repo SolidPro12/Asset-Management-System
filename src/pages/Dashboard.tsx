@@ -306,14 +306,14 @@ const Dashboard = () => {
         .eq('created_by', user.id)
         .eq('status', 'resolved');
 
-      // Upcoming maintenance (optional placeholder)
+      // Upcoming maintenance - using service_history as proxy
       let upcoming = 0;
       try {
         const { count: upcomingCount } = await supabase
-          .from('asset_maintenance')
+          .from('service_history')
           .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .gt('due_date', new Date().toISOString());
+          .eq('performed_by', user.id)
+          .gte('service_date', new Date().toISOString().split('T')[0]);
         upcoming = upcomingCount || 0;
       } catch (_) {
         upcoming = 0;

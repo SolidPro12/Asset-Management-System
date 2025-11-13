@@ -30,10 +30,12 @@ import {
   LayoutGrid,
   List,
   CheckCircle,
-  UserCheck
+  UserCheck,
+  QrCode
 } from 'lucide-react';
 import { AddAssetDialog } from '@/components/AddAssetDialog';
 import { ViewAssetModal } from '@/components/ViewAssetModal';
+import { ViewAssetQRModal } from '@/components/ViewAssetQRModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -73,6 +75,8 @@ const Assets = () => {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editAsset, setEditAsset] = useState<Asset | null>(null);
+  const [qrAsset, setQrAsset] = useState<{ id: string; name: string } | null>(null);
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -542,18 +546,20 @@ const Assets = () => {
               </SelectContent>
             </Select>
             <div className="flex gap-2">
-              <Select value={statusFilter} onValueChange={setStatusFilter} className="flex-1">
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
+              <div className="flex-1">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="available">Available</SelectItem>
                   <SelectItem value="assigned">Assigned</SelectItem>
                   <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
                   <SelectItem value="retired">Retired</SelectItem>
                 </SelectContent>
               </Select>
+              </div>
               <Button variant="ghost" size="icon" onClick={handleReset} title="Reset filters">
                 <RotateCcw className="h-4 w-4" />
               </Button>
@@ -663,6 +669,19 @@ const Assets = () => {
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       View
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => {
+                        setQrAsset({ id: asset.asset_id, name: asset.asset_name });
+                        setIsQRModalOpen(true);
+                      }}
+                      title="View QR Code"
+                    >
+                      <QrCode className="h-4 w-4 mr-2" />
+                      QR
                     </Button>
                     <Button 
                       variant="ghost" 
@@ -814,8 +833,21 @@ const Assets = () => {
                                         setSelectedAsset(asset);
                                         setIsViewModalOpen(true);
                                       }}
+                                      title="View Details"
                                     >
                                       <Eye className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-7 w-7"
+                                      onClick={() => {
+                                        setQrAsset({ id: asset.asset_id, name: asset.asset_name });
+                                        setIsQRModalOpen(true);
+                                      }}
+                                      title="View QR Code"
+                                    >
+                                      <QrCode className="h-3.5 w-3.5" />
                                     </Button>
                                     <Button 
                                       variant="ghost" 
@@ -825,6 +857,7 @@ const Assets = () => {
                                         setEditAsset(asset);
                                         setIsAddDialogOpen(true);
                                       }}
+                                      title="Edit Asset"
                                     >
                                       <Edit className="h-3.5 w-3.5" />
                                     </Button>
@@ -871,6 +904,13 @@ const Assets = () => {
             setIsAddDialogOpen(true);
           }
         }}
+      />
+      
+      <ViewAssetQRModal
+        assetId={qrAsset?.id || null}
+        assetName={qrAsset?.name || null}
+        open={isQRModalOpen}
+        onOpenChange={setIsQRModalOpen}
       />
       
       <input
