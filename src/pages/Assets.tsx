@@ -31,11 +31,15 @@ import {
   List,
   CheckCircle,
   UserCheck,
-  QrCode
+  QrCode,
+  FileArchive,
+  Printer
 } from 'lucide-react';
 import { AddAssetDialog } from '@/components/AddAssetDialog';
 import { ViewAssetModal } from '@/components/ViewAssetModal';
 import { ViewAssetQRModal } from '@/components/ViewAssetQRModal';
+import { Checkbox } from '@/components/ui/checkbox';
+import { downloadQRCodesAsZip, generatePrintablePDF } from '@/lib/qrCodeUtils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -77,6 +81,9 @@ const Assets = () => {
   const [editAsset, setEditAsset] = useState<Asset | null>(null);
   const [qrAsset, setQrAsset] = useState<{ id: string; name: string } | null>(null);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -175,6 +182,104 @@ const Assets = () => {
     setSearchQuery('');
     setCategoryFilter('all');
     setStatusFilter('all');
+  };
+
+  const toggleAssetSelection = (assetId: string) => {
+    setSelectedAssets(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(assetId)) {
+        newSet.delete(assetId);
+      } else {
+        newSet.add(assetId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedAssets.size === filteredAssets.length) {
+      setSelectedAssets(new Set());
+    } else {
+      setSelectedAssets(new Set(filteredAssets.map(a => a.id)));
+    }
+  };
+
+  const handleBulkDownloadQR = async () => {
+    if (selectedAssets.size === 0) {
+      toast({
+        title: 'No assets selected',
+        description: 'Please select at least one asset to download QR codes.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsBulkProcessing(true);
+      const selectedAssetData = assets
+        .filter(a => selectedAssets.has(a.id))
+        .map(a => ({ asset_id: a.asset_id, asset_name: a.asset_name }));
+
+      await downloadQRCodesAsZip(selectedAssetData, (current, total) => {
+        setBulkProgress({ current, total });
+      });
+
+      toast({
+        title: 'Success',
+        description: `${selectedAssets.size} QR codes downloaded successfully.`,
+      });
+      
+      setSelectedAssets(new Set());
+    } catch (error) {
+      console.error('Error downloading QR codes:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to download QR codes. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsBulkProcessing(false);
+      setBulkProgress({ current: 0, total: 0 });
+    }
+  };
+
+  const handlePrintQRLabels = async () => {
+    if (selectedAssets.size === 0) {
+      toast({
+        title: 'No assets selected',
+        description: 'Please select at least one asset to print labels.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsBulkProcessing(true);
+      const selectedAssetData = assets
+        .filter(a => selectedAssets.has(a.id))
+        .map(a => ({ asset_id: a.asset_id, asset_name: a.asset_name }));
+
+      await generatePrintablePDF(selectedAssetData, (current, total) => {
+        setBulkProgress({ current, total });
+      });
+
+      toast({
+        title: 'Success',
+        description: `PDF with ${selectedAssets.size} QR labels generated successfully.`,
+      });
+      
+      setSelectedAssets(new Set());
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate PDF. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsBulkProcessing(false);
+      setBulkProgress({ current: 0, total: 0 });
+    }
   };
 
   const handleExportExcel = () => {
@@ -479,6 +584,61 @@ const Assets = () => {
         </div>
       </div>
 
+      {/* Bulk Actions Bar */}
+      {selectedAssets.size > 0 && (
+        <Card className="p-4 bg-primary/5 border-primary/20">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="h-5 w-5 text-primary" />
+              <span className="font-medium">
+                {selectedAssets.size} asset{selectedAssets.size !== 1 ? 's' : ''} selected
+              </span>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setSelectedAssets(new Set())}
+              >
+                Clear Selection
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleBulkDownloadQR}
+                variant="outline"
+                size="sm"
+                disabled={isBulkProcessing}
+              >
+                <FileArchive className="h-4 w-4 mr-2" />
+                Download QR Codes (ZIP)
+              </Button>
+              <Button 
+                onClick={handlePrintQRLabels}
+                variant="outline"
+                size="sm"
+                disabled={isBulkProcessing}
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Print QR Labels (PDF)
+              </Button>
+            </div>
+          </div>
+          {isBulkProcessing && bulkProgress.total > 0 && (
+            <div className="mt-3">
+              <div className="flex items-center justify-between text-sm text-muted-foreground mb-1">
+                <span>Processing...</span>
+                <span>{bulkProgress.current} / {bulkProgress.total}</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2">
+                <div 
+                  className="bg-primary h-2 rounded-full transition-all"
+                  style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* Asset Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4">
@@ -565,8 +725,16 @@ const Assets = () => {
               </Button>
             </div>
           </div>
-          <div className="flex items-center justify-end">
-            <ToggleGroup 
+          <div className="flex items-center justify-end gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={toggleSelectAll}
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              {selectedAssets.size === filteredAssets.length ? 'Deselect All' : 'Select All'}
+            </Button>
+            <ToggleGroup
               type="single" 
               value={viewMode} 
               onValueChange={(value) => value && setViewMode(value as 'grid' | 'list')} 
@@ -611,13 +779,20 @@ const Assets = () => {
               <Card key={asset.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        {getCategoryIcon(asset.category)}
-                      </div>
-                      <div>
-                        <CardTitle className="text-base font-semibold">{asset.asset_name}</CardTitle>
-                        <p className="text-xs text-muted-foreground mt-1">{categoryName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={selectedAssets.has(asset.id)}
+                        onCheckedChange={() => toggleAssetSelection(asset.id)}
+                        aria-label={`Select ${asset.asset_name}`}
+                      />
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                          {getCategoryIcon(asset.category)}
+                        </div>
+                        <div>
+                          <CardTitle className="text-base font-semibold">{asset.asset_name}</CardTitle>
+                          <p className="text-xs text-muted-foreground mt-1">{categoryName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -756,6 +931,26 @@ const Assets = () => {
                         <table className="w-full text-xs">
                           <thead className="bg-muted/50">
                             <tr>
+                              <th className="px-4 py-2">
+                                <Checkbox
+                                  checked={categoryAssets.every(a => selectedAssets.has(a.id))}
+                                  onCheckedChange={() => {
+                                    const allSelected = categoryAssets.every(a => selectedAssets.has(a.id));
+                                    setSelectedAssets(prev => {
+                                      const newSet = new Set(prev);
+                                      categoryAssets.forEach(a => {
+                                        if (allSelected) {
+                                          newSet.delete(a.id);
+                                        } else {
+                                          newSet.add(a.id);
+                                        }
+                                      });
+                                      return newSet;
+                                    });
+                                  }}
+                                  aria-label="Select all in category"
+                                />
+                              </th>
                               <th className="text-left px-4 py-2 font-medium text-muted-foreground">Asset ID</th>
                               <th className="text-left px-4 py-2 font-medium text-muted-foreground">Model</th>
                               <th className="text-left px-4 py-2 font-medium text-muted-foreground">Service Tag</th>
@@ -783,6 +978,13 @@ const Assets = () => {
                                   index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
                                 }`}
                               >
+                                <td className="px-4 py-3">
+                                  <Checkbox
+                                    checked={selectedAssets.has(asset.id)}
+                                    onCheckedChange={() => toggleAssetSelection(asset.id)}
+                                    aria-label={`Select ${asset.asset_name}`}
+                                  />
+                                </td>
                                 <td className="px-4 py-3 font-semibold text-primary">{asset.asset_id || '-'}</td>
                                 <td className="px-4 py-3 font-medium">{asset.model || '-'}</td>
                                 <td className="px-4 py-3">{asset.serial_number || asset.asset_tag}</td>
