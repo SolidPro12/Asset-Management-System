@@ -208,7 +208,7 @@ export default function AssetAllocations() {
   const returnedCount = allocations.filter((a) => a.status === 'returned').length;
 
   const exportToCSV = () => {
-    const headers = ['Asset', 'Category', 'Employee', 'Department', 'Allocated Date', 'Status', 'Condition'];
+    const headers = ['Asset Name', 'Asset Category', 'Employee', 'Department', 'Allocated Date', 'Status', 'Condition'];
     const rows = filteredAllocations.map((a) => [
       a.asset_name,
       a.category,
@@ -340,8 +340,8 @@ export default function AssetAllocations() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Asset</TableHead>
-                <TableHead>Category</TableHead>
+                <TableHead>Asset Name</TableHead>
+                <TableHead>Asset Category</TableHead>
                 <TableHead>Employee</TableHead>
                 <TableHead>Department</TableHead>
                 <TableHead>Allocated Date</TableHead>

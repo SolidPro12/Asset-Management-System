@@ -1,4 +1,4 @@
-import { Home, Package, FileText, History, Users, UserCheck, ChevronDown } from 'lucide-react';
+import { Home, Package, FileText, History, Users, UserCheck, ChevronDown, Headset } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import React from 'react';
@@ -34,7 +34,7 @@ const menuItems = [
   { title: 'Asset Requests', url: '/requests', icon: FileText, requiredRole: null },
   { 
     title: 'Service Desk', 
-    icon: FileText, 
+    icon: Headset, 
     requiredRole: null,
     subItems: [
       { title: 'My Tickets', url: '/my-tickets', requiredRole: null },
@@ -89,7 +89,7 @@ export function AppSidebar() {
         menuItems.find((item) => item.title === 'Asset Requests'),
         {
           title: 'Service Desk',
-          icon: FileText,
+          icon: Headset,
           requiredRole: null,
           subItems: [
             { title: 'My Tickets', url: '/my-tickets', requiredRole: null },
@@ -98,16 +98,28 @@ export function AppSidebar() {
       ].filter(Boolean);
     }
     if (userRole === 'financer') {
-      return menuItems.filter(item => item.title === 'Dashboard' || item.title === 'Assets');
+      return [
+        menuItems.find((item) => item.title === 'Dashboard'),
+        menuItems.find((item) => item.title === 'My Asset'),
+        menuItems.find((item) => item.title === 'Assets'),
+        {
+          title: 'Service Desk',
+          icon: Headset,
+          requiredRole: null,
+          subItems: [
+            { title: 'My Tickets', url: '/my-tickets', requiredRole: null },
+          ],
+        },
+      ].filter(Boolean);
     }
-    if (userRole === 'user') {
+    if (userRole === 'user' || userRole === 'department_head' || userRole === 'department head') {
       // Only show Dashboard, My Asset, and Service Desk - My Tickets for user role
       return [
         menuItems.find((item) => item.title === 'Dashboard'),
         menuItems.find((item) => item.title === 'My Asset'),
         {
           title: 'Service Desk',
-          icon: FileText,
+          icon: Headset,
           requiredRole: null,
           subItems: [
             { title: 'My Tickets', url: '/my-tickets', requiredRole: null },
@@ -140,7 +152,7 @@ export function AppSidebar() {
           </div>
           {state === 'expanded' && (
             <div className="flex flex-col">
-              <h2 className="text-sm font-semibold text-sidebar-foreground">SOLIDPRO</h2>
+              <img src="/Solidpro%20Logo%20with%20Text.svg" alt="SOLIDPRO" className="h-5 w-auto" />
               <p className="text-xs text-sidebar-foreground/60">Asset Management</p>
             </div>
           )}
