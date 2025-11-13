@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Package, Calendar, DollarSign, MapPin, Building2, Tag } from 'lucide-react';
+import { AssetQRCode } from './AssetQRCode';
 
 interface Asset {
   id: string;
@@ -203,6 +204,17 @@ export function ViewAssetModal({ asset, open, onOpenChange, onEdit }: ViewAssetM
               </div>
             </div>
           )}
+
+          {/* QR Code Section */}
+          <div>
+            <AssetQRCode 
+              assetId={asset.asset_id}
+              assetName={asset.asset_name}
+              size={200}
+              showDownload={true}
+              showTitle={true}
+            />
+          </div>
 
           {/* Action Buttons */}
           {onEdit && (
