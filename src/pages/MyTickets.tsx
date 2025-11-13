@@ -418,7 +418,7 @@ const MyTickets = () => {
       // Update ticket status to 'cancelled'
       const { data, error } = await supabase
         .from('tickets')
-        .update({ status: 'cancelled' })
+        .update({ status: 'cancelled' as any })
         .eq('id', cancelTicket.id)
         .select('id,status')
         .single();
