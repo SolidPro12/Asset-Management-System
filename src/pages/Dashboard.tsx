@@ -26,6 +26,9 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  PieChart,
+  Pie,
+  Legend,
 } from 'recharts';
 
 interface DashboardStats {
@@ -978,40 +981,46 @@ const Dashboard = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <ResponsiveContainer width="100%" height={240}>
-                    <BarChart
-                      data={categoryStats}
-                      layout="vertical"
-                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis dataKey="category" type="category" width={100} />
-                      <Tooltip
-                        formatter={(value: any, name: string) => {
-                          if (name === 'utilization') return [`${value}%`, 'Utilization'];
-                          if (name === 'totalValue') return [`₹${value.toLocaleString('en-IN')}`, 'Total Value'];
-                          return [value, name];
-                        }}
-                      />
-                      <Bar dataKey="utilization" radius={[0, 8, 8, 0]}>
+                  <ResponsiveContainer width="100%" height={600}>
+                    <PieChart>
+                      <Pie
+                        data={categoryStats.map((stat, index) => ({
+                          name: stat.category,
+                          value: stat.total,
+                          utilization: stat.utilization,
+                          totalValue: stat.totalValue,
+                          fill: COLORS[index % COLORS.length],
+                        }))}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, value, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={160}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
                         {categoryStats.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
-                      </Bar>
-                    </BarChart>
+                      </Pie>
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-1">
+                                <div className="font-semibold text-base">{data.name}</div>
+                                <div className="text-sm">Total Assets: <span className="font-medium">{data.value}</span></div>
+                                <div className="text-sm">Utilization: <span className="font-medium">{data.utilization}%</span></div>
+                                <div className="text-sm font-medium">Total Value: ₹{data.totalValue.toLocaleString('en-IN')}</div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                    </PieChart>
                   </ResponsiveContainer>
-                  <div className="space-y-2">
-                    {categoryStats.slice(0, 5).map((stat) => (
-                      <div key={stat.category} className="flex items-center justify-between text-sm">
-                        <span className="font-medium">{stat.category}</span>
-                        <div className="flex items-center gap-4">
-                          <span className="text-muted-foreground">{stat.utilization}% utilized</span>
-                          <span className="font-semibold">₹{stat.totalValue.toLocaleString('en-IN')}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               )}
             </CardContent>
