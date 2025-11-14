@@ -192,6 +192,9 @@ export function Layout({ children }: LayoutProps) {
         return 'Finance Admin';
       case 'hr':
         return 'HR';
+      case 'department_head':
+      case 'department head':
+        return 'Department Head';
       default:
         return 'User';
     }
