@@ -90,6 +90,7 @@ const Users = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(false);
   const [importPreviewOpen, setImportPreviewOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [importData, setImportData] = useState<ImportUserRow[]>([]);
@@ -253,6 +254,7 @@ const Users = () => {
     if (!selectedUser) return;
 
     try {
+      setDeletingUser(true);
       const { data: { session } } = await supabase.auth.getSession();
       
       const response = await supabase.functions.invoke('delete-user', {
@@ -267,18 +269,21 @@ const Users = () => {
 
       toast({
         title: 'Success',
-        description: 'User deleted successfully',
+        description: `User ${selectedUser.full_name} has been deleted successfully`,
       });
 
       setDeleteDialogOpen(false);
       setSelectedUser(null);
       fetchUsers();
     } catch (error: any) {
+      console.error('Delete user error:', error);
       toast({
-        title: 'Error',
+        title: 'Cannot Delete User',
         description: error.message || 'Failed to delete user',
         variant: 'destructive',
       });
+    } finally {
+      setDeletingUser(false);
     }
   };
 
@@ -1043,22 +1048,35 @@ const Users = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm w-[110px]">{userProfile.employee_id || '-'}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEditUser(userProfile)}
-                      disabled={userProfile.id === user?.id}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteUser(userProfile)}
-                      disabled={userProfile.id === user?.id}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {userRole === 'super_admin' && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditUser(userProfile)}
+                          disabled={userProfile.id === user?.id}
+                          title="Edit User"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteUser(userProfile)}
+                          disabled={userProfile.id === user?.id || userProfile.user_roles?.[0]?.role === 'super_admin'}
+                          title={
+                            userProfile.id === user?.id 
+                              ? "Cannot delete your own account" 
+                              : userProfile.user_roles?.[0]?.role === 'super_admin'
+                              ? "Cannot delete Super Admin"
+                              : "Delete User"
+                          }
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1270,17 +1288,51 @@ const Users = () => {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+        if (!deletingUser) {
+          setDeleteDialogOpen(open);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the user account for {selectedUser?.full_name}. This action cannot be undone.
+            <AlertDialogTitle>Delete User Account?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Are you sure you want to delete <strong>{selectedUser?.full_name}</strong>'s account?
+              </p>
+              <div className="bg-muted p-3 rounded-md text-sm space-y-1">
+                <p><strong>Email:</strong> {selectedUser?.email}</p>
+                <p><strong>Employee ID:</strong> {selectedUser?.employee_id}</p>
+                <p><strong>Department:</strong> {selectedUser?.department || 'N/A'}</p>
+                <p><strong>Role:</strong> {selectedUser?.user_roles?.[0]?.role.replace('_', ' ').toUpperCase()}</p>
+              </div>
+              <p className="text-destructive font-medium">
+                ⚠️ This action cannot be undone. All user data will be permanently removed.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Note: Users with active tickets (Open/In Progress) or Super Admin role cannot be deleted.
+              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteUser}>Delete</AlertDialogAction>
+            <AlertDialogCancel disabled={deletingUser}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteUser}
+              disabled={deletingUser}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingUser ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete User
+                </>
+              )}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
