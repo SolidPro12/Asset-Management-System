@@ -333,36 +333,84 @@ export type Database = {
         }
         Relationships: []
       }
+      permission_history: {
+        Row: {
+          action: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_department: string | null
+          new_role: string | null
+          old_department: string | null
+          old_role: string | null
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_department?: string | null
+          new_role?: string | null
+          old_department?: string | null
+          old_role?: string | null
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_department?: string | null
+          new_role?: string | null
+          old_department?: string | null
+          old_role?: string | null
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
           department: string | null
           email: string
           employee_id: string | null
           full_name: string
           id: string
+          is_active: boolean | null
           is_department_head: boolean | null
           phone: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           department?: string | null
           email: string
           employee_id?: string | null
           full_name: string
           id: string
+          is_active?: boolean | null
           is_department_head?: boolean | null
           phone?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           department?: string | null
           email?: string
           employee_id?: string | null
           full_name?: string
           id?: string
+          is_active?: boolean | null
           is_department_head?: boolean | null
           phone?: string | null
           updated_at?: string
@@ -477,6 +525,41 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      ticket_comments: {
+        Row: {
+          comment: string
+          created_at: string
+          id: string
+          ticket_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comment: string
+          created_at?: string
+          id?: string
+          ticket_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comment?: string
+          created_at?: string
+          id?: string
+          ticket_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_comments_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ticket_history: {
         Row: {
@@ -620,6 +703,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_management_log: {
+        Row: {
+          action_type: string
+          created_at: string
+          details: string | null
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          performed_by: string | null
+          target_user_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          details?: string | null
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          performed_by?: string | null
+          target_user_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          details?: string | null
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          performed_by?: string | null
+          target_user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -711,7 +827,13 @@ export type Database = {
         | "cancelled"
       request_type: "regular" | "urgent" | "express"
       ticket_priority: "low" | "medium" | "high" | "critical"
-      ticket_status: "open" | "in_progress" | "resolved" | "closed" | "on_hold"
+      ticket_status:
+        | "open"
+        | "in_progress"
+        | "resolved"
+        | "closed"
+        | "on_hold"
+        | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -886,7 +1008,14 @@ export const Constants = {
       ],
       request_type: ["regular", "urgent", "express"],
       ticket_priority: ["low", "medium", "high", "critical"],
-      ticket_status: ["open", "in_progress", "resolved", "closed", "on_hold"],
+      ticket_status: [
+        "open",
+        "in_progress",
+        "resolved",
+        "closed",
+        "on_hold",
+        "cancelled",
+      ],
     },
   },
 } as const
