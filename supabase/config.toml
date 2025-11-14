@@ -2,3 +2,6 @@ project_id = "nrnfmmdeihczwickgurc"
 
 [functions.send-test-email]
 verify_jwt = true
+
+[functions.cancel-ticket]
+verify_jwt = true
