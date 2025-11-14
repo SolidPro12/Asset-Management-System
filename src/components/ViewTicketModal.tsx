@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
+import { History } from 'lucide-react';
+import { TicketHistoryModal } from './TicketHistoryModal';
 
 interface Ticket {
   id: string;
@@ -41,6 +43,7 @@ export function ViewTicketModal({
   onOpenChange,
 }: ViewTicketModalProps) {
   const [assignedToName, setAssignedToName] = useState<string>('Unassigned');
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     if (open && ticket?.assigned_to) {
@@ -85,9 +88,14 @@ export function ViewTicketModal({
       in_progress: 'secondary',
       resolved: 'outline',
       closed: 'secondary',
+      cancelled: 'secondary',
+      on_hold: 'outline',
     };
     return (
-      <Badge variant={variants[status]}>
+      <Badge 
+        variant={variants[status] || 'secondary'}
+        className={status === 'cancelled' ? 'bg-muted text-muted-foreground' : ''}
+      >
         {status.replace('_', ' ').toUpperCase()}
       </Badge>
     );
@@ -195,13 +203,29 @@ export function ViewTicketModal({
             </div>
           </div>
 
-          <div className="flex justify-end pt-4 border-t">
+          <div className="flex justify-between items-center pt-4 border-t gap-3">
+            <Button 
+              variant="secondary" 
+              onClick={() => setShowHistory(true)}
+              className="flex items-center gap-2"
+            >
+              <History className="h-4 w-4" />
+              View Activity Timeline
+            </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Close
             </Button>
           </div>
         </div>
       </DialogContent>
+      
+      {/* Activity Timeline Modal */}
+      <TicketHistoryModal
+        open={showHistory}
+        onOpenChange={setShowHistory}
+        ticketId={ticket.id}
+        ticketNumber={ticket.ticket_id}
+      />
     </Dialog>
   );
 }
