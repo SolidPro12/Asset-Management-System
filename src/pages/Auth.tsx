@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
 import { z } from 'zod';
-import assetSlide1 from '@/assets/asset-slide-1.png';
+import assetSlide1 from '@/assets/asset-banner-1.svg';
 import assetSlide2 from '@/assets/asset-slide-2.png';
 import assetSlide3 from '@/assets/asset-slide-3.png';
 import ticketSlide1 from '@/assets/ticket-slide-1.png';
