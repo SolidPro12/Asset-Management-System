@@ -137,6 +137,15 @@ const Dashboard = () => {
   const [hrApprovedPage, setHrApprovedPage] = useState(1);
   const [hrMyReqPage, setHrMyReqPage] = useState(1);
   const hrPageSize = 5;
+  // Department Head data
+  const [deptCategoryStats, setDeptCategoryStats] = useState<CategoryStat[]>([]);
+  const [deptTotalValue, setDeptTotalValue] = useState<number>(0);
+  const [deptAllocations, setDeptAllocations] = useState<any[]>([]);
+  const [deptName, setDeptName] = useState<string>('');
+  const [deptEmployeeCount, setDeptEmployeeCount] = useState<number>(0);
+  // Global totals for Financer/Dept Head summary cards
+  const [globalCategoryStats, setGlobalCategoryStats] = useState<CategoryStat[]>([]);
+  const [globalTotalAssetValue, setGlobalTotalAssetValue] = useState<number>(0);
 
   useEffect(() => {
     if (user) {
@@ -150,8 +159,13 @@ const Dashboard = () => {
         fetchSuperAdminDashboardData();
       } else if (userRole === 'hr') {
         fetchHRDashboardData();
-      } else if (userRole === 'financer') {
-        fetchDashboardStats(); // Financer uses same as default
+      } else if (userRole === 'financer' || userRole === 'department_head' || userRole === 'department head') {
+        fetchDashboardStats(); // Finance/Dept Head use same as default
+        fetchEmployeeCount(); // For financer org employees card
+        if (userRole === 'department_head' || userRole === 'department head') {
+          fetchDeptHeadDashboardData();
+        }
+        fetchGlobalCategoryStats();
       } else if (userRole === 'admin') {
         fetchAdminDashboardData();
       } else {
@@ -159,6 +173,112 @@ const Dashboard = () => {
       }
     }
   }, [userRole]);
+
+  const isFinancer = userRole === 'financer';
+
+  const fetchGlobalCategoryStats = async () => {
+    try {
+      const { data } = await supabase
+        .from('assets')
+        .select('category, status, purchase_cost');
+
+      const categoryMap = new Map<string, { total: number; assigned: number; totalValue: number }>();
+      let totalValue = 0;
+
+      data?.forEach((asset) => {
+        const category = asset.category;
+        const current = categoryMap.get(category) || { total: 0, assigned: 0, totalValue: 0 };
+        current.total += 1;
+        if ((asset as any).status === 'assigned') {
+          current.assigned += 1;
+        }
+        const cost = (asset as any).purchase_cost || 0;
+        current.totalValue += cost;
+        totalValue += cost;
+        categoryMap.set(category, current);
+      });
+
+      const statsArray: CategoryStat[] = Array.from(categoryMap.entries()).map(([category, data]) => ({
+        category: category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' '),
+        total: data.total,
+        assigned: data.assigned,
+        utilization: data.total > 0 ? Math.round((data.assigned / data.total) * 100) : 0,
+        totalValue: data.totalValue,
+      }));
+
+      setGlobalCategoryStats(statsArray);
+      setGlobalTotalAssetValue(totalValue);
+    } catch (_) {
+      setGlobalCategoryStats([]);
+      setGlobalTotalAssetValue(0);
+    }
+  };
+
+  const fetchDeptHeadDashboardData = async () => {
+    try {
+      if (!user) return;
+      // Get department of current department head
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('department')
+        .eq('id', user.id)
+        .single();
+
+      const department = profile?.department || '';
+      setDeptName(department);
+
+      // Fetch active allocations for this department with joined asset details
+      const { data: allocations } = await supabase
+        .from('asset_allocations')
+        .select('id, allocated_date, status, employee_name, department, assets:asset_id(asset_name, category, purchase_cost)')
+        .eq('status', 'active')
+        .eq('department', department);
+
+      const list = allocations || [];
+      setDeptAllocations(list);
+
+      // Fetch team size (employees in this department)
+      try {
+        const { count: teamCount } = await supabase
+          .from('profiles')
+          .select('id', { count: 'exact', head: true })
+          .eq('department', department);
+        setDeptEmployeeCount(teamCount || 0);
+      } catch (_) {
+        setDeptEmployeeCount(0);
+      }
+
+      // Aggregate by category and sum cost
+      const categoryMap = new Map<string, { total: number; assigned: number; totalValue: number }>();
+      let totalValue = 0;
+      list.forEach((row: any) => {
+        const asset = row.assets || {};
+        const category = asset.category || 'other';
+        const cost = asset.purchase_cost || 0;
+        totalValue += cost;
+        const current = categoryMap.get(category) || { total: 0, assigned: 0, totalValue: 0 };
+        current.total += 1;
+        current.assigned += 1;
+        current.totalValue += cost;
+        categoryMap.set(category, current);
+      });
+
+      const statsArray: CategoryStat[] = Array.from(categoryMap.entries()).map(([category, data]) => ({
+        category: category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' '),
+        total: data.total,
+        assigned: data.assigned,
+        utilization: data.total > 0 ? Math.round((data.assigned / data.total) * 100) : 0,
+        totalValue: data.totalValue,
+      }));
+
+      setDeptCategoryStats(statsArray.sort((a, b) => b.totalValue - a.totalValue));
+      setDeptTotalValue(totalValue);
+    } catch (_) {
+      setDeptCategoryStats([]);
+      setDeptTotalValue(0);
+      setDeptAllocations([]);
+    }
+  };
 
   const checkUserRole = async () => {
     if (!user) return;
@@ -1530,129 +1650,286 @@ const Dashboard = () => {
     );
   }
 
-  // Financer Dashboard
-  if (userRole === 'financer') {
+  // Finance/Department Head Dashboard
+  if (userRole === 'financer' || userRole === 'department_head' || userRole === 'department head') {
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
 
 
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Finance & Management Dashboard</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
           <p className="text-muted-foreground">Financial overview and reporting of asset investments</p>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card className="transition-all hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Asset Value
-              </CardTitle>
-              <div className="p-2 rounded-lg bg-success/10">
-                <Package className="h-4 w-4 text-success" />
+        {isFinancer ? (
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card className="transition-all hover:shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Asset Value
+                </CardTitle>
+                <div className="p-2 rounded-lg bg-success/10">
+                  <Package className="h-4 w-4 text-success" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-success">₹{(globalTotalAssetValue || 0).toLocaleString('en-IN')}</div>
+                <p className="text-xs text-muted-foreground mt-1">Total investment</p>
+              </CardContent>
+            </Card>
+
+            <Card className="transition-all hover:shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Assets
+                </CardTitle>
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-primary">{stats.totalAssets}</div>
+                <p className="text-xs text-muted-foreground mt-1">Utilization rate 75%</p>
+              </CardContent>
+            </Card>
+
+            <Card className="transition-all hover:shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Categories
+                </CardTitle>
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <Package className="h-4 w-4 text-accent" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-accent">{globalCategoryStats.length}</div>
+                <p className="text-xs text-muted-foreground mt-1">Asset categories</p>
+              </CardContent>
+            </Card>
+
+            <Card className="transition-all hover:shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Employees (Org)
+                </CardTitle>
+                <div className="p-2 rounded-lg bg-blue-100">
+                  <Users className="h-4 w-4 text-blue-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalEmployees || 0}</div>
+                <p className="text-xs text-muted-foreground mt-1">Organization-wide</p>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card className="transition-all hover:shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Employees (Team)
+                </CardTitle>
+                <div className="p-2 rounded-lg bg-blue-100">
+                  <Users className="h-4 w-4 text-blue-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{deptEmployeeCount}</div>
+                <p className="text-xs text-muted-foreground mt-1">In your department</p>
+              </CardContent>
+            </Card>
+
+            <Card className="transition-all hover:shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Assets
+                </CardTitle>
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-primary">{deptAllocations.length}</div>
+                <p className="text-xs text-muted-foreground mt-1">Allocated in your department</p>
+              </CardContent>
+            </Card>
+
+            <Card className="transition-all hover:shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Categories
+                </CardTitle>
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <Package className="h-4 w-4 text-accent" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-accent">{deptCategoryStats.length}</div>
+                <p className="text-xs text-muted-foreground mt-1">Asset categories in your department</p>
+              </CardContent>
+            </Card>
+
+            <Card className="transition-all hover:shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Asset Value
+                </CardTitle>
+                <div className="p-2 rounded-lg bg-success/10">
+                  <Package className="h-4 w-4 text-success" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-success">₹{(deptTotalValue || 0).toLocaleString('en-IN')}</div>
+                <p className="text-xs text-muted-foreground mt-1">Your department</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+        {/* Reports & Data Management (Financer) OR Department Assets Overview (Dept Head) */}
+        {isFinancer ? (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Reports & Data Management</CardTitle>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Reports
+                </Button>
+                <Button variant="outline" size="sm">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Import Data
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-success">₹45,67,890</div>
-              <p className="text-xs text-muted-foreground mt-1">Total investment</p>
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card className="border-2">
+                  <CardHeader>
+                    <CardTitle className="text-base">Asset Utilization Report</CardTitle>
+                    <p className="text-sm text-muted-foreground">Comprehensive usage analytics</p>
+                  </CardHeader>
+                  <CardContent>
+                    <Button className="w-full">Generate</Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2">
+                  <CardHeader>
+                    <CardTitle className="text-base">Financial Summary</CardTitle>
+                    <p className="text-sm text-muted-foreground">Cost analysis and ROI metrics</p>
+                  </CardHeader>
+                  <CardContent>
+                    <Button className="w-full">Generate</Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2">
+                  <CardHeader>
+                    <CardTitle className="text-base">Department Allocation</CardTitle>
+                    <p className="text-sm text-muted-foreground">Asset distribution by department</p>
+                  </CardHeader>
+                  <CardContent>
+                    <Button className="w-full">Generate</Button>
+                  </CardContent>
+                </Card>
+              </div>
             </CardContent>
           </Card>
-
-          <Card className="transition-all hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Assets
-              </CardTitle>
-              <div className="p-2 rounded-lg bg-primary/10">
-                <TrendingUp className="h-4 w-4 text-primary" />
-              </div>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Department Assets Overview {deptName ? `- ${deptName}` : ''}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.totalAssets}</div>
-              <p className="text-xs text-muted-foreground mt-1">Utilization rate 75%</p>
-            </CardContent>
-          </Card>
-
-          <Card className="transition-all hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Categories
-              </CardTitle>
-              <div className="p-2 rounded-lg bg-accent/10">
-                <Package className="h-4 w-4 text-accent" />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <div className="rounded-xl border p-4 bg-white">
+                    <div className="text-sm text-muted-foreground mb-2">Assets by Category</div>
+                    {deptCategoryStats.length === 0 ? (
+                      <div className="h-48 flex items-center justify-center text-muted-foreground">No data</div>
+                    ) : (
+                      <div className="space-y-4">
+                        <ResponsiveContainer width="100%" height={220}>
+                          <PieChart>
+                            <Pie
+                              data={deptCategoryStats.map((stat, index) => ({
+                                name: stat.category,
+                                value: stat.total,
+                                totalValue: stat.totalValue,
+                                fill: COLORS[index % COLORS.length],
+                              }))}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                              outerRadius={90}
+                              dataKey="value"
+                            >
+                              {deptCategoryStats.map((_, index) => (
+                                <Cell key={`dept-cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  const data: any = payload[0].payload;
+                                  return (
+                                    <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-1">
+                                      <div className="font-semibold text-base">{data.name}</div>
+                                      <div className="text-sm">Total Assets: <span className="font-medium">{data.value}</span></div>
+                                      <div className="text-sm font-medium">Total Value: ₹{data.totalValue.toLocaleString('en-IN')}</div>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-xl border overflow-hidden">
+                  <div className="p-4 font-medium border-b">Allocated Assets List</div>
+                  <div className="max-h-[360px] overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Asset</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead>Cost</TableHead>
+                          <TableHead>Assigned To</TableHead>
+                          <TableHead>Allocated Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {deptAllocations.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center text-muted-foreground">No allocations</TableCell>
+                          </TableRow>
+                        ) : (
+                          deptAllocations.map((row: any) => (
+                            <TableRow key={row.id}>
+                              <TableCell>{row.assets?.asset_name || 'N/A'}</TableCell>
+                              <TableCell className="capitalize">{row.assets?.category?.replace(/_/g, ' ') || 'N/A'}</TableCell>
+                              <TableCell>₹{(row.assets?.purchase_cost || 0).toLocaleString('en-IN')}</TableCell>
+                              <TableCell>{row.employee_name || 'N/A'}</TableCell>
+                              <TableCell>{row.allocated_date ? format(new Date(row.allocated_date), 'dd MMM yyyy') : 'N/A'}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-accent">13</div>
-              <p className="text-xs text-muted-foreground mt-1">Asset categories</p>
             </CardContent>
           </Card>
-
-          <Card className="transition-all hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Departments
-              </CardTitle>
-              <div className="p-2 rounded-lg bg-warning/10">
-                <FileText className="h-4 w-4 text-warning" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-warning">8</div>
-              <p className="text-xs text-muted-foreground mt-1">Active departments</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Reports & Data Management */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Reports & Data Management</CardTitle>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Export Reports
-              </Button>
-              <Button variant="outline" size="sm">
-                <FileText className="h-4 w-4 mr-2" />
-                Import Data
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card className="border-2">
-                <CardHeader>
-                  <CardTitle className="text-base">Asset Utilization Report</CardTitle>
-                  <p className="text-sm text-muted-foreground">Comprehensive usage analytics</p>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full">Generate</Button>
-                </CardContent>
-              </Card>
-
-              <Card className="border-2">
-                <CardHeader>
-                  <CardTitle className="text-base">Financial Summary</CardTitle>
-                  <p className="text-sm text-muted-foreground">Cost analysis and ROI metrics</p>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full">Generate</Button>
-                </CardContent>
-              </Card>
-
-              <Card className="border-2">
-                <CardHeader>
-                  <CardTitle className="text-base">Department Allocation</CardTitle>
-                  <p className="text-sm text-muted-foreground">Asset distribution by department</p>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full">Generate</Button>
-                </CardContent>
-              </Card>
-            </div>
-          </CardContent>
-        </Card>
+        )}
       </div>
     );
   }
@@ -1664,7 +1941,7 @@ const Dashboard = () => {
 
 
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">HR Dashboard</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
           <p className="text-muted-foreground">Manage asset requests and track allocations for new joiners</p>
         </div>
 
