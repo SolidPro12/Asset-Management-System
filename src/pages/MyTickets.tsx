@@ -414,16 +414,30 @@ const MyTickets = () => {
   const handleCancelTicket = async () => {
     if (!cancelTicket) return;
 
+    // Frontend validation - only allow cancellation of open tickets
+    if (cancelTicket.status !== 'open') {
+      toast({
+        title: 'Cannot Cancel Ticket',
+        description: 'Only tickets with Open status can be cancelled',
+        variant: 'destructive',
+      });
+      setCancelTicket(null);
+      return;
+    }
+
     try {
-      // Update ticket status to 'cancelled'
-      const { data, error } = await supabase
-        .from('tickets')
-        .update({ status: 'cancelled' as any })
-        .eq('id', cancelTicket.id)
-        .select('id,status')
-        .single();
-      
-      if (error) throw error;
+      // Call backend edge function for server-side validation
+      const { data, error } = await supabase.functions.invoke('cancel-ticket', {
+        body: { ticketId: cancelTicket.id },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to cancel ticket');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       // Update the ticket in the local state immediately
       setTickets((prev) => 
@@ -440,14 +454,16 @@ const MyTickets = () => {
       });
 
       setCancelTicket(null);
-      // Optionally refresh to get latest data
+      // Refresh to get latest data
       fetchMyTickets();
     } catch (error: any) {
+      console.error('Error cancelling ticket:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to cancel ticket',
         variant: 'destructive',
       });
+      setCancelTicket(null);
     }
   };
 
@@ -468,12 +484,17 @@ const MyTickets = () => {
       resolved: 'outline',
       closed: 'secondary',
       on_hold: 'outline',
-      cancelled: 'destructive',
+      cancelled: 'secondary',
     };
     const variant = variants[status] ?? 'secondary';
+    const displayStatus = String(status || '').replace('_', ' ').toUpperCase() || 'UNKNOWN';
+    
     return (
-      <Badge variant={variant}>
-        {String(status || '').replace('_', ' ').toUpperCase() || 'UNKNOWN'}
+      <Badge 
+        variant={variant}
+        className={status === 'cancelled' ? 'bg-muted text-muted-foreground' : ''}
+      >
+        {displayStatus}
       </Badge>
     );
   };
@@ -689,7 +710,8 @@ const MyTickets = () => {
                           >
                             <History className="h-4 w-4" />
                           </Button>
-                          {!isCancelled && ticket.status === 'open' && (
+                          {/* Only show Edit and Cancel for Open tickets */}
+                          {ticket.status === 'open' ? (
                             <>
                               <Button
                                 size="sm"
@@ -704,6 +726,27 @@ const MyTickets = () => {
                                 variant="destructive"
                                 onClick={() => setCancelTicket(ticket)}
                                 title="Cancel Ticket"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled
+                                title="Cannot edit - ticket is not open"
+                                className="cursor-not-allowed opacity-50"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled
+                                title="Cannot cancel - only open tickets can be cancelled"
+                                className="cursor-not-allowed opacity-50"
                               >
                                 <XCircle className="h-4 w-4" />
                               </Button>
@@ -748,12 +791,15 @@ const MyTickets = () => {
               Are you sure you want to cancel ticket <strong>{cancelTicket?.ticket_id}</strong>?
               <br />
               <br />
-              This action will mark the ticket as cancelled and you will not be able to edit it afterwards.
+              This action will mark the ticket as <strong>Cancelled</strong>. Once cancelled, you will not be able to edit or reopen this ticket.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>No, keep it</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancelTicket} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction 
+              onClick={handleCancelTicket} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Yes, cancel ticket
             </AlertDialogAction>
           </AlertDialogFooter>
