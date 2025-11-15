@@ -376,7 +376,19 @@ const Users = () => {
 
       // Update role if changed
       if (editForm.role !== selectedUser.user_roles?.[0]?.role) {
-        await updateUserRole(selectedUser.id, editForm.role);
+        const { error: roleError } = await supabase.rpc('update_user_role', {
+          target_user_id: selectedUser.id,
+          new_role: editForm.role as any
+        });
+        
+        if (roleError) {
+          toast({
+            title: 'Error',
+            description: roleError.message || 'Failed to update user role',
+            variant: 'destructive',
+          });
+          return;
+        }
       }
 
       toast({
