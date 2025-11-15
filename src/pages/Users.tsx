@@ -67,6 +67,8 @@ interface UserProfile {
   phone: string | null;
   employee_id: string;
   created_at: string;
+  is_active: boolean | null;
+  deactivated_at: string | null;
   user_roles: { role: string }[];
 }
 
@@ -117,6 +119,12 @@ const Users = () => {
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
   const [roleChangeConfirmOpen, setRoleChangeConfirmOpen] = useState(false);
   const [pendingRoleChange, setPendingRoleChange] = useState<string | null>(null);
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [bulkActionDialogOpen, setBulkActionDialogOpen] = useState(false);
+  const [permissionHistoryOpen, setPermissionHistoryOpen] = useState(false);
+  const [permissionHistory, setPermissionHistory] = useState<any[]>([]);
+  const [showInactiveUsers, setShowInactiveUsers] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const sortedDepartments = [...DEPARTMENTS].sort((a, b) => a.localeCompare(b));
@@ -298,45 +306,169 @@ const Users = () => {
     setPendingRoleChange(null);
   };
 
-  const handleDeleteUser = (userProfile: UserProfile) => {
+  const handleDeactivateUser = (userProfile: UserProfile) => {
     setSelectedUser(userProfile);
     setDeleteDialogOpen(true);
   };
 
-  const confirmDeleteUser = async () => {
+  const confirmDeactivateUser = async () => {
     if (!selectedUser) return;
 
     try {
       setDeletingUser(true);
-      const { data: { session } } = await supabase.auth.getSession();
       
-      const response = await supabase.functions.invoke('delete-user', {
-        body: { userId: selectedUser.id },
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`
-        }
-      });
+      // Soft delete: mark as inactive
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          is_active: false,
+          deactivated_at: new Date().toISOString(),
+          deactivated_by: user?.id
+        })
+        .eq('id', selectedUser.id);
 
-      if (response.error) throw response.error;
-      if (response.data?.error) throw new Error(response.data.error);
+      if (updateError) throw updateError;
+
+      // Log the deactivation
+      await supabase.from('user_management_log').insert({
+        action_type: 'deactivate',
+        target_user_id: selectedUser.id,
+        performed_by: user?.id,
+        old_value: { is_active: true },
+        new_value: { is_active: false },
+        details: `User ${selectedUser.full_name} deactivated`
+      });
 
       toast({
         title: 'Success',
-        description: `User ${selectedUser.full_name} has been deleted successfully`,
+        description: `User ${selectedUser.full_name} has been deactivated`,
       });
 
       setDeleteDialogOpen(false);
       setSelectedUser(null);
       fetchUsers();
     } catch (error: any) {
-      console.error('Delete user error:', error);
+      console.error('Deactivate user error:', error);
       toast({
-        title: 'Cannot Delete User',
-        description: error.message || 'Failed to delete user',
+        title: 'Cannot Deactivate User',
+        description: error.message || 'Failed to deactivate user',
         variant: 'destructive',
       });
     } finally {
       setDeletingUser(false);
+    }
+  };
+
+  const handleReactivateUser = async (userProfile: UserProfile) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          is_active: true,
+          deactivated_at: null,
+          deactivated_by: null
+        })
+        .eq('id', userProfile.id);
+
+      if (updateError) throw updateError;
+
+      // Log the reactivation
+      await supabase.from('user_management_log').insert({
+        action_type: 'reactivate',
+        target_user_id: userProfile.id,
+        performed_by: user?.id,
+        old_value: { is_active: false },
+        new_value: { is_active: true },
+        details: `User ${userProfile.full_name} reactivated`
+      });
+
+      toast({
+        title: 'Success',
+        description: `User ${userProfile.full_name} has been reactivated`,
+      });
+
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to reactivate user',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const fetchPermissionHistory = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('permission_history')
+        .select('*, profiles!permission_history_changed_by_fkey(full_name)')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setPermissionHistory(data || []);
+      setPermissionHistoryOpen(true);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load permission history',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const toggleBulkSelect = (userId: string) => {
+    const newSelected = new Set(selectedUserIds);
+    if (newSelected.has(userId)) {
+      newSelected.delete(userId);
+    } else {
+      newSelected.add(userId);
+    }
+    setSelectedUserIds(newSelected);
+  };
+
+  const handleBulkDeactivate = async () => {
+    try {
+      const userIds = Array.from(selectedUserIds);
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          is_active: false,
+          deactivated_at: new Date().toISOString(),
+          deactivated_by: user?.id
+        })
+        .in('id', userIds);
+
+      if (error) throw error;
+
+      // Log all deactivations
+      await Promise.all(
+        userIds.map(userId =>
+          supabase.from('user_management_log').insert({
+            action_type: 'bulk_deactivate',
+            target_user_id: userId,
+            performed_by: user?.id,
+            details: 'Bulk deactivation'
+          })
+        )
+      );
+
+      toast({
+        title: 'Success',
+        description: `${userIds.length} users deactivated successfully`,
+      });
+
+      setSelectedUserIds(new Set());
+      setBulkActionDialogOpen(false);
+      setBulkSelectMode(false);
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to deactivate users',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -422,6 +554,8 @@ const Users = () => {
 
       // Update role if changed
       if (editForm.role !== selectedUser.user_roles?.[0]?.role) {
+        const oldRole = selectedUser.user_roles?.[0]?.role;
+        
         const { error: roleError } = await supabase.rpc('update_user_role', {
           target_user_id: selectedUser.id,
           new_role: editForm.role as any
@@ -435,7 +569,53 @@ const Users = () => {
           });
           return;
         }
+
+        // Log permission history
+        await supabase.from('permission_history').insert({
+          user_id: selectedUser.id,
+          action: 'role_change',
+          old_role: oldRole,
+          new_role: editForm.role,
+          old_department: selectedUser.department,
+          new_department: normalizedDepartment,
+          changed_by: user?.id,
+          reason: 'Manual update via user management'
+        });
       }
+
+      // Log department change if changed
+      if (normalizedDepartment !== oldDept && editForm.role === selectedUser.user_roles?.[0]?.role) {
+        await supabase.from('permission_history').insert({
+          user_id: selectedUser.id,
+          action: 'department_change',
+          old_department: oldDept,
+          new_department: normalizedDepartment,
+          changed_by: user?.id,
+          reason: 'Manual update via user management'
+        });
+      }
+
+      // Log user update
+      await supabase.from('user_management_log').insert({
+        action_type: 'update',
+        target_user_id: selectedUser.id,
+        performed_by: user?.id,
+        old_value: {
+          full_name: selectedUser.full_name,
+          department: oldDept,
+          phone: selectedUser.phone,
+          employee_id: oldEmpId,
+          role: selectedUser.user_roles?.[0]?.role
+        },
+        new_value: {
+          full_name: nameTrimmed,
+          department: normalizedDepartment,
+          phone: phoneDigits || null,
+          employee_id: normalizedEmployeeId,
+          role: editForm.role
+        },
+        details: 'User profile updated'
+      });
 
       toast({
         title: 'Success',
@@ -560,6 +740,24 @@ const Users = () => {
         await supabase.auth.setSession({
           access_token: originalSession.access_token,
           refresh_token: originalSession.refresh_token,
+        });
+      }
+
+      // Log user creation
+      if (authData.user?.id) {
+        await supabase.from('user_management_log').insert({
+          action_type: 'create',
+          target_user_id: authData.user.id,
+          performed_by: user?.id,
+          new_value: {
+            full_name: nameTrimmed,
+            email: addForm.email,
+            department: addForm.department,
+            phone: phoneDigits || null,
+            employee_id: addForm.employee_id,
+            role: addForm.role
+          },
+          details: 'New user created via user management'
         });
       }
 
@@ -1060,11 +1258,46 @@ const Users = () => {
           />
           <Button
             variant="outline"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => setShowInactiveUsers(!showInactiveUsers)}
           >
-            <Upload className="h-4 w-4 mr-2" />
-            Import Users
+            {showInactiveUsers ? 'Hide' : 'Show'} Inactive Users
           </Button>
+          {bulkSelectMode ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setBulkSelectMode(false);
+                  setSelectedUserIds(new Set());
+                }}
+              >
+                Cancel Selection
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setBulkActionDialogOpen(true)}
+                disabled={selectedUserIds.size === 0}
+              >
+                Deactivate ({selectedUserIds.size})
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setBulkSelectMode(true)}
+              >
+                Bulk Actions
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Import Users
+              </Button>
+            </>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
@@ -1091,16 +1324,29 @@ const Users = () => {
       <Card>
         <CardContent className="p-0">
           <div className="divide-y">
-            {users.map((userProfile) => (
-              <div key={userProfile.id} className="p-4 hover:bg-accent/50 transition-colors">
+            {users
+              .filter(u => showInactiveUsers || u.is_active !== false)
+              .map((userProfile) => (
+              <div key={userProfile.id} className={`p-4 hover:bg-accent/50 transition-colors ${!userProfile.is_active ? 'opacity-60 bg-muted/30' : ''}`}>
                 <div className="flex items-center justify-between">
+                  {bulkSelectMode && userRole === 'super_admin' && (
+                    <input
+                      type="checkbox"
+                      checked={selectedUserIds.has(userProfile.id)}
+                      onChange={() => toggleBulkSelect(userProfile.id)}
+                      disabled={userProfile.id === user?.id || userProfile.user_roles?.[0]?.role === 'super_admin'}
+                      className="mr-3"
+                    />
+                  )}
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-3">
                       <h3 className="font-semibold text-foreground">{userProfile.full_name}</h3>
                       <Badge variant={getRoleBadgeVariant(userProfile.user_roles?.[0]?.role || 'user')}>
                         {getRoleDisplayName(userProfile.user_roles?.[0]?.role || 'user')}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">active</span>
+                      <span className={`text-xs ${userProfile.is_active === false ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                        {userProfile.is_active === false ? 'inactive' : 'active'}
+                      </span>
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {userProfile.email} • {userProfile.department || 'No Department'} • Last login: {formatDate(userProfile.created_at)}
@@ -1119,21 +1365,41 @@ const Users = () => {
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
+                        {userProfile.is_active ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeactivateUser(userProfile)}
+                            disabled={userProfile.id === user?.id || userProfile.user_roles?.[0]?.role === 'super_admin'}
+                            title={
+                              userProfile.id === user?.id 
+                                ? "Cannot deactivate your own account" 
+                                : userProfile.user_roles?.[0]?.role === 'super_admin'
+                                ? "Cannot deactivate Super Admin"
+                                : "Deactivate User"
+                            }
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleReactivateUser(userProfile)}
+                            title="Reactivate User"
+                            className="text-green-600 hover:text-green-600 hover:bg-green-100"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDeleteUser(userProfile)}
-                          disabled={userProfile.id === user?.id || userProfile.user_roles?.[0]?.role === 'super_admin'}
-                          title={
-                            userProfile.id === user?.id 
-                              ? "Cannot delete your own account" 
-                              : userProfile.user_roles?.[0]?.role === 'super_admin'
-                              ? "Cannot delete Super Admin"
-                              : "Delete User"
-                          }
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => fetchPermissionHistory(userProfile.id)}
+                          title="View Permission History"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Shield className="h-4 w-4" />
                         </Button>
                       </>
                     )}
@@ -1382,7 +1648,7 @@ const Users = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Deactivate User Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
         if (!deletingUser) {
           setDeleteDialogOpen(open);
@@ -1390,10 +1656,10 @@ const Users = () => {
       }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete User Account?</AlertDialogTitle>
+            <AlertDialogTitle>Deactivate User</AlertDialogTitle>
             <AlertDialogDescription className="space-y-3">
               <p>
-                Are you sure you want to delete <strong>{selectedUser?.full_name}</strong>'s account?
+                Are you sure you want to deactivate <strong>{selectedUser?.full_name}</strong>'s account?
               </p>
               <div className="bg-muted p-3 rounded-md text-sm space-y-1">
                 <p><strong>Email:</strong> {selectedUser?.email}</p>
@@ -1401,30 +1667,27 @@ const Users = () => {
                 <p><strong>Department:</strong> {selectedUser?.department || 'N/A'}</p>
                 <p><strong>Role:</strong> {selectedUser?.user_roles?.[0]?.role.replace('_', ' ').toUpperCase()}</p>
               </div>
-              <p className="text-destructive font-medium">
-                ⚠️ This action cannot be undone. All user data will be permanently removed.
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Note: Users with active tickets (Open/In Progress) or Super Admin role cannot be deleted.
+              <p className="text-amber-600 font-medium">
+                This user will be marked as inactive and can be reactivated later. Historical data will be preserved.
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletingUser}>Cancel</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={confirmDeleteUser}
+              onClick={confirmDeactivateUser}
               disabled={deletingUser}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deletingUser ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
+                  Deactivating...
                 </>
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete User
+                  Deactivate User
                 </>
               )}
             </AlertDialogAction>
