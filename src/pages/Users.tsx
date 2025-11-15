@@ -113,6 +113,10 @@ const Users = () => {
     employee_id: '',
     role: 'user'
   });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
+  const [roleChangeConfirmOpen, setRoleChangeConfirmOpen] = useState(false);
+  const [pendingRoleChange, setPendingRoleChange] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   const sortedDepartments = [...DEPARTMENTS].sort((a, b) => a.localeCompare(b));
@@ -242,7 +246,56 @@ const Users = () => {
       employee_id: userProfile.employee_id || '',
       role: userProfile.user_roles?.[0]?.role || 'user'
     });
+    setEditFormErrors({});
     setEditDialogOpen(true);
+  };
+
+  const validateEditForm = () => {
+    const errors: Record<string, string> = {};
+    
+    const nameTrimmed = editForm.full_name.trim();
+    if (!nameTrimmed || nameTrimmed.length < 2) {
+      errors.full_name = 'Name must be at least 2 characters';
+    }
+    
+    if (!editForm.employee_id || !editForm.employee_id.trim()) {
+      errors.employee_id = 'Employee ID is required';
+    }
+    
+    const phoneDigits = (editForm.phone || '').replace(/\D/g, '');
+    if (phoneDigits && phoneDigits.length !== 10) {
+      errors.phone = 'Phone must be exactly 10 digits';
+    }
+    
+    if (editForm.role === 'department_head' && !editForm.department) {
+      errors.department = 'Department is required for department head role';
+    }
+    
+    setEditFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleRoleChange = (newRole: string) => {
+    if ((newRole === 'admin' || newRole === 'super_admin') && 
+        editForm.role !== newRole) {
+      setPendingRoleChange(newRole);
+      setRoleChangeConfirmOpen(true);
+    } else {
+      setEditForm({ ...editForm, role: newRole });
+    }
+  };
+
+  const confirmRoleChange = () => {
+    if (pendingRoleChange) {
+      setEditForm({ ...editForm, role: pendingRoleChange });
+    }
+    setRoleChangeConfirmOpen(false);
+    setPendingRoleChange(null);
+  };
+
+  const cancelRoleChange = () => {
+    setRoleChangeConfirmOpen(false);
+    setPendingRoleChange(null);
   };
 
   const handleDeleteUser = (userProfile: UserProfile) => {
@@ -289,22 +342,15 @@ const Users = () => {
 
   const saveEditUser = async () => {
     if (!selectedUser) return;
-
+    
+    if (!validateEditForm()) {
+      return;
+    }
+    
     try {
+      setSavingEdit(true);
       const nameTrimmed = (editForm.full_name || '').trim();
-      if (!nameTrimmed || !/^[A-Za-z ]+$/.test(nameTrimmed) || nameTrimmed.length > 25) {
-        toast({ title: 'Invalid name', description: 'Name must be letters and spaces only, max 25 characters', variant: 'destructive' });
-        return;
-      }
-      if (!editForm.employee_id) {
-        toast({ title: 'Employee ID required', description: 'Please enter employee ID', variant: 'destructive' });
-        return;
-      }
       const phoneDigits = (editForm.phone || '').replace(/\D/g, '');
-      if (phoneDigits && phoneDigits.length !== 10) {
-        toast({ title: 'Invalid phone', description: 'Phone must be exactly 10 digits', variant: 'destructive' });
-        return;
-      }
 
       // Validate department head assignment
       if (editForm.role === 'department_head') {
@@ -405,6 +451,8 @@ const Users = () => {
         description: error.message || 'Failed to update user',
         variant: 'destructive',
       });
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -1118,7 +1166,11 @@ const Users = () => {
                 maxLength={25}
                 placeholder="Enter Employee ID"
                 disabled={false}
+                className={editFormErrors.employee_id ? 'border-destructive' : ''}
               />
+              {editFormErrors.employee_id && (
+                <p className="text-sm text-destructive">{editFormErrors.employee_id}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-name">Full Name</Label>
@@ -1130,7 +1182,11 @@ const Users = () => {
                   const filtered = raw.replace(/[^A-Za-z ]/g, '').slice(0, 25);
                   setEditForm({ ...editForm, full_name: filtered });
                 }}
+                className={editFormErrors.full_name ? 'border-destructive' : ''}
               />
+              {editFormErrors.full_name && (
+                <p className="text-sm text-destructive">{editFormErrors.full_name}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-email">Email</Label>
@@ -1147,7 +1203,7 @@ const Users = () => {
                 value={editForm.department || ''}
                 onValueChange={(value) => setEditForm({ ...editForm, department: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className={editFormErrors.department ? 'border-destructive' : ''}>
                   <SelectValue placeholder="Select Department" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1156,6 +1212,9 @@ const Users = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {editFormErrors.department && (
+                <p className="text-sm text-destructive">{editFormErrors.department}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-phone">Phone</Label>
@@ -1166,11 +1225,15 @@ const Users = () => {
                   const digits = (e.target.value || '').replace(/\D/g, '').slice(0, 10);
                   setEditForm({ ...editForm, phone: digits });
                 }}
+                className={editFormErrors.phone ? 'border-destructive' : ''}
               />
+              {editFormErrors.phone && (
+                <p className="text-sm text-destructive">{editFormErrors.phone}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-role">Role</Label>
-              <Select value={editForm.role} onValueChange={(value) => setEditForm({ ...editForm, role: value })}>
+              <Select value={editForm.role} onValueChange={handleRoleChange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -1189,10 +1252,30 @@ const Users = () => {
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={saveEditUser}>Save Changes</Button>
+            <Button onClick={saveEditUser} disabled={savingEdit}>
+              {savingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {savingEdit ? 'Saving...' : 'Save Changes'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Role Change Confirmation Dialog */}
+      <AlertDialog open={roleChangeConfirmOpen} onOpenChange={setRoleChangeConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Role Change</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to assign a higher privilege role ({pendingRoleChange === 'admin' ? 'Admin' : 'Super Admin'}) to this user. 
+              This will grant them elevated permissions in the system. Are you sure you want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelRoleChange}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRoleChange}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Add User Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
