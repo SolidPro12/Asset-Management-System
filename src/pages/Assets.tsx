@@ -14,6 +14,10 @@ import {
   Upload, 
   FileText, 
   RotateCcw,
+  ArrowLeftRight,
+  Wrench,
+  ScanLine,
+  BarChart3,
   Laptop,
   Monitor,
   Headphones,
@@ -38,6 +42,10 @@ import {
 import { AddAssetDialog } from '@/components/AddAssetDialog';
 import { ViewAssetModal } from '@/components/ViewAssetModal';
 import { ViewAssetQRModal } from '@/components/ViewAssetQRModal';
+import { AssetLifecycleDashboard } from '@/components/AssetLifecycleDashboard';
+import { AssetTransferModal } from '@/components/AssetTransferModal';
+import { AssetMaintenanceModal } from '@/components/AssetMaintenanceModal';
+import { BarcodeScannerModal } from '@/components/BarcodeScannerModal';
 import { Checkbox } from '@/components/ui/checkbox';
 import { downloadQRCodesAsZip, generatePrintablePDF } from '@/lib/qrCodeUtils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -85,6 +93,14 @@ const Assets = () => {
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // New feature modals
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [transferAssetId, setTransferAssetId] = useState<string | null>(null);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [maintenanceAsset, setMaintenanceAsset] = useState<{ id: string; name: string } | null>(null);
+  const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   useEffect(() => {
     fetchAssets();
@@ -476,6 +492,40 @@ const Assets = () => {
     });
   };
 
+  const handleScanSuccess = async (assetId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('assets')
+        .select('*')
+        .eq('asset_id', assetId)
+        .maybeSingle();
+
+      if (error || !data) {
+        toast({
+          title: 'Asset Not Found',
+          description: `No asset found with ID: ${assetId}`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setSelectedAsset(data);
+      setIsViewModalOpen(true);
+      
+      toast({
+        title: 'Asset Found',
+        description: `Loaded details for ${data.asset_name}`,
+      });
+    } catch (error) {
+      console.error('Error finding asset:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to lookup asset',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const assetCategories = Array.from(new Set(assets.map(a => a.category)));
   const sortedAssetCategories = [...assetCategories].sort((a, b) => {
     const al = (a || '').toLowerCase();
@@ -565,6 +615,14 @@ const Assets = () => {
           <p className="text-muted-foreground">Comprehensive asset tracking and management system</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setShowDashboard(!showDashboard)} variant="outline" size="sm">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            {showDashboard ? 'Hide' : 'View'} Dashboard
+          </Button>
+          <Button onClick={() => setIsScannerOpen(true)} variant="outline" size="sm">
+            <ScanLine className="h-4 w-4 mr-2" />
+            Scan Barcode
+          </Button>
           <Button onClick={handleExportExcel} variant="outline" size="sm">
             <Download className="h-4 w-4 mr-2" />
             Export Excel
@@ -636,6 +694,13 @@ const Assets = () => {
               </div>
             </div>
           )}
+        </Card>
+      )}
+
+      {/* Lifecycle Dashboard */}
+      {showDashboard && (
+        <Card className="p-6">
+          <AssetLifecycleDashboard />
         </Card>
       )}
 
@@ -1051,21 +1116,49 @@ const Assets = () => {
                                     >
                                       <QrCode className="h-3.5 w-3.5" />
                                     </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      className="h-7 w-7"
-                                      onClick={() => {
-                                        setEditAsset(asset);
-                                        setIsAddDialogOpen(true);
-                                      }}
-                                      title="Edit Asset"
-                                    >
-                                      <Edit className="h-3.5 w-3.5" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>
+                                    {(userRole === 'admin' || userRole === 'super_admin') && (
+                                      <>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="icon" 
+                                          className="h-7 w-7"
+                                          onClick={() => {
+                                            setTransferAssetId(asset.id);
+                                            setIsTransferModalOpen(true);
+                                          }}
+                                          title="Transfer Asset"
+                                        >
+                                          <ArrowLeftRight className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="icon" 
+                                          className="h-7 w-7"
+                                          onClick={() => {
+                                            setMaintenanceAsset({ id: asset.id, name: asset.asset_name });
+                                            setIsMaintenanceModalOpen(true);
+                                          }}
+                                          title="Maintenance"
+                                        >
+                                          <Wrench className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="icon" 
+                                          className="h-7 w-7"
+                                          onClick={() => {
+                                            setEditAsset(asset);
+                                            setIsAddDialogOpen(true);
+                                          }}
+                                          title="Edit Asset"
+                                        >
+                                          <Edit className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
@@ -1121,6 +1214,30 @@ const Assets = () => {
         accept=".csv,.xlsx,.xls"
         onChange={handleFileUpload}
         className="hidden"
+      />
+
+      {/* New Feature Modals */}
+      <AssetTransferModal 
+        open={isTransferModalOpen}
+        onOpenChange={setIsTransferModalOpen}
+        assetId={transferAssetId}
+        onSuccess={() => {
+          fetchAssets();
+          setTransferAssetId(null);
+        }}
+      />
+
+      <AssetMaintenanceModal
+        open={isMaintenanceModalOpen}
+        onOpenChange={setIsMaintenanceModalOpen}
+        assetId={maintenanceAsset?.id || null}
+        assetName={maintenanceAsset?.name || null}
+      />
+
+      <BarcodeScannerModal
+        open={isScannerOpen}
+        onOpenChange={setIsScannerOpen}
+        onScanSuccess={handleScanSuccess}
       />
     </div>
   );
