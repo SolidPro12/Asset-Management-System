@@ -101,17 +101,26 @@ serve(async (req) => {
       to: testEmail
     });
 
+    console.log('Creating SMTP client with config:', {
+      hostname: emailConfig.email_host,
+      port: emailConfig.email_port,
+      tls: emailConfig.tls_enabled,
+    });
+
     // Create SMTP client using denomailer
-    // For Office365, port 587 requires STARTTLS (tls: false, auth upgrades connection)
     const client = new SMTPClient({
       connection: {
         hostname: emailConfig.email_host,
         port: emailConfig.email_port,
-        tls: emailConfig.email_port === 465 ? true : false, // Only use direct TLS for port 465
+        tls: emailConfig.tls_enabled,
         auth: {
           username: emailConfig.email_host_user,
           password: emailConfig.email_host_password,
         },
+      },
+      debug: {
+        log: true,
+        allowUnsecure: false,
       },
     });
 
