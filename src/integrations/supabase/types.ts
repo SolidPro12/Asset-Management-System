@@ -264,6 +264,98 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_transfers: {
+        Row: {
+          asset_id: string
+          asset_name: string
+          completed_at: string | null
+          created_at: string
+          from_user_approved: boolean | null
+          from_user_approved_at: string | null
+          from_user_id: string | null
+          from_user_name: string | null
+          id: string
+          initiated_at: string
+          initiated_by: string
+          notes: string | null
+          status: string
+          to_user_approved: boolean | null
+          to_user_approved_at: string | null
+          to_user_id: string
+          to_user_name: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          asset_name: string
+          completed_at?: string | null
+          created_at?: string
+          from_user_approved?: boolean | null
+          from_user_approved_at?: string | null
+          from_user_id?: string | null
+          from_user_name?: string | null
+          id?: string
+          initiated_at?: string
+          initiated_by: string
+          notes?: string | null
+          status?: string
+          to_user_approved?: boolean | null
+          to_user_approved_at?: string | null
+          to_user_id: string
+          to_user_name: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          asset_name?: string
+          completed_at?: string | null
+          created_at?: string
+          from_user_approved?: boolean | null
+          from_user_approved_at?: string | null
+          from_user_id?: string | null
+          from_user_name?: string | null
+          id?: string
+          initiated_at?: string
+          initiated_by?: string
+          notes?: string | null
+          status?: string
+          to_user_approved?: boolean | null
+          to_user_approved_at?: string | null
+          to_user_id?: string
+          to_user_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_transfers_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_transfers_from_user_id_fkey"
+            columns: ["from_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_transfers_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_transfers_to_user_id_fkey"
+            columns: ["to_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assets: {
         Row: {
           asset_id: string
@@ -332,6 +424,139 @@ export type Database = {
           warranty_end_date?: string | null
         }
         Relationships: []
+      }
+      maintenance_history: {
+        Row: {
+          asset_id: string
+          asset_name: string
+          cost: number | null
+          created_at: string
+          description: string | null
+          id: string
+          maintenance_date: string
+          maintenance_type: string
+          notes: string | null
+          performed_by: string | null
+          performed_by_name: string | null
+          schedule_id: string | null
+          vendor: string | null
+        }
+        Insert: {
+          asset_id: string
+          asset_name: string
+          cost?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          maintenance_date: string
+          maintenance_type: string
+          notes?: string | null
+          performed_by?: string | null
+          performed_by_name?: string | null
+          schedule_id?: string | null
+          vendor?: string | null
+        }
+        Update: {
+          asset_id?: string
+          asset_name?: string
+          cost?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          maintenance_date?: string
+          maintenance_type?: string
+          notes?: string | null
+          performed_by?: string | null
+          performed_by_name?: string | null
+          schedule_id?: string | null
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_history_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_history_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_history_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_schedules: {
+        Row: {
+          asset_id: string
+          asset_name: string
+          assigned_to: string | null
+          created_at: string
+          created_by: string
+          frequency: string
+          id: string
+          last_maintenance_date: string | null
+          maintenance_type: string
+          next_maintenance_date: string
+          notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          asset_name: string
+          assigned_to?: string | null
+          created_at?: string
+          created_by: string
+          frequency: string
+          id?: string
+          last_maintenance_date?: string | null
+          maintenance_type: string
+          next_maintenance_date: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          asset_name?: string
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string
+          frequency?: string
+          id?: string
+          last_maintenance_date?: string | null
+          maintenance_type?: string
+          next_maintenance_date?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_schedules_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_schedules_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       permission_history: {
         Row: {
