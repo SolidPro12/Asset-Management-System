@@ -22,6 +22,7 @@ import TicketQueue from "./pages/TicketQueue";
 import Settings from "./pages/Settings";
 import EmailNotifications from "./pages/EmailNotifications";
 import EmailLogs from "./pages/EmailLogs";
+import EmailTemplates from "./pages/EmailTemplates";
 
 
 const queryClient = new QueryClient();
@@ -162,6 +163,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <EmailLogs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/email-templates"
+              element={
+                <ProtectedRoute>
+                  <EmailTemplates />
                 </ProtectedRoute>
               }
             />
