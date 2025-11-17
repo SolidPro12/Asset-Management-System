@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Calendar, History } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
+import { useEmailNotifications } from '@/hooks/useEmailNotifications';
 
 interface AssetMaintenanceModalProps {
   open: boolean;
@@ -52,6 +53,7 @@ export function AssetMaintenanceModal({ open, onOpenChange, assetId, assetName }
   const [notes, setNotes] = useState('');
   
   const { toast } = useToast();
+  const { sendMaintenanceReminderEmail } = useEmailNotifications();
 
   useEffect(() => {
     if (open && assetId) {
@@ -118,6 +120,38 @@ export function AssetMaintenanceModal({ open, onOpenChange, assetId, assetName }
         });
 
       if (error) throw error;
+
+      // Send email notification if asset has an assignee
+      try {
+        const { data: assetData } = await supabase
+          .from('assets')
+          .select('current_assignee_id')
+          .eq('id', assetId)
+          .single();
+
+        if (assetData?.current_assignee_id) {
+          const { data: assigneeData } = await supabase
+            .from('profiles')
+            .select('email, full_name')
+            .eq('id', assetData.current_assignee_id)
+            .single();
+
+          if (assigneeData) {
+            await sendMaintenanceReminderEmail({
+              recipientEmail: assigneeData.email,
+              recipientName: assigneeData.full_name,
+              assetName: assetName || '',
+              maintenanceType,
+              scheduledDate: nextDate,
+              frequency,
+              notes: notes || undefined,
+            });
+          }
+        }
+      } catch (emailError) {
+        console.error('Failed to send email notification:', emailError);
+        // Don't fail the schedule creation if email fails
+      }
 
       toast({
         title: 'Success',
