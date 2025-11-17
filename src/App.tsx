@@ -20,6 +20,8 @@ import MyAssets from "./pages/MyAssets";
 import MyTickets from "./pages/MyTickets";
 import TicketQueue from "./pages/TicketQueue";
 import Settings from "./pages/Settings";
+import EmailNotifications from "./pages/EmailNotifications";
+import EmailLogs from "./pages/EmailLogs";
 
 
 const queryClient = new QueryClient();
@@ -144,6 +146,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/email-notifications"
+              element={
+                <ProtectedRoute>
+                  <EmailNotifications />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/email-logs"
+              element={
+                <ProtectedRoute>
+                  <EmailLogs />
                 </ProtectedRoute>
               }
             />
