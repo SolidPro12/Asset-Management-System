@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
 import { z } from 'zod';
+import { supabase } from '@/integrations/supabase/client';
 import assetSlide1 from '@/assets/asset-banner-1.svg';
 import assetSlide2 from '@/assets/asset-slide-2.png';
 import assetSlide3 from '@/assets/asset-slide-3.png';
@@ -46,7 +47,7 @@ const Auth = () => {
   const [employeeId, setEmployeeId] = useState('');
   const [Name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   
@@ -59,19 +60,12 @@ const Auth = () => {
     }
   }, [user, navigate]);
 
-  // ✅ Restore Remember Me Values
+  // Clear confirm password when switching between login/signup
   useEffect(() => {
-    const savedEmail = localStorage.getItem("savedEmail");
-    const savedPassword = localStorage.getItem("savedPassword");
-
-    if (savedEmail) {
-      setEmail(savedEmail);
-      setRememberMe(true);
+    if (isLogin) {
+      setConfirmPassword('');
     }
-    if (savedPassword) {
-      setPassword(savedPassword);
-    }
-  }, []);
+  }, [isLogin]);
 
   // Carousel auto play
   useEffect(() => {
@@ -91,7 +85,8 @@ const Auth = () => {
       .max(128)
       .regex(/[A-Z]/, 'Password must contain an uppercase letter')
       .regex(/[a-z]/, 'Password must contain a lowercase letter')
-      .regex(/[0-9]/, 'Password must contain a number'),
+      .regex(/[0-9]/, 'Password must contain a number')
+      .regex(/[^A-Za-z0-9]/, 'Password must contain a special character'),
     employeeId: z.string()
       .trim()
       .length(7, 'Employee ID must be exactly 7 digits')
@@ -121,6 +116,23 @@ const Auth = () => {
         toast.error('Employee ID must contain only numbers');
         return;
       }
+
+      const normalizedEmployeeId = employeeId.trim();
+      const { data: existingEmp, error: empCheckError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('employee_id', normalizedEmployeeId)
+        .maybeSingle();
+
+      if (empCheckError) {
+        toast.error(empCheckError.message || 'Failed to validate employee ID');
+        return;
+      }
+
+      if (existingEmp) {
+        toast.error('Employee ID is already registered');
+        return;
+      }
     }
 
     const data = {
@@ -141,20 +153,15 @@ const Auth = () => {
       if (isLogin) {
         const { error } = await signIn(email, password);
         if (!error) {
-          // ✅ Save or Clear Remember Me
-          if (rememberMe) {
-            localStorage.setItem("savedEmail", email);
-            localStorage.setItem("savedPassword", password);
-          } else {
-            localStorage.removeItem("savedEmail");
-            localStorage.removeItem("savedPassword");
-          }
-
           toast.success('Welcome back!');
         } else {
           toast.error(error.message.includes('Invalid login credentials') ? 'Invalid email or password' : error.message);
         }
       } else {
+        if (password !== confirmPassword) {
+          toast.error('Password and Confirm Password must match');
+          return;
+        }
         const normalizedEmployeeId = employeeId ? employeeId.trim() : '';
         const { error } = await signUp(email, password, Name, normalizedEmployeeId);
         if (error) toast.error(error.message.includes('already registered') ? 'This email is already registered' : error.message);
@@ -239,7 +246,9 @@ const Auth = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Password</Label>
+                    <Label>
+                      Password
+                    </Label>
                     <div className="relative">
                       <Input
                         type={showPassword ? 'text' : 'password'}
@@ -264,17 +273,6 @@ const Auth = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="remember" 
-                      checked={rememberMe}
-                      onCheckedChange={(checked) => setRememberMe(checked === true)}
-                    />
-                    <label htmlFor="remember" className="text-sm font-medium cursor-pointer">
-                      Remember password
-                    </label>
-                  </div>
-
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? 'Signing in...' : 'Sign In'}
                   </Button>
@@ -297,9 +295,11 @@ const Auth = () => {
                       }}
                       required
                     />
-                    <p className="text-xs text-muted-foreground">
-                      7 digits required (numbers only)
-                    </p>
+                    {employeeId.length !== 7 && (
+                      <p className="text-xs text-muted-foreground">
+                        7 digits required (numbers only)
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -329,7 +329,9 @@ const Auth = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Password</Label>
+                    <Label>
+                      Password <span className="text-destructive">*</span>
+                    </Label>
                     <div className="relative">
                       <Input
                         type={showPassword ? 'text' : 'password'}
@@ -348,6 +350,19 @@ const Auth = () => {
                         {showPassword ? <Eye className="h-4 w-4 text-muted-foreground" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
                       </Button>
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>
+                      Confirm Password <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="password"
+                      placeholder="Re-enter your password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                    />
                   </div>
 
                   <Button type="submit" className="w-full" disabled={loading}>

@@ -609,222 +609,227 @@ const Assets = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Asset Management</h2>
-          <p className="text-muted-foreground">Comprehensive asset tracking and management system</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setShowDashboard(!showDashboard)} variant="outline" size="sm">
-            <BarChart3 className="h-4 w-4 mr-2" />
-            {showDashboard ? 'Hide' : 'View'} Dashboard
-          </Button>
-          <Button onClick={() => setIsScannerOpen(true)} variant="outline" size="sm">
-            <ScanLine className="h-4 w-4 mr-2" />
-            Scan Barcode
-          </Button>
-          <Button onClick={handleExportExcel} variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Export Excel
-          </Button>
-          <Button onClick={handleImportExcel} variant="outline" size="sm">
-            <Upload className="h-4 w-4 mr-2" />
-            Import Excel
-          </Button>
-          <Button onClick={handleDownloadTemplate} variant="outline" size="sm">
-            <FileText className="h-4 w-4 mr-2" />
-            Template
-          </Button>
-          <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Asset
-          </Button>
-        </div>
-      </div>
+      {/* Sticky header area: title + actions + bulk bar + dashboard + stats + filters */}
+      <div className="sticky top-16 z-10 bg-background space-y-4 pb-4">
 
-      {/* Bulk Actions Bar */}
-      {selectedAssets.size > 0 && (
-        <Card className="p-4 bg-primary/5 border-primary/20">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-primary" />
-              <span className="font-medium">
-                {selectedAssets.size} asset{selectedAssets.size !== 1 ? 's' : ''} selected
-              </span>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setSelectedAssets(new Set())}
-              >
-                Clear Selection
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              <Button 
-                onClick={handleBulkDownloadQR}
-                variant="outline"
-                size="sm"
-                disabled={isBulkProcessing}
-              >
-                <FileArchive className="h-4 w-4 mr-2" />
-                Download QR Codes (ZIP)
-              </Button>
-              <Button 
-                onClick={handlePrintQRLabels}
-                variant="outline"
-                size="sm"
-                disabled={isBulkProcessing}
-              >
-                <Printer className="h-4 w-4 mr-2" />
-                Print QR Labels (PDF)
-              </Button>
-            </div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Asset Management</h2>
+            <p className="text-muted-foreground">Comprehensive asset tracking and management system</p>
           </div>
-          {isBulkProcessing && bulkProgress.total > 0 && (
-            <div className="mt-3">
-              <div className="flex items-center justify-between text-sm text-muted-foreground mb-1">
-                <span>Processing...</span>
-                <span>{bulkProgress.current} / {bulkProgress.total}</span>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => setShowDashboard(!showDashboard)} variant="outline" size="sm">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              {showDashboard ? 'Hide' : 'View'} Dashboard
+            </Button>
+            <Button onClick={() => setIsScannerOpen(true)} variant="outline" size="sm">
+              <ScanLine className="h-4 w-4 mr-2" />
+              Scan Barcode
+            </Button>
+            <Button onClick={handleExportExcel} variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Export Excel
+            </Button>
+            <Button onClick={handleImportExcel} variant="outline" size="sm">
+              <Upload className="h-4 w-4 mr-2" />
+              Import Excel
+            </Button>
+            <Button onClick={handleDownloadTemplate} variant="outline" size="sm">
+              <FileText className="h-4 w-4 mr-2" />
+              Template
+            </Button>
+            <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Asset
+            </Button>
+          </div>
+        </div>
+
+        {/* Bulk Actions Bar */}
+        {selectedAssets.size > 0 && (
+          <Card className="p-4 bg-primary/5 border-primary/20">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-primary" />
+                <span className="font-medium">
+                  {selectedAssets.size} asset{selectedAssets.size !== 1 ? 's' : ''} selected
+                </span>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setSelectedAssets(new Set())}
+                >
+                  Clear Selection
+                </Button>
               </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div 
-                  className="bg-primary h-2 rounded-full transition-all"
-                  style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleBulkDownloadQR}
+                  variant="outline"
+                  size="sm"
+                  disabled={isBulkProcessing}
+                >
+                  <FileArchive className="h-4 w-4 mr-2" />
+                  Download QR Codes (ZIP)
+                </Button>
+                <Button 
+                  onClick={handlePrintQRLabels}
+                  variant="outline"
+                  size="sm"
+                  disabled={isBulkProcessing}
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print QR Labels (PDF)
+                </Button>
+              </div>
+            </div>
+            {isBulkProcessing && bulkProgress.total > 0 && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-sm text-muted-foreground mb-1">
+                  <span>Processing...</span>
+                  <span>{bulkProgress.current} / {bulkProgress.total}</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full transition-all"
+                    style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* Lifecycle Dashboard */}
+        {showDashboard && (
+          <Card className="p-6">
+            <AssetLifecycleDashboard />
+          </Card>
+        )}
+
+        {/* Asset Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <Package className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Assets</p>
+                <p className="text-2xl font-bold">{filteredAssets.length}</p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-green-100 rounded-lg">
+                <CheckCircle className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Available Assets</p>
+                <p className="text-2xl font-bold">
+                  {filteredAssets.filter(asset => asset.status === 'available').length}
+                </p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <UserCheck className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Assigned Assets</p>
+                <p className="text-2xl font-bold">
+                  {filteredAssets.filter(asset => asset.status === 'assigned').length}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Search & Filters */}
+        <Card className="p-4">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by asset ID, model, tag..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
                 />
               </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {sortedAssetCategories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="available">Available</SelectItem>
+                      <SelectItem value="assigned">Assigned</SelectItem>
+                      <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
+                      <SelectItem value="retired">Retired</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button variant="ghost" size="icon" onClick={handleReset} title="Reset filters">
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          )}
-        </Card>
-      )}
-
-      {/* Lifecycle Dashboard */}
-      {showDashboard && (
-        <Card className="p-6">
-          <AssetLifecycleDashboard />
-        </Card>
-      )}
-
-      {/* Asset Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-primary/10 rounded-lg">
-              <Package className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Assets</p>
-              <p className="text-2xl font-bold">{filteredAssets.length}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <CheckCircle className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Available Assets</p>
-              <p className="text-2xl font-bold">
-                {filteredAssets.filter(asset => asset.status === 'available').length}
-              </p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <UserCheck className="h-6 w-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Assigned Assets</p>
-              <p className="text-2xl font-bold">
-                {filteredAssets.filter(asset => asset.status === 'assigned').length}
-              </p>
+            <div className="flex items-center justify-end gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={toggleSelectAll}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                {selectedAssets.size === filteredAssets.length ? 'Deselect All' : 'Select All'}
+              </Button>
+              <ToggleGroup
+                type="single" 
+                value={viewMode} 
+                onValueChange={(value) => value && setViewMode(value as 'grid' | 'list')} 
+                className="inline-flex items-center rounded-lg border bg-muted/30 p-1"
+              >
+                <ToggleGroupItem 
+                  value="grid" 
+                  aria-label="Grid view" 
+                  className="data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm rounded-md px-3 py-1.5"
+                >
+                  <LayoutGrid className="h-4 w-4 mr-2" />
+                  <span>Grid</span>
+                </ToggleGroupItem>
+                <ToggleGroupItem 
+                  value="list" 
+                  aria-label="List view" 
+                  className="data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm rounded-md px-3 py-1.5"
+                >
+                  <List className="h-4 w-4 mr-2" />
+                  <span>List</span>
+                </ToggleGroupItem>
+              </ToggleGroup>
             </div>
           </div>
         </Card>
       </div>
-
-      <Card className="p-4">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by asset ID, model, tag..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {sortedAssetCategories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="assigned">Assigned</SelectItem>
-                  <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
-                  <SelectItem value="retired">Retired</SelectItem>
-                </SelectContent>
-              </Select>
-              </div>
-              <Button variant="ghost" size="icon" onClick={handleReset} title="Reset filters">
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-          <div className="flex items-center justify-end gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={toggleSelectAll}
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              {selectedAssets.size === filteredAssets.length ? 'Deselect All' : 'Select All'}
-            </Button>
-            <ToggleGroup
-              type="single" 
-              value={viewMode} 
-              onValueChange={(value) => value && setViewMode(value as 'grid' | 'list')} 
-              className="inline-flex items-center rounded-lg border bg-muted/30 p-1"
-            >
-              <ToggleGroupItem 
-                value="grid" 
-                aria-label="Grid view" 
-                className="data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm rounded-md px-3 py-1.5"
-              >
-                <LayoutGrid className="h-4 w-4 mr-2" />
-                <span>Grid</span>
-              </ToggleGroupItem>
-              <ToggleGroupItem 
-                value="list" 
-                aria-label="List view" 
-                className="data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm rounded-md px-3 py-1.5"
-              >
-                <List className="h-4 w-4 mr-2" />
-                <span>List</span>
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-        </div>
-      </Card>
 
       {filteredAssets.length === 0 ? (
         <Card>

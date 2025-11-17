@@ -110,6 +110,7 @@ const Users = () => {
     full_name: '',
     email: '',
     password: '',
+    confirm_password: '',
     department: '',
     phone: '',
     employee_id: '',
@@ -266,8 +267,11 @@ const Users = () => {
       errors.full_name = 'Name must be at least 2 characters';
     }
     
-    if (!editForm.employee_id || !editForm.employee_id.trim()) {
+    const employeeIdTrimmed = (editForm.employee_id || '').trim();
+    if (!employeeIdTrimmed) {
       errors.employee_id = 'Employee ID is required';
+    } else if (employeeIdTrimmed.length !== 7 || !/^[0-9]+$/.test(employeeIdTrimmed)) {
+      errors.employee_id = 'Employee ID must be exactly 7 digits (numbers only)';
     }
     
     const phoneDigits = (editForm.phone || '').replace(/\D/g, '');
@@ -275,8 +279,10 @@ const Users = () => {
       errors.phone = 'Phone must be exactly 10 digits';
     }
     
-    if (editForm.role === 'department_head' && !editForm.department) {
-      errors.department = 'Department is required for department head role';
+    if (!editForm.department) {
+      errors.department = editForm.role === 'department_head'
+        ? 'Department is required for department head role'
+        : 'Department is required';
     }
     
     setEditFormErrors(errors);
@@ -514,7 +520,35 @@ const Users = () => {
       }
 
       const normalizedDepartment = editForm.department && editForm.department.trim() ? editForm.department.trim() : null;
-      const normalizedEmployeeId = editForm.employee_id ? editForm.employee_id.trim().toUpperCase() : '';
+      const normalizedEmployeeId = (editForm.employee_id || '').trim();
+
+      // Check for duplicate employee ID (other users)
+      if (normalizedEmployeeId) {
+        const { data: existingEmp, error: empCheckError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('employee_id', normalizedEmployeeId)
+          .neq('id', selectedUser.id)
+          .maybeSingle();
+
+        if (empCheckError) {
+          toast({
+            title: 'Error',
+            description: empCheckError.message || 'Failed to validate Employee ID',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        if (existingEmp) {
+          toast({
+            title: 'Employee ID Exists',
+            description: 'Another user is already using this Employee ID',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
 
       const updatePayload = {
         full_name: nameTrimmed,
@@ -643,7 +677,11 @@ const Users = () => {
 
     try {
       const nameTrimmed = (addForm.full_name || '').trim();
-      if (!nameTrimmed || !/^[A-Za-z ]+$/.test(nameTrimmed) || nameTrimmed.length > 25) {
+      if (!nameTrimmed) {
+        toast({ title: 'Name required', description: 'Please enter full name', variant: 'destructive' });
+        return;
+      }
+      if (!/^[A-Za-z ]+$/.test(nameTrimmed) || nameTrimmed.length > 25) {
         toast({ title: 'Invalid name', description: 'Name must be letters and spaces only, max 25 characters', variant: 'destructive' });
         return;
       }
@@ -652,8 +690,43 @@ const Users = () => {
         toast({ title: 'Invalid phone', description: 'Phone must be exactly 10 digits', variant: 'destructive' });
         return;
       }
-      if (!addForm.employee_id) {
+      const normalizedEmployeeId = (addForm.employee_id || '').trim();
+      if (!normalizedEmployeeId) {
         toast({ title: 'Employee ID required', description: 'Please enter employee ID', variant: 'destructive' });
+        return;
+      }
+      if (normalizedEmployeeId.length !== 7 || !/^[0-9]+$/.test(normalizedEmployeeId)) {
+        toast({ title: 'Invalid Employee ID', description: 'Employee ID must be exactly 7 digits (numbers only)', variant: 'destructive' });
+        return;
+      }
+      if (!addForm.email || !addForm.email.trim()) {
+        toast({ title: 'Email required', description: 'Please enter email address', variant: 'destructive' });
+        return;
+      }
+      const emailTrimmed = addForm.email.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
+        toast({ title: 'Invalid email', description: 'Please enter a valid email address', variant: 'destructive' });
+        return;
+      }
+      if (!addForm.department) {
+        toast({ title: 'Department required', description: 'Please select a department', variant: 'destructive' });
+        return;
+      }
+      if (!addForm.role) {
+        toast({ title: 'Role required', description: 'Please select a role', variant: 'destructive' });
+        return;
+      }
+
+      if (!addForm.password || !addForm.password.trim()) {
+        toast({ title: 'Password required', description: 'Please enter a password', variant: 'destructive' });
+        return;
+      }
+      if (!addForm.confirm_password || !addForm.confirm_password.trim()) {
+        toast({ title: 'Confirm Password required', description: 'Please confirm the password', variant: 'destructive' });
+        return;
+      }
+      if (addForm.password !== addForm.confirm_password) {
+        toast({ title: 'Password mismatch', description: 'Password and Confirm Password must match', variant: 'destructive' });
         return;
       }
 
@@ -685,6 +758,8 @@ const Users = () => {
         }
       }
 
+      const normalizedDepartment = addForm.department?.trim() || null;
+
       // Create user via Supabase Auth (this may switch the session to the new user)
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: addForm.email,
@@ -692,9 +767,9 @@ const Users = () => {
         options: {
           data: {
             full_name: nameTrimmed,
-            department: addForm.department,
+            department: normalizedDepartment,
             phone: phoneDigits,
-            employee_id: addForm.employee_id
+            employee_id: normalizedEmployeeId
           }
         }
       });
@@ -709,10 +784,10 @@ const Users = () => {
         const { error: profileError } = await supabase
           .from('profiles')
           .update({
-            department: addForm.department || null,
+            department: normalizedDepartment,
             phone: phoneDigits || null,
             is_department_head: addForm.role === 'department_head',
-            employee_id: addForm.employee_id
+            employee_id: normalizedEmployeeId
           })
           .eq('id', authData.user.id);
 
@@ -752,9 +827,9 @@ const Users = () => {
           new_value: {
             full_name: nameTrimmed,
             email: addForm.email,
-            department: addForm.department,
+            department: normalizedDepartment,
             phone: phoneDigits || null,
-            employee_id: addForm.employee_id,
+            employee_id: normalizedEmployeeId,
             role: addForm.role
           },
           details: 'New user created via user management'
@@ -771,6 +846,7 @@ const Users = () => {
         full_name: '',
         email: '',
         password: '',
+        confirm_password: '',
         department: '',
         phone: '',
         employee_id: '',
@@ -1421,22 +1497,18 @@ const Users = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {/* Employee ID field -- edit mode */}
+            {/* Employee ID field -- edit mode (read-only) */}
             <div className="space-y-2">
-              <Label htmlFor="edit-employee-id">Employee ID *</Label>
+              <Label htmlFor="edit-employee-id">
+                Employee ID <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="edit-employee-id"
                 value={editForm.employee_id}
-                onChange={e => setEditForm({ ...editForm, employee_id: e.target.value.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 25) })}
-                required
-                maxLength={25}
-                placeholder="Enter Employee ID"
-                disabled={false}
-                className={editFormErrors.employee_id ? 'border-destructive' : ''}
+                disabled
+                readOnly
+                className="bg-muted cursor-not-allowed"
               />
-              {editFormErrors.employee_id && (
-                <p className="text-sm text-destructive">{editFormErrors.employee_id}</p>
-              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-name">Full Name</Label>
@@ -1464,13 +1536,12 @@ const Users = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-department">Department</Label>
-              <Select
-                value={editForm.department || ''}
-                onValueChange={(value) => setEditForm({ ...editForm, department: value })}
-              >
-                <SelectTrigger className={editFormErrors.department ? 'border-destructive' : ''}>
-                  <SelectValue placeholder="Select Department" />
+              <Label htmlFor="edit-department">
+                Department <span className="text-destructive">*</span>
+              </Label>
+              <Select value={editForm.department || ''} disabled>
+                <SelectTrigger className="bg-muted cursor-not-allowed">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {sortedDepartments.map((dept) => (
@@ -1478,9 +1549,6 @@ const Users = () => {
                   ))}
                 </SelectContent>
               </Select>
-              {editFormErrors.department && (
-                <p className="text-sm text-destructive">{editFormErrors.department}</p>
-              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-phone">Phone</Label>
@@ -1498,7 +1566,9 @@ const Users = () => {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-role">Role</Label>
+              <Label htmlFor="edit-role">
+                Role <span className="text-destructive">*</span>
+              </Label>
               <Select value={editForm.role} onValueChange={handleRoleChange}>
                 <SelectTrigger>
                   <SelectValue />
@@ -1555,18 +1625,26 @@ const Users = () => {
           <div className="space-y-4 py-4">
             {/* Employee ID field -- add mode */}
             <div className="space-y-2">
-              <Label htmlFor="add-employee-id">Employee ID *</Label>
+              <Label htmlFor="add-employee-id">
+                Employee ID <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="add-employee-id"
                 value={addForm.employee_id}
-                onChange={e => setAddForm({ ...addForm, employee_id: e.target.value.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 25) })}
+                onChange={(e) => {
+                  const raw = e.target.value || '';
+                  const filtered = raw.replace(/[^0-9]/g, '').slice(0, 7);
+                  setAddForm({ ...addForm, employee_id: filtered });
+                }}
                 required
-                maxLength={25}
-                placeholder="Enter Employee ID"
+                maxLength={7}
+                placeholder="Enter Employee ID (7 digits)"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="add-name">Name</Label>
+              <Label htmlFor="add-name">
+                Name <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="add-name"
                 value={addForm.full_name}
@@ -1578,7 +1656,9 @@ const Users = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="add-email">Email</Label>
+              <Label htmlFor="add-email">
+                Email <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="add-email"
                 type="email"
@@ -1587,7 +1667,9 @@ const Users = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="add-password">Password</Label>
+              <Label htmlFor="add-password">
+                Password <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="add-password"
                 type="password"
@@ -1596,7 +1678,20 @@ const Users = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="add-department">Department</Label>
+              <Label htmlFor="add-confirm-password">
+                Confirm Password <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="add-confirm-password"
+                type="password"
+                value={addForm.confirm_password}
+                onChange={(e) => setAddForm({ ...addForm, confirm_password: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-department">
+                Department <span className="text-destructive">*</span>
+              </Label>
               <Select
                 value={addForm.department}
                 onValueChange={(value) => setAddForm({ ...addForm, department: value })}
@@ -1623,7 +1718,9 @@ const Users = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="add-role">Role</Label>
+              <Label htmlFor="add-role">
+                Role <span className="text-destructive">*</span>
+              </Label>
               <Select value={addForm.role} onValueChange={(value) => setAddForm({ ...addForm, role: value })}>
                 <SelectTrigger>
                   <SelectValue />

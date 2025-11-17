@@ -42,28 +42,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUp = async (email: string, password: string, fullName: string, employeeId?: string) => {
     const redirectUrl = `${window.location.origin}/`;
-    
+
     const userData: { full_name: string; employee_id?: string } = {
-      full_name: fullName
+      full_name: fullName,
     };
-    
-    if (employeeId) {
-      userData.employee_id = employeeId.trim();
+
+    const normalizedEmployeeId = employeeId?.trim();
+    if (normalizedEmployeeId) {
+      userData.employee_id = normalizedEmployeeId;
     }
-    
-    const { error } = await supabase.auth.signUp({
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
-        data: userData
-      }
+        data: userData,
+      },
     });
-    
+
+    // Best-effort: ensure employee_id is written to profiles even if trigger behavior changes
+    if (!error && data?.user && normalizedEmployeeId) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ employee_id: normalizedEmployeeId })
+          .eq('id', data.user.id);
+      } catch (e) {
+        // Ignore here; profile view and Users page will still work, and DB constraint will enforce uniqueness
+      }
+    }
+
     if (!error) {
       navigate('/');
     }
-    
+
     return { error };
   };
 

@@ -407,144 +407,147 @@ export default function AssetRequests() {
 
   return (
     <div className="space-y-6 bg-[#f8f6ff] min-h-screen -m-6 p-6">
-      
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Asset Requests</h1>
-        </div>
+      {/* Sticky header area: title + new request button + filters + status cards */}
+      <div className="sticky top-16 z-10 bg-[#f8f6ff] space-y-4 pb-4">
 
-      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Cancel Request</DialogTitle>
-          </DialogHeader>
-          <div className="text-sm text-muted-foreground">
-            Are you sure you want to cancel this request?
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Asset Requests</h1>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCancelDialogOpen(false)} disabled={cancelSubmitting}>
-              No
-            </Button>
-            <Button onClick={confirmCancel} disabled={cancelSubmitting} className="bg-orange-600 hover:bg-orange-700">
-              {cancelSubmitting ? 'Cancelling...' : 'Yes, Cancel'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-        <Button onClick={() => setIsCreateModalOpen(true)} className="rounded-lg">
-          <Plus className="h-4 w-4 mr-2" />
-          New Request
-        </Button>
-      </div>
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-        <div className="space-y-2">
-          <Input
-            placeholder="Search requests..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-10 bg-white"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-10 bg-white">
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="h-10 bg-white">
-              <SelectValue placeholder="All Request Types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Request Types</SelectItem>
-              <SelectItem value="express">Express</SelectItem>
-              <SelectItem value="regular">Regular</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-            <SelectTrigger className="h-10 bg-white">
-              <SelectValue placeholder="All Departments" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Departments</SelectItem>
-              {DEPARTMENTS.map((dept) => (
-                <SelectItem key={dept} value={dept}>
-                  {dept}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="h-10 flex-1 bg-white">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateFilter ? format(dateFilter, 'dd-MM-yyyy') : 'dd-mm-yyyy'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="single"
-                selected={dateFilter}
-                onSelect={setDateFilter}
-                initialFocus
-                className={cn('p-3 pointer-events-auto')}
-              />
-            </PopoverContent>
-          </Popover>
-          <Button variant="outline" size="icon" onClick={resetFilters} className="h-10 bg-white">
-            <RotateCcw className="h-4 w-4" />
+          <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Cancel Request</DialogTitle>
+              </DialogHeader>
+              <div className="text-sm text-muted-foreground">
+                Are you sure you want to cancel this request?
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCancelDialogOpen(false)} disabled={cancelSubmitting}>
+                  No
+                </Button>
+                <Button onClick={confirmCancel} disabled={cancelSubmitting} className="bg-orange-600 hover:bg-orange-700">
+                  {cancelSubmitting ? 'Cancelling...' : 'Yes, Cancel'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Button onClick={() => setIsCreateModalOpen(true)} className="rounded-lg">
+            <Plus className="h-4 w-4 mr-2" />
+            New Request
           </Button>
         </div>
-      </div>
 
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {Object.entries(statusConfig)
-          .filter(([status]) => status !== 'in_progress' && status !== 'fulfilled')
-          .map(([status, config]) => {
-            const Icon = config.icon;
-            const count = getStatusCount(status);
-            return (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={cn(
-                  'bg-card rounded-lg p-4 border-2 border-transparent transition-all hover:shadow-md'
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={cn('p-2 rounded-lg', config.color, 'bg-opacity-10')}>
-                    <Icon className={cn('h-5 w-5', config.color.replace('bg-', 'text-'))} />
+        {/* Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+          <div className="space-y-2">
+            <Input
+              placeholder="Search requests..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-10 bg-white"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-10 bg-white">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger className="h-10 bg-white">
+                <SelectValue placeholder="All Request Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Request Types</SelectItem>
+                <SelectItem value="express">Express</SelectItem>
+                <SelectItem value="regular">Regular</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+              <SelectTrigger className="h-10 bg-white">
+                <SelectValue placeholder="All Departments" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                {DEPARTMENTS.map((dept) => (
+                  <SelectItem key={dept} value={dept}>
+                    {dept}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10 flex-1 bg-white">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateFilter ? format(dateFilter, 'dd-MM-yyyy') : 'dd-mm-yyyy'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={dateFilter}
+                  onSelect={setDateFilter}
+                  initialFocus
+                  className={cn('p-3 pointer-events-auto')}
+                />
+              </PopoverContent>
+            </Popover>
+            <Button variant="outline" size="icon" onClick={resetFilters} className="h-10 bg-white">
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Status Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {Object.entries(statusConfig)
+            .filter(([status]) => status !== 'in_progress' && status !== 'fulfilled')
+            .map(([status, config]) => {
+              const Icon = config.icon;
+              const count = getStatusCount(status);
+              return (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(status)}
+                  className={cn(
+                    'bg-card rounded-lg p-4 border-2 border-transparent transition-all hover:shadow-md'
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn('p-2 rounded-lg', config.color, 'bg-opacity-10')}>
+                      <Icon className={cn('h-5 w-5', config.color.replace('bg-', 'text-'))} />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm text-muted-foreground">{config.label}</p>
+                      <p className="text-2xl font-bold">{count}</p>
+                    </div>
                   </div>
-                  <div className="text-left">
-                    <p className="text-sm text-muted-foreground">{config.label}</p>
-                    <p className="text-2xl font-bold">{count}</p>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
+        </div>
       </div>
 
       {/* Table */}

@@ -945,143 +945,146 @@ const Dashboard = () => {
     return (
       <div className="space-y-4 animate-in fade-in duration-500 bg-[#f8f6ff] min-h-screen -m-6 p-4">
 
+        {/* Sticky header area: title + top summary + request overview */}
+        <div className="sticky top-16 z-10 bg-[#f8f6ff] space-y-4 pb-4">
 
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Comprehensive overview of assets, employees, and requests</p>
-        </div>
+          {/* Header */}
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground">Comprehensive overview of assets, employees, and requests</p>
+          </div>
 
-        {/* Top Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-          <Card className="rounded-2xl shadow-md border-0 bg-white">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Overall Employees</p>
-                  {loading ? (
-                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
-                  ) : (
-                    <p className="text-3xl font-bold text-blue-600">{stats.totalEmployees || 0}</p>
-                  )}
+          {/* Top Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+            <Card className="rounded-2xl shadow-md border-0 bg-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Overall Employees</p>
+                    {loading ? (
+                      <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                    ) : (
+                      <p className="text-3xl font-bold text-blue-600">{stats.totalEmployees || 0}</p>
+                    )}
+                  </div>
+                  <div className="p-3 bg-blue-100 rounded-xl">
+                    <Users className="h-6 w-6 text-blue-600" />
+                  </div>
                 </div>
-                <div className="p-3 bg-blue-100 rounded-xl">
-                  <Users className="h-6 w-6 text-blue-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="rounded-2xl shadow-md border-0 bg-white">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Total Assets</p>
-                  {loading ? (
-                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
-                  ) : (
-                    <p className="text-3xl font-bold text-sky-600">{stats.totalAssets}</p>
-                  )}
+            <Card className="rounded-2xl shadow-md border-0 bg-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Total Assets</p>
+                    {loading ? (
+                      <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                    ) : (
+                      <p className="text-3xl font-bold text-sky-600">{stats.totalAssets}</p>
+                    )}
+                  </div>
+                  <div className="p-3 bg-sky-100 rounded-xl">
+                    <Package className="h-6 w-6 text-sky-600" />
+                  </div>
                 </div>
-                <div className="p-3 bg-sky-100 rounded-xl">
-                  <Package className="h-6 w-6 text-sky-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="rounded-2xl shadow-md border-0 bg-white">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Assigned Assets</p>
-                  {loading ? (
-                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
-                  ) : (
-                    <p className="text-3xl font-bold text-green-600">{stats.assignedAssets}</p>
-                  )}
+            <Card className="rounded-2xl shadow-md border-0 bg-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Assigned Assets</p>
+                    {loading ? (
+                      <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                    ) : (
+                      <p className="text-3xl font-bold text-green-600">{stats.assignedAssets}</p>
+                    )}
+                  </div>
+                  <div className="p-3 bg-green-100 rounded-xl">
+                    <Package className="h-6 w-6 text-green-600" />
+                  </div>
                 </div>
-                <div className="p-3 bg-green-100 rounded-xl">
-                  <Package className="h-6 w-6 text-green-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="rounded-2xl shadow-md border-0 bg-white">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Available Assets</p>
-                  {loading ? (
-                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
-                  ) : (
-                    <p className="text-3xl font-bold text-purple-600">{stats.availableAssets}</p>
-                  )}
+            <Card className="rounded-2xl shadow-md border-0 bg-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Available Assets</p>
+                    {loading ? (
+                      <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                    ) : (
+                      <p className="text-3xl font-bold text-purple-600">{stats.availableAssets}</p>
+                    )}
+                  </div>
+                  <div className="p-3 bg-purple-100 rounded-xl">
+                    <CheckCircle className="h-6 w-6 text-purple-600" />
+                  </div>
                 </div>
-                <div className="p-3 bg-purple-100 rounded-xl">
-                  <CheckCircle className="h-6 w-6 text-purple-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="rounded-2xl shadow-md border-0 bg-white">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Under Maintenance</p>
-                  {loading ? (
-                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
-                  ) : (
-                    <p className="text-3xl font-bold text-red-600">{stats.maintenanceAssets}</p>
-                  )}
+            <Card className="rounded-2xl shadow-md border-0 bg-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Under Maintenance</p>
+                    {loading ? (
+                      <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                    ) : (
+                      <p className="text-3xl font-bold text-red-600">{stats.maintenanceAssets}</p>
+                    )}
+                  </div>
+                  <div className="p-3 bg-red-100 rounded-xl">
+                    <Wrench className="h-6 w-6 text-red-600" />
+                  </div>
                 </div>
-                <div className="p-3 bg-red-100 rounded-xl">
-                  <Wrench className="h-6 w-6 text-red-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          </div>
 
-        {/* Request Overview Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="rounded-xl shadow-sm border bg-white">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-50 rounded-lg">
-                  <FileText className="h-5 w-5 text-blue-600" />
+          {/* Request Overview Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="rounded-xl shadow-sm border bg-white">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-50 rounded-lg">
+                    <FileText className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    {loading ? (
+                      <div className="h-6 w-12 bg-muted animate-pulse rounded" />
+                    ) : (
+                      <p className="text-2xl font-bold">{stats.regularRequests || 0}</p>
+                    )}
+                    <p className="text-sm text-muted-foreground">Regular Requests</p>
+                  </div>
                 </div>
-                <div>
-                  {loading ? (
-                    <div className="h-6 w-12 bg-muted animate-pulse rounded" />
-                  ) : (
-                    <p className="text-2xl font-bold">{stats.regularRequests || 0}</p>
-                  )}
-                  <p className="text-sm text-muted-foreground">Regular Requests</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="rounded-xl shadow-sm border bg-white">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-50 rounded-lg">
-                  <Clock className="h-5 w-5 text-red-600" />
+            <Card className="rounded-xl shadow-sm border bg-white">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-50 rounded-lg">
+                    <Clock className="h-5 w-5 text-red-600" />
+                  </div>
+                  <div>
+                    {loading ? (
+                      <div className="h-6 w-12 bg-muted animate-pulse rounded" />
+                    ) : (
+                      <p className="text-2xl font-bold">{stats.expressRequests || 0}</p>
+                    )}
+                    <p className="text-sm text-muted-foreground">Express Requests</p>
+                  </div>
                 </div>
-                <div>
-                  {loading ? (
-                    <div className="h-6 w-12 bg-muted animate-pulse rounded" />
-                  ) : (
-                    <p className="text-2xl font-bold">{stats.expressRequests || 0}</p>
-                  )}
-                  <p className="text-sm text-muted-foreground">Express Requests</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
