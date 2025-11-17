@@ -58,6 +58,7 @@ const menuItems = [
     subItems: [
       { title: 'General Settings', url: '/settings', requiredRole: 'super_admin' },
       { title: 'Email Notifications', url: '/email-notifications', requiredRole: 'super_admin' },
+      { title: 'Email Templates', url: '/email-templates', requiredRole: 'super_admin' },
       { title: 'Email Logs', url: '/email-logs', requiredRole: 'super_admin' },
     ]
   },
