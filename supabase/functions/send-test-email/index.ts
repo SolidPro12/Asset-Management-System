@@ -1,21 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { Resend } from "https://esm.sh/resend@4.0.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-interface EmailConfig {
-  email_host: string;
-  email_port: number;
-  email_host_user: string;
-  email_host_password: string;
-  from_email: string;
-  from_name: string;
-  tls_enabled: boolean;
-}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -85,65 +75,58 @@ serve(async (req) => {
       );
     }
 
-    const { emailConfig, testEmail } = await req.json();
+    const { testEmail } = await req.json();
 
-    if (!emailConfig || !testEmail) {
+    if (!testEmail) {
       return new Response(
-        JSON.stringify({ error: 'Email configuration and test email address are required' }),
+        JSON.stringify({ error: 'Test email address is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Sending test email with config:', {
-      host: emailConfig.email_host,
-      port: emailConfig.email_port,
-      user: emailConfig.email_host_user,
-      to: testEmail
-    });
+    console.log('Sending test email to:', testEmail);
 
-    console.log('Creating SMTP client with config:', {
-      hostname: emailConfig.email_host,
-      port: emailConfig.email_port,
-      tls: emailConfig.tls_enabled,
-    });
+    // Get Resend API key from environment
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY not found');
+      return new Response(
+        JSON.stringify({ error: 'Email service not configured. Please add RESEND_API_KEY.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Create SMTP client using denomailer
-    const client = new SMTPClient({
-      connection: {
-        hostname: emailConfig.email_host,
-        port: emailConfig.email_port,
-        tls: emailConfig.tls_enabled,
-        auth: {
-          username: emailConfig.email_host_user,
-          password: emailConfig.email_host_password,
-        },
-      },
-      debug: {
-        log: true,
-        allowUnsecure: false,
-      },
-    });
+    // Initialize Resend
+    const resend = new Resend(resendApiKey);
 
-    // Send test email
-    await client.send({
-      from: `${emailConfig.from_name} <${emailConfig.from_email}>`,
-      to: testEmail,
+    // Send test email using Resend
+    const { data, error: resendError } = await resend.emails.send({
+      from: 'Asset Management System <onboarding@resend.dev>',
+      to: [testEmail],
       subject: 'Test Email - Asset Management System',
-      content: 'This is a test email from your Asset Management System. If you receive this, your email configuration is working correctly!',
       html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px;">
-          <h2>Test Email</h2>
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px;">
+          <h2 style="color: #333;">Test Email</h2>
           <p>This is a test email from your <strong>Asset Management System</strong>.</p>
           <p>If you receive this, your email configuration is working correctly!</p>
-          <hr style="margin: 20px 0;">
+          <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
           <p style="color: #666; font-size: 12px;">
-            This email was sent from ${emailConfig.email_host} using port ${emailConfig.email_port}
+            This email was sent via Resend email service.
           </p>
         </div>
       `,
     });
 
-    await client.close();
+    if (resendError) {
+      console.error('Resend error:', resendError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to send email', 
+          details: resendError.message 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     console.log('Email sent successfully');
 
