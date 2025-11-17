@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { useEmailNotifications } from '@/hooks/useEmailNotifications';
 
 interface Asset {
   id: string;
@@ -36,6 +37,7 @@ export function AssetTransferModal({ open, onOpenChange, assetId, onSuccess }: A
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { sendTransferApprovalEmail } = useEmailNotifications();
 
   useEffect(() => {
     if (open && assetId) {
@@ -135,26 +137,26 @@ export function AssetTransferModal({ open, onOpenChange, assetId, onSuccess }: A
 
         // Notify current assignee if exists
         if (currentUser) {
-          await supabase.functions.invoke('send-transfer-notification', {
-            body: {
-              recipientEmail: currentUser.email,
-              recipientName: currentUser.full_name,
-              assetName: asset.asset_name,
-              initiatorName: initiatorProfile?.full_name || 'Admin',
-              type: 'approval_request',
-            },
+          await sendTransferApprovalEmail({
+            recipientEmail: currentUser.email,
+            recipientName: currentUser.full_name,
+            assetName: asset.asset_name,
+            fromUser: currentUser.full_name,
+            toUser: toUser.full_name,
+            transferStatus: 'pending',
+            actionRequired: true,
           });
         }
 
         // Notify new assignee
-        await supabase.functions.invoke('send-transfer-notification', {
-          body: {
-            recipientEmail: toUser.email,
-            recipientName: toUser.full_name,
-            assetName: asset.asset_name,
-            initiatorName: initiatorProfile?.full_name || 'Admin',
-            type: 'approval_request',
-          },
+        await sendTransferApprovalEmail({
+          recipientEmail: toUser.email,
+          recipientName: toUser.full_name,
+          assetName: asset.asset_name,
+          fromUser: currentUser?.full_name,
+          toUser: toUser.full_name,
+          transferStatus: 'pending',
+          actionRequired: true,
         });
       } catch (emailError) {
         console.error('Error sending notifications:', emailError);

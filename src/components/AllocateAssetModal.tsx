@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { DEPARTMENTS } from '@/lib/constants';
+import { useEmailNotifications } from '@/hooks/useEmailNotifications';
 
 interface Asset {
   id: string;
@@ -42,6 +43,7 @@ interface Employee {
   id: string;
   full_name: string;
   department: string;
+  email: string;
 }
 
 interface AllocationData {
@@ -71,6 +73,7 @@ export function AllocateAssetModal({
   onSuccess,
 }: AllocateAssetModalProps) {
   const { user } = useAuth();
+  const { sendAssetAssignmentEmail } = useEmailNotifications();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState('');
@@ -168,7 +171,7 @@ export function AllocateAssetModal({
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, department')
+        .select('id, full_name, department, email')
         .order('full_name');
 
       if (error) throw error;
@@ -277,6 +280,23 @@ export function AllocateAssetModal({
           .eq('id', selectedAssetId);
 
         if (updateError) throw updateError;
+
+        // Send email notification to the assigned employee
+        try {
+          const assignedEmployee = employees.find(e => e.id === selectedEmployeeId);
+          if (assignedEmployee) {
+            await sendAssetAssignmentEmail({
+              userEmail: assignedEmployee.email,
+              userName: assignedEmployee.full_name,
+              assetName: asset!.asset_name,
+              assetId: asset!.id,
+              assignedDate: allocatedDate.toISOString().split('T')[0],
+            });
+          }
+        } catch (emailError) {
+          console.error('Failed to send email notification:', emailError);
+          // Don't fail the allocation if email fails
+        }
 
         toast({
           title: 'Success',
