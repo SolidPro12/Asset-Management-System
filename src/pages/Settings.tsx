@@ -263,19 +263,9 @@ const Settings = () => {
 
     try {
       setIsSending(true);
-      
-      const emailConfig = {
-        email_host: smtpServer,
-        email_port: smtpPort,
-        email_host_user: smtpUsername,
-        email_host_password: smtpPassword,
-        from_email: fromEmail,
-        from_name: fromName,
-        tls_enabled: tlsEnabled,
-      };
 
       const { data, error } = await supabase.functions.invoke('send-test-email', {
-        body: { emailConfig, testEmail }
+        body: { testEmail }
       });
 
       if (error) {
