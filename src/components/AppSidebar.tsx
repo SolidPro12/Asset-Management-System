@@ -1,4 +1,4 @@
-import { Home, Package, FileText, History, Users, UserCheck, ChevronDown, Headset } from 'lucide-react';
+import { Home, Package, FileText, History, Users, UserCheck, ChevronDown, Headset, Settings, Mail, FileBarChart } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import React from 'react';
@@ -46,11 +46,21 @@ const menuItems = [
     icon: History, 
     requiredRole: null,
     subItems: [
-      { title: 'Asset History', url: '/history' },
-      { title: 'Service History', url: '/service-history' },
+      { title: 'Asset History', url: '/history', requiredRole: null },
+      { title: 'Service History', url: '/service-history', requiredRole: null },
     ]
   },
   { title: 'Users', url: '/users', icon: Users, requiredRole: 'super_admin' },
+  { 
+    title: 'Settings', 
+    icon: Settings, 
+    requiredRole: 'super_admin',
+    subItems: [
+      { title: 'General Settings', url: '/settings', requiredRole: 'super_admin' },
+      { title: 'Email Notifications', url: '/email-notifications', requiredRole: 'super_admin' },
+      { title: 'Email Logs', url: '/email-logs', requiredRole: 'super_admin' },
+    ]
+  },
 ];
 
 export function AppSidebar() {
