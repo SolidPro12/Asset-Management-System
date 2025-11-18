@@ -72,10 +72,6 @@ interface Asset {
   warranty_end_date: string | null;
   notes: string | null;
   specifications: any;
-  current_assignee?: {
-    full_name: string;
-    email: string;
-  } | null;
 }
 
 const Assets = () => {
@@ -132,26 +128,11 @@ const Assets = () => {
     try {
       const { data, error } = await supabase
         .from('assets')
-        .select(`
-          *,
-          current_assignee:profiles!current_assignee_id(
-            full_name,
-            email
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      // Transform the data to handle the relationship properly
-      const transformedData = (data || []).map(asset => ({
-        ...asset,
-        current_assignee: Array.isArray(asset.current_assignee) && asset.current_assignee.length > 0
-          ? asset.current_assignee[0]
-          : null
-      }));
-      
-      setAssets(transformedData);
+      setAssets(data || []);
     } catch (error: any) {
       // Generic error message - details not exposed to user
     } finally {
