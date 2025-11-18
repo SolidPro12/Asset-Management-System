@@ -117,6 +117,7 @@ const Users = () => {
     role: 'user'
   });
   const [savingEdit, setSavingEdit] = useState(false);
+  const [savingAdd, setSavingAdd] = useState(false);
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
   const [roleChangeConfirmOpen, setRoleChangeConfirmOpen] = useState(false);
   const [pendingRoleChange, setPendingRoleChange] = useState<string | null>(null);
@@ -671,11 +672,15 @@ const Users = () => {
   };
 
   const handleAddUser = async () => {
+    if (savingAdd) return; // Prevent double submission
+    
     // Preserve current admin session so we can restore it after creating the user
     const { data: orig } = await supabase.auth.getSession();
     const originalSession = orig?.session;
 
     try {
+      setSavingAdd(true);
+      
       const nameTrimmed = (addForm.full_name || '').trim();
       if (!nameTrimmed) {
         toast({ title: 'Name required', description: 'Please enter full name', variant: 'destructive' });
@@ -721,12 +726,72 @@ const Users = () => {
         toast({ title: 'Password required', description: 'Please enter a password', variant: 'destructive' });
         return;
       }
+      if (addForm.password.length < 8) {
+        toast({ title: 'Password too short', description: 'Password must be at least 8 characters', variant: 'destructive' });
+        return;
+      }
+      if (!/[A-Z]/.test(addForm.password)) {
+        toast({ title: 'Password weak', description: 'Password must contain at least one uppercase letter', variant: 'destructive' });
+        return;
+      }
+      if (!/[a-z]/.test(addForm.password)) {
+        toast({ title: 'Password weak', description: 'Password must contain at least one lowercase letter', variant: 'destructive' });
+        return;
+      }
+      if (!/[0-9]/.test(addForm.password)) {
+        toast({ title: 'Password weak', description: 'Password must contain at least one number', variant: 'destructive' });
+        return;
+      }
+      if (!/[!@#$%^&*(),.?":{}|<>]/.test(addForm.password)) {
+        toast({ title: 'Password weak', description: 'Password must contain at least one special character', variant: 'destructive' });
+        return;
+      }
       if (!addForm.confirm_password || !addForm.confirm_password.trim()) {
         toast({ title: 'Confirm Password required', description: 'Please confirm the password', variant: 'destructive' });
         return;
       }
       if (addForm.password !== addForm.confirm_password) {
         toast({ title: 'Password mismatch', description: 'Password and Confirm Password must match', variant: 'destructive' });
+        return;
+      }
+
+      // Check for duplicate email BEFORE creating user
+      const { data: existingEmailUser, error: emailCheckError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', emailTrimmed)
+        .maybeSingle();
+
+      if (emailCheckError) {
+        console.error('Email check error:', emailCheckError);
+      }
+
+      if (existingEmailUser) {
+        toast({ 
+          title: 'Email already exists', 
+          description: 'A user with this email address already exists', 
+          variant: 'destructive' 
+        });
+        return;
+      }
+
+      // Check for duplicate employee ID BEFORE creating user
+      const { data: existingEmployeeId, error: employeeIdCheckError } = await supabase
+        .from('profiles')
+        .select('id, employee_id')
+        .eq('employee_id', normalizedEmployeeId)
+        .maybeSingle();
+
+      if (employeeIdCheckError) {
+        console.error('Employee ID check error:', employeeIdCheckError);
+      }
+
+      if (existingEmployeeId) {
+        toast({ 
+          title: 'Employee ID already exists', 
+          description: 'A user with this Employee ID already exists', 
+          variant: 'destructive' 
+        });
         return;
       }
 
@@ -760,9 +825,9 @@ const Users = () => {
 
       const normalizedDepartment = addForm.department?.trim() || null;
 
-      // Create user via Supabase Auth (this may switch the session to the new user)
+      // Create user via Supabase Auth (this automatically hashes the password)
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: addForm.email,
+        email: emailTrimmed,
         password: addForm.password,
         options: {
           data: {
@@ -774,7 +839,25 @@ const Users = () => {
         }
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        let errorMessage = 'Failed to create user account';
+        
+        // Handle specific auth errors
+        if (authError.message.includes('already registered')) {
+          errorMessage = 'This email address is already registered';
+        } else if (authError.message.includes('password')) {
+          errorMessage = 'Password does not meet requirements';
+        } else if (authError.message) {
+          errorMessage = authError.message;
+        }
+
+        toast({
+          title: 'Error',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+        return;
+      }
 
       if (authData.user) {
         // Wait a moment for the trigger to create the profile
@@ -806,7 +889,17 @@ const Users = () => {
 
         // Assign role if different from default
         if (addForm.role !== 'user') {
-          await updateUserRole(authData.user.id, addForm.role);
+          try {
+            await updateUserRole(authData.user.id, addForm.role);
+          } catch (roleError: any) {
+            console.error('Role assignment error:', roleError);
+            toast({
+              title: 'Warning',
+              description: `User created but role assignment failed: ${roleError.message}`,
+              variant: 'destructive',
+            });
+            // Don't return - user was created, just role wasn't assigned
+          }
         }
       }
 
@@ -869,6 +962,8 @@ const Users = () => {
         description: error.message || 'Failed to create user',
         variant: 'destructive',
       });
+    } finally {
+      setSavingAdd(false);
     }
   };
 
@@ -1614,7 +1709,22 @@ const Users = () => {
       </AlertDialog>
 
       {/* Add User Dialog */}
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+      <Dialog open={addDialogOpen} onOpenChange={(open) => {
+        setAddDialogOpen(open);
+        if (!open) {
+          // Reset form when dialog closes
+          setAddForm({
+            full_name: '',
+            email: '',
+            password: '',
+            confirm_password: '',
+            department: '',
+            phone: '',
+            employee_id: '',
+            role: 'user'
+          });
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New User</DialogTitle>
@@ -1675,7 +1785,11 @@ const Users = () => {
                 type="password"
                 value={addForm.password}
                 onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
+                placeholder="Enter password"
               />
+              <p className="text-xs text-muted-foreground">
+                Must be 8+ characters with uppercase, lowercase, number, and special character
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="add-confirm-password">
@@ -1737,10 +1851,26 @@ const Users = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setAddDialogOpen(false)}
+              disabled={savingAdd}
+            >
               Cancel
             </Button>
-            <Button onClick={handleAddUser}>Create User</Button>
+            <Button 
+              onClick={handleAddUser}
+              disabled={savingAdd}
+            >
+              {savingAdd ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create User'
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
