@@ -33,7 +33,7 @@ import { Eye, Clock } from 'lucide-react';
 interface Ticket {
   id: string;
   ticket_id: string;
-  asset_id: string;
+  asset_id: string | null;
   asset_name: string;
   location: string;
   title: string;
@@ -271,7 +271,7 @@ const TicketQueue = () => {
                   <TableRow key={ticket.id}>
                     <TableCell className="font-medium">{ticket.ticket_id}</TableCell>
                     <TableCell className="font-mono text-xs">
-                      {ticket.asset_id.slice(0, 8)}...
+                      {ticket.asset_id ? `${ticket.asset_id.slice(0, 8)}...` : 'N/A'}
                     </TableCell>
                     <TableCell>{ticket.asset_name}</TableCell>
                     <TableCell>{ticket.location}</TableCell>
