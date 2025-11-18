@@ -23,6 +23,7 @@ import Settings from "./pages/Settings";
 import EmailNotifications from "./pages/EmailNotifications";
 import EmailLogs from "./pages/EmailLogs";
 import EmailTemplates from "./pages/EmailTemplates";
+import ResetPassword from "./pages/ResetPassword";
 
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route
               path="/"
               element={
