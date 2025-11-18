@@ -927,11 +927,9 @@ const MyTickets = () => {
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
-                    {DEPARTMENTS.map((dept) => (
-                      <SelectItem key={dept} value={dept}>
-                        {dept}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="IT department">
+                      IT department
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
