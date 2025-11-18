@@ -262,15 +262,17 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess, editAsset }: Add
       <div key={field} className="space-y-2">
         <Label htmlFor={field}>
           {getFieldLabel(field)}
-          {['assetId', 'model', 'serviceTag'].includes(field) && <span className="text-destructive ml-1">*</span>}
+          {['assetId', 'model', 'serviceTag', 'cost'].includes(field) && (
+            <span className="text-destructive ml-1">*</span>
+          )}
         </Label>
         <Input
           id={field}
-          type={field === 'purchaseDate' ? 'date' : field === 'cost' ? 'number' : 'text'}
+          type={field === 'purchaseDate' ? 'date' : field === 'cost' ? 'text' : 'text'}
           value={formData[field] || ''}
           onChange={(e) => handleInputChange(field, e.target.value)}
           placeholder={`Enter ${getFieldLabel(field).toLowerCase()}`}
-          required={['assetId', 'model', 'serviceTag'].includes(field)}
+          required={['assetId', 'model', 'serviceTag', 'cost'].includes(field)}
           disabled={editAsset && field === 'assetId'}
         />
       </div>
