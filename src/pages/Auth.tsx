@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
 import { z } from 'zod';
@@ -16,6 +17,7 @@ import assetSlide2 from '@/assets/asset-slide-2.png';
 import assetSlide3 from '@/assets/team management.svg';
 import ticketSlide1 from '@/assets/ticket management.svg';
 import solidproLogo from '@/assets/solidpro-logo.svg';
+import { PasswordStrengthMeter } from '@/components/PasswordStrengthMeter';
 
 const carouselSlides = [
   {
@@ -50,6 +52,9 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [sendingReset, setSendingReset] = useState(false);
   
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
@@ -172,6 +177,42 @@ const Auth = () => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!resetEmail.trim()) {
+      toast.error('Please enter your email address');
+      return;
+    }
+
+    const emailSchema = z.string().email('Invalid email address');
+    const result = emailSchema.safeParse(resetEmail);
+    
+    if (!result.success) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    setSendingReset(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) {
+        toast.error('Failed to send reset email. Please try again.');
+      } else {
+        toast.success('Password reset link sent! Check your email.');
+        setForgotPasswordOpen(false);
+        setResetEmail('');
+      }
+    } catch (error) {
+      toast.error('An error occurred. Please try again.');
+    } finally {
+      setSendingReset(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex">
       <div className="hidden lg:flex lg:w-1/2 bg-primary relative overflow-hidden">
@@ -277,6 +318,39 @@ const Auth = () => {
                     {loading ? 'Signing in...' : 'Sign In'}
                   </Button>
                 </form>
+
+                <div className="mt-4 text-center">
+                  <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="link" className="text-sm text-primary hover:underline">
+                        Forgot password?
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Reset Password</DialogTitle>
+                        <DialogDescription>
+                          Enter your email address and we'll send you a link to reset your password.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={handleForgotPassword} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Email</Label>
+                          <Input
+                            type="email"
+                            placeholder="name@solidpro-es.com"
+                            value={resetEmail}
+                            onChange={(e) => setResetEmail(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <Button type="submit" className="w-full" disabled={sendingReset}>
+                          {sendingReset ? 'Sending...' : 'Send Reset Link'}
+                        </Button>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </TabsContent>
 
               {/* SIGNUP */}
@@ -350,6 +424,7 @@ const Auth = () => {
                         {showPassword ? <Eye className="h-4 w-4 text-muted-foreground" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
                       </Button>
                     </div>
+                    <PasswordStrengthMeter password={password} />
                   </div>
 
                   <div className="space-y-2">
