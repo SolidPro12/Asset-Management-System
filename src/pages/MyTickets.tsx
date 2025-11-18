@@ -54,7 +54,7 @@ const TICKET_BUCKET = (import.meta as any).env?.VITE_SUPABASE_TICKET_BUCKET || '
 interface Ticket {
   id: string;
   ticket_id: string;
-  asset_id: string;
+  asset_id: string | null;
   asset_name: string;
   location: string;
   title: string;
@@ -681,7 +681,7 @@ const MyTickets = () => {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">
-                        {ticket.asset_id.slice(0, 8)}...
+                        {ticket.asset_id ? `${ticket.asset_id.slice(0, 8)}...` : 'N/A'}
                       </TableCell>
                       <TableCell className={`font-medium ${isCancelled ? 'text-muted-foreground' : ''}`}>
                         {ticket.asset_name}
