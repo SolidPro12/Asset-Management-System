@@ -1276,6 +1276,15 @@ const Users = () => {
     }
   };
 
+  // While userRole is still being resolved or data is loading, show spinner instead of Access Denied
+  if (loading || userRole === null) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   if (userRole !== 'super_admin') {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -1290,14 +1299,6 @@ const Users = () => {
             </CardDescription>
           </CardHeader>
         </Card>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }

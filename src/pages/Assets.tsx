@@ -638,10 +638,12 @@ const Assets = () => {
               <FileText className="h-4 w-4 mr-2" />
               Template
             </Button>
-            <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Asset
-            </Button>
+            {userRole !== 'financer' && (
+              <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Asset
+              </Button>
+            )}
           </div>
         </div>
 

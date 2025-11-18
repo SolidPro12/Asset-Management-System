@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+
+  <defs>
+    <!-- silhouette -->
+    <g id="silhouette">
+      <circle cx="0" cy="-6" r="18" />
+      <path d="M-28 18 q28 30 56 0 z" />
+    </g>
+
+    <!-- ring -->
+    <g id="ring">
+      <circle cx="0" cy="0" r="62" fill="none" stroke-width="12" stroke-linecap="round"/>
+    </g>
+
+    <!-- card -->
+    <g id="card">
+      <rect x="0" y="0" width="220" height="56" rx="10"/>
+      <rect x="12" y="12" width="36" height="12" rx="3"/>
+      <rect x="60" y="12" width="140" height="12" rx="3"/>
+      <rect x="60" y="30" width="100" height="10" rx="3"/>
+    </g>
+
+    <!-- bubble -->
+    <g id="bubble">
+      <rect x="0" y="0" width="110" height="44" rx="8" />
+      <circle cx="18" cy="22" r="6"/>
+      <rect x="36" y="14" width="60" height="8" rx="4"/>
+    </g>
+
+    <!-- dark gradient -->
+    <linearGradient id="darkBG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#1f2937"/>
+    </linearGradient>
+
+    <!-- board gradient -->
+    <linearGradient id="boardFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f5f9ff"/>
+    </linearGradient>
+
+    <!-- soft shadow -->
+    <filter id="boardShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="12" stdDeviation="24" flood-color="#0eaee9" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <!-- improved dark background -->
+  <rect width="1280" height="720" fill="#150752"/>
+
+  <!-- center bright board -->
+  <g transform="translate(320,100)">
+    <rect x="0" y="0" width="640" height="420" rx="16" 
+          fill="url(#boardFill)" stroke="#cfeaff" stroke-width="2" filter="url(#boardShadow)"/>
+
+    <rect x="0" y="0" width="640" height="56" rx="16" fill="#4596ff"/>
+    <rect x="16" y="14" width="220" height="12" rx="6" fill="#c6eaef"/>
+    <rect x="16" y="34" width="120" height="8" rx="4" fill="#df05fef"/>
+
+    <g fill="#f4faef">
+      <rect x="16" y="78" width="280" height="36" rx="10" fill="#7d65b5"/>
+      <rect x="16" y="124" width="560" height="36" rx="10" fill="#656cb5"/>
+      <rect x="16" y="170" width="380" height="36" rx="10" fill="#5a8c91"/>
+      <rect x="16" y="216" width="500" height="36" rx="10" fill="#76b87a"/>
+      <rect x="16" y="262" width="320" height="36" rx="10" fill="#76b87a"/>
+    </g>
+  </g>
+
+  <!-- left avatar -->
+  <g transform="translate(150,430)">
+    <use href="#ring" stroke="#3ba8ff" stroke-opacity="0.4"/>
+    <use href="#ring" stroke="#3ba8ff" stroke-dasharray="40 30" stroke-width="10">
+      <animateTransform attributeName="transform" type="rotate" dur="5s" from="0" to="360" repeatCount="indefinite"/>
+    </use>
+
+    <g fill="#e2e8f0" transform="translate(0,8)">
+      <use href="#silhouette"/>
+    </g>
+
+    <animateTransform attributeName="transform" type="translate"
+                      values="0,0;0,-10;0,0" dur="1.8s" repeatCount="indefinite" additive="sum"/>
+
+    <g transform="translate(80,-30)">
+      <use href="#bubble" fill="#bffcec" stroke="#8cf5d7"/>
+      <animateTransform attributeName="transform" type="translate" 
+                        values="0,6;0,-8;0,6" dur="1.9s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;1;0" dur="2.6s" repeatCount="indefinite"/>
+    </g>
+  </g>
+
+  <!-- top-left avatar -->
+  <g transform="translate(110,170)">
+    <use href="#ring" stroke="#ffc77a" stroke-opacity="0.4"/>
+    <use href="#ring" stroke="#ffc77a" stroke-dasharray="30 25" stroke-width="10">
+      <animateTransform attributeName="transform" type="rotate" dur="6.5s" from="0" to="-360" repeatCount="indefinite"/>
+    </use>
+
+    <g fill="#e2e8f0">
+      <use href="#silhouette"/>
+    </g>
+
+    <animateTransform attributeName="transform" type="translate"
+                      values="0,0;0,8;0,0" dur="2s" repeatCount="indefinite" additive="sum"/>
+
+    <g transform="translate(84,-8)" opacity="0">
+      <use href="#card" fill="#1f2937" stroke="#323f52"/>
+      <animate attributeName="opacity" values="0;1;0" dur="2.8s" repeatCount="indefinite"/>
+      <animateTransform attributeName="transform" type="translate" 
+                        values="40,0;0,0;-10,0" dur="2.8s" repeatCount="indefinite"/>
+    </g>
+  </g>
+
+  <!-- right avatar -->
+  <g transform="translate(1110,420)">
+    <use href="#ring" stroke="#57efc3" stroke-opacity="0.4"/>
+    <use href="#ring" stroke="#57efc3" stroke-dasharray="36 28" stroke-width="10">
+      <animateTransform attributeName="transform" type="rotate" dur="4.8s" from="0" to="360" repeatCount="indefinite"/>
+    </use>
+
+    <g fill="#e2e8f0">
+      <use href="#silhouette"/>
+    </g>
+
+    <animateTransform attributeName="transform" type="translate"
+                      values="0,0;0,-8;0,0" dur="2s" repeatCount="indefinite" additive="sum"/>
+
+    <g transform="translate(-120,-20)">
+      <use href="#bubble" fill="#d5e9ff" stroke="#afd4ff"/>
+      <animateTransform attributeName="transform" type="translate"
+                        values="0,4;0,-6;0,4" dur="1.9s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;1;0" dur="2.6s" repeatCount="indefinite"/>
+    </g>
+  </g>
+
+  <!-- bottom-right avatar -->
+  <g transform="translate(980,160)">
+    <use href="#ring" stroke="#aebcff" stroke-opacity="0.4"/>
+    <use href="#ring" stroke="#aebcff" stroke-dasharray="28 22" stroke-width="10">
+      <animateTransform attributeName="transform" type="rotate" dur="6.6s" from="0" to="-360" repeatCount="indefinite"/>
+    </use>
+
+    <g fill="#e2e8f0" transform="translate(0,10)">
+      <use href="#silhouette"/>
+    </g>
+
+    <animateTransform attributeName="transform" type="translate"
+                      values="0,0;0,9;0,0" dur="2.4s" repeatCount="indefinite" additive="sum"/>
+
+    <g transform="translate(-120,72)" opacity="0">
+      <use href="#card" fill="#1f2937" stroke="#414d62" transform="scale(0.72)"/>
+      <animate attributeName="opacity" values="0;1;0" dur="3.2s" repeatCount="indefinite"/>
+      <animateTransform attributeName="transform" type="translate"
+                        values="-20,0;0,0;10,0" dur="3.2s" repeatCount="indefinite"/>
+    </g>
+  </g>
+
+  <!-- flowing dots -->
+  <g opacity="0.95">
+    <circle cx="380" cy="310" r="5" fill="#58b6ff">
+      <animate attributeName="cx" values="380;640;900" dur="3.4s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;1;0.7;0" dur="3.4s" repeatCount="indefinite"/>
+    </circle>
+
+    <circle cx="420" cy="360" r="4" fill="#2bebaf">
+      <animate attributeName="cx" values="420;670;1020" dur="4s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;1;0.5;0" dur="4s" repeatCount="indefinite"/>
+    </circle>
+
+    <circle cx="340" cy="250" r="4.5" fill="#ffd47a">
+      <animate attributeName="cx" values="340;580;860" dur="3s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;1;0.7;0" dur="3s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- shadow -->
+  <ellipse cx="640" cy="560" rx="220" ry="26" fill="#cad9ed" opacity="0.6"/>
+</svg>
