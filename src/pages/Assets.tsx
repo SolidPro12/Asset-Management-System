@@ -46,6 +46,7 @@ import { AssetLifecycleDashboard } from '@/components/AssetLifecycleDashboard';
 import { AssetTransferModal } from '@/components/AssetTransferModal';
 import { AssetMaintenanceModal } from '@/components/AssetMaintenanceModal';
 import { BarcodeScannerModal } from '@/components/BarcodeScannerModal';
+import { AssetCategoryOverview } from '@/components/AssetCategoryOverview';
 import { Checkbox } from '@/components/ui/checkbox';
 import { downloadQRCodesAsZip, generatePrintablePDF } from '@/lib/qrCodeUtils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -708,6 +709,13 @@ const Assets = () => {
             <AssetLifecycleDashboard />
           </Card>
         )}
+
+        {/* Asset Category Overview */}
+        <AssetCategoryOverview 
+          assets={assets}
+          selectedCategory={categoryFilter}
+          onCategorySelect={setCategoryFilter}
+        />
 
         {/* Asset Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
