@@ -14,10 +14,9 @@ import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import assetSlide1 from '@/assets/asset-banner-1.svg';
 import assetSlide2 from '@/assets/asset-slide-2.png';
-import assetSlide3 from '@/assets/team management.svg';
-import ticketSlide1 from '@/assets/ticket management.svg';
+import assetSlide3 from '@/assets/asset-slide-3.png';
+import ticketSlide1 from '@/assets/ticket-slide-1.png';
 import solidproLogo from '@/assets/solidpro-logo.svg';
-import { PasswordStrengthMeter } from '@/components/PasswordStrengthMeter';
 
 const carouselSlides = [
   {
@@ -424,7 +423,6 @@ const Auth = () => {
                         {showPassword ? <Eye className="h-4 w-4 text-muted-foreground" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
                       </Button>
                     </div>
-                    <PasswordStrengthMeter password={password} />
                   </div>
 
                   <div className="space-y-2">

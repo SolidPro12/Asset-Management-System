@@ -24,7 +24,6 @@ import EmailNotifications from "./pages/EmailNotifications";
 import EmailLogs from "./pages/EmailLogs";
 import EmailTemplates from "./pages/EmailTemplates";
 import ResetPassword from "./pages/ResetPassword";
-import ActivityLog from "./pages/ActivityLog";
 
 
 const queryClient = new QueryClient();
@@ -118,14 +117,6 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Profile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/activity-log"
-              element={
-                <ProtectedRoute>
-                  <ActivityLog />
                 </ProtectedRoute>
               }
             />

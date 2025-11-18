@@ -15,11 +15,9 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import { Edit, Save, X, Lock, Shield } from 'lucide-react';
+import { Edit, Save, X, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { PasswordStrengthMeter } from '@/components/PasswordStrengthMeter';
-import { Link } from 'react-router-dom';
 
 interface Profile {
   id?: string;
@@ -221,18 +219,6 @@ const Profile = () => {
       if (error) {
         toast.error(error.message);
       } else {
-        // Log password change activity
-        try {
-          await supabase.from("user_activity_log").insert({
-            user_id: user?.id,
-            activity_type: "profile_updated",
-            description: "Password changed",
-            metadata: { timestamp: new Date().toISOString(), action: 'password_change' },
-          });
-        } catch (logError) {
-          console.error("Failed to log password change:", logError);
-        }
-
         toast.success('Password updated successfully!');
         setIsChangingPassword(false);
         setCurrentPassword('');
@@ -299,7 +285,7 @@ const Profile = () => {
               <p className="text-sm text-muted-foreground mb-3">
                 {profile.email}
               </p>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2">
                 <Badge variant={getRoleBadgeVariant(userRole)}>
                   {getRoleDisplayName(userRole)}
                 </Badge>
@@ -310,12 +296,6 @@ const Profile = () => {
                 )}
               </div>
             </div>
-            <Link to="/activity-log">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Shield className="h-4 w-4" />
-                Activity Log
-              </Button>
-            </Link>
           </div>
         </div>
 
@@ -467,7 +447,9 @@ const Profile = () => {
                     placeholder="Enter new password"
                     required
                   />
-                  <PasswordStrengthMeter password={newPassword} />
+                  <p className="text-xs text-muted-foreground">
+                    Must be 8+ characters with uppercase, lowercase, number, and special character
+                  </p>
                 </div>
 
                 <div className="space-y-2">
