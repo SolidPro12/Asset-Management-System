@@ -49,17 +49,6 @@ serve(async (req) => {
       throw new Error("Missing required fields");
     }
 
-    // Check for duplicate email
-    const { data: existingProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("id")
-      .eq("email", email)
-      .maybeSingle();
-
-    if (existingProfile) {
-      throw new Error("Email already exists");
-    }
-
     // Check for duplicate employee_id
     if (employee_id) {
       const { data: existingEmployee } = await supabaseAdmin
@@ -84,7 +73,13 @@ serve(async (req) => {
       },
     });
 
-    if (authError) throw authError;
+    if (authError) {
+      // Handle duplicate email error
+      if (authError.message?.includes('already been registered')) {
+        throw new Error("Email already exists");
+      }
+      throw authError;
+    }
 
     // Update profile with additional fields
     const { error: profileError } = await supabaseAdmin
