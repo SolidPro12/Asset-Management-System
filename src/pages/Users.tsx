@@ -1,62 +1,20 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users as UsersIcon, Shield, Loader2, Plus, Pencil, Trash2, Upload, Download, X, CheckCircle2 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { Users as UsersIcon, Shield, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DEPARTMENTS } from '@/lib/constants';
 
 interface UserProfile {
@@ -68,21 +26,7 @@ interface UserProfile {
   employee_id: string;
   created_at: string;
   is_active: boolean | null;
-  deactivated_at: string | null;
   user_roles: { role: string }[];
-}
-
-interface ImportUserRow {
-  employee_id: string;
-  full_name: string;
-  email: string;
-  password: string;
-  department: string;
-  phone: string;
-  role: string;
-  rowNumber: number;
-  errors: string[];
-  isValid: boolean;
 }
 
 const Users = () => {
@@ -93,1960 +37,196 @@ const Users = () => {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingUser, setDeletingUser] = useState(false);
-  const [importPreviewOpen, setImportPreviewOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [importData, setImportData] = useState<ImportUserRow[]>([]);
-  const [importing, setImporting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [editForm, setEditForm] = useState({
-    full_name: '',
-    email: '',
-    department: '',
-    phone: '',
-    employee_id: '',
-    role: 'user'
-  });
-  const [addForm, setAddForm] = useState({
-    full_name: '',
-    email: '',
-    password: '',
-    confirm_password: '',
-    department: '',
-    phone: '',
-    employee_id: '',
-    role: 'user'
-  });
+  const [editForm, setEditForm] = useState({ full_name: '', email: '', department: '', phone: '', employee_id: '', role: 'user' });
+  const [addForm, setAddForm] = useState({ full_name: '', email: '', password: '', confirm_password: '', department: '', phone: '', employee_id: '', role: 'user' });
   const [savingEdit, setSavingEdit] = useState(false);
   const [savingAdd, setSavingAdd] = useState(false);
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
-  const [roleChangeConfirmOpen, setRoleChangeConfirmOpen] = useState(false);
-  const [pendingRoleChange, setPendingRoleChange] = useState<string | null>(null);
-  const [bulkSelectMode, setBulkSelectMode] = useState(false);
-  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
-  const [bulkActionDialogOpen, setBulkActionDialogOpen] = useState(false);
-  const [permissionHistoryOpen, setPermissionHistoryOpen] = useState(false);
-  const [permissionHistory, setPermissionHistory] = useState<any[]>([]);
-  const [showInactiveUsers, setShowInactiveUsers] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const sortedDepartments = [...DEPARTMENTS].sort((a, b) => a.localeCompare(b));
 
-  useEffect(() => {
-    if (user) {
-      checkUserRole();
-      fetchUsers();
-    }
-  }, [user]);
+  useEffect(() => { if (user) { checkUserRole(); fetchUsers(); } }, [user]);
 
   const checkUserRole = async () => {
     if (!user) return;
-
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single();
-
+    const { data } = await supabase.from('user_roles').select('role').eq('user_id', user.id).single();
     setUserRole(data?.role || null);
   };
 
   const fetchUsers = async () => {
     try {
-      const { data: profiles, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('full_name');
-
+      const { data: profiles, error } = await supabase.from('profiles').select('*').order('full_name');
       if (error) throw error;
-
-      // Fetch roles separately for each user
-      const usersWithRoles = await Promise.all(
-        (profiles || []).map(async (profile) => {
-          const { data: roles } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', profile.id);
-          
-          return {
-            ...profile,
-            employee_id: profile.employee_id,
-            user_roles: roles || []
-          };
-        })
-      );
-
+      const usersWithRoles = await Promise.all((profiles || []).map(async (profile) => {
+        const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', profile.id);
+        return { ...profile, employee_id: profile.employee_id, user_roles: roles || [] };
+      }));
       setUsers(usersWithRoles);
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load users',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to load users', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
-  const updateUserRole = async (userId: string, newRole: string) => {
-    try {
-      // Use secure database function with server-side validation
-      const { error } = await supabase.rpc('update_user_role', {
-        target_user_id: userId,
-        new_role: newRole as any
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: 'Success',
-        description: 'User role updated successfully',
-      });
-
-      fetchUsers();
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to update user role',
-        variant: 'destructive',
-      });
-    }
-  };
-
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
-      case 'super_admin':
-        return 'destructive';
-      case 'admin':
-        return 'default';
-      case 'financer':
-        return 'secondary';
-      case 'hr':
-        return 'outline';
-      case 'department_head':
-        return 'secondary';
-      default:
-        return 'outline';
+      case 'super_admin': return 'destructive';
+      case 'admin': return 'default';
+      case 'financer': return 'secondary';
+      case 'hr': return 'outline';
+      case 'department_head': return 'secondary';
+      default: return 'outline';
     }
   };
 
   const getRoleDisplayName = (role: string) => {
     switch (role) {
-      case 'super_admin':
-        return 'Super Admin';
-      case 'admin':
-        return 'Admin';
-      case 'financer':
-        return 'Finance Admin';
-      case 'hr':
-        return 'HR';
-      case 'department_head':
-        return 'Department Head';
-      default:
-        return 'User';
+      case 'super_admin': return 'Super Admin';
+      case 'admin': return 'Admin';
+      case 'financer': return 'Finance';
+      case 'hr': return 'HR';
+      case 'department_head': return 'Department Head';
+      default: return 'User';
     }
   };
 
   const handleEditUser = (userProfile: UserProfile) => {
     setSelectedUser(userProfile);
-    setEditForm({
-      full_name: userProfile.full_name,
-      email: userProfile.email,
-      department: userProfile.department || '',
-      phone: userProfile.phone || '',
-      employee_id: userProfile.employee_id || '',
-      role: userProfile.user_roles?.[0]?.role || 'user'
-    });
+    setEditForm({ full_name: userProfile.full_name, email: userProfile.email, department: userProfile.department || '', phone: userProfile.phone || '', employee_id: userProfile.employee_id || '', role: userProfile.user_roles?.[0]?.role || 'user' });
     setEditFormErrors({});
     setEditDialogOpen(true);
   };
 
   const validateEditForm = () => {
     const errors: Record<string, string> = {};
-    
-    const nameTrimmed = editForm.full_name.trim();
-    if (!nameTrimmed || nameTrimmed.length < 2) {
-      errors.full_name = 'Name must be at least 2 characters';
-    }
-    
+    if (!editForm.full_name.trim() || editForm.full_name.trim().length < 2) errors.full_name = 'Name must be at least 2 characters';
     const employeeIdTrimmed = (editForm.employee_id || '').trim();
-    if (!employeeIdTrimmed) {
-      errors.employee_id = 'Employee ID is required';
-    } else if (employeeIdTrimmed.length !== 7 || !/^[0-9]+$/.test(employeeIdTrimmed)) {
-      errors.employee_id = 'Employee ID must be exactly 7 digits (numbers only)';
-    }
-    
+    if (!employeeIdTrimmed) errors.employee_id = 'Employee ID is required';
+    else if (employeeIdTrimmed.length !== 7 || !/^[0-9]+$/.test(employeeIdTrimmed)) errors.employee_id = 'Employee ID must be exactly 7 digits';
     const phoneDigits = (editForm.phone || '').replace(/\D/g, '');
-    if (phoneDigits && phoneDigits.length !== 10) {
-      errors.phone = 'Phone must be exactly 10 digits';
-    }
-    
-    if (!editForm.department) {
-      errors.department = editForm.role === 'department_head'
-        ? 'Department is required for department head role'
-        : 'Department is required';
-    }
-    
+    if (phoneDigits && phoneDigits.length !== 10) errors.phone = 'Phone must be exactly 10 digits';
+    if (!editForm.department) errors.department = 'Department is required';
     setEditFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleRoleChange = (newRole: string) => {
-    if ((newRole === 'admin' || newRole === 'super_admin') && 
-        editForm.role !== newRole) {
-      setPendingRoleChange(newRole);
-      setRoleChangeConfirmOpen(true);
-    } else {
-      setEditForm({ ...editForm, role: newRole });
-    }
-  };
-
-  const confirmRoleChange = () => {
-    if (pendingRoleChange) {
-      setEditForm({ ...editForm, role: pendingRoleChange });
-    }
-    setRoleChangeConfirmOpen(false);
-    setPendingRoleChange(null);
-  };
-
-  const cancelRoleChange = () => {
-    setRoleChangeConfirmOpen(false);
-    setPendingRoleChange(null);
-  };
-
-  const handleDeactivateUser = (userProfile: UserProfile) => {
-    setSelectedUser(userProfile);
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmDeactivateUser = async () => {
-    if (!selectedUser) return;
-
-    try {
-      setDeletingUser(true);
-      
-      // Soft delete: mark as inactive
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          is_active: false,
-          deactivated_at: new Date().toISOString(),
-          deactivated_by: user?.id
-        })
-        .eq('id', selectedUser.id);
-
-      if (updateError) throw updateError;
-
-      // Log the deactivation
-      await supabase.from('user_management_log').insert({
-        action_type: 'deactivate',
-        target_user_id: selectedUser.id,
-        performed_by: user?.id,
-        old_value: { is_active: true },
-        new_value: { is_active: false },
-        details: `User ${selectedUser.full_name} deactivated`
-      });
-
-      toast({
-        title: 'Success',
-        description: `User ${selectedUser.full_name} has been deactivated`,
-      });
-
-      setDeleteDialogOpen(false);
-      setSelectedUser(null);
-      fetchUsers();
-    } catch (error: any) {
-      console.error('Deactivate user error:', error);
-      toast({
-        title: 'Cannot Deactivate User',
-        description: error.message || 'Failed to deactivate user',
-        variant: 'destructive',
-      });
-    } finally {
-      setDeletingUser(false);
-    }
-  };
-
-  const handleReactivateUser = async (userProfile: UserProfile) => {
-    try {
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          is_active: true,
-          deactivated_at: null,
-          deactivated_by: null
-        })
-        .eq('id', userProfile.id);
-
-      if (updateError) throw updateError;
-
-      // Log the reactivation
-      await supabase.from('user_management_log').insert({
-        action_type: 'reactivate',
-        target_user_id: userProfile.id,
-        performed_by: user?.id,
-        old_value: { is_active: false },
-        new_value: { is_active: true },
-        details: `User ${userProfile.full_name} reactivated`
-      });
-
-      toast({
-        title: 'Success',
-        description: `User ${userProfile.full_name} has been reactivated`,
-      });
-
-      fetchUsers();
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to reactivate user',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const fetchPermissionHistory = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('permission_history')
-        .select('*, profiles!permission_history_changed_by_fkey(full_name)')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setPermissionHistory(data || []);
-      setPermissionHistoryOpen(true);
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load permission history',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const toggleBulkSelect = (userId: string) => {
-    const newSelected = new Set(selectedUserIds);
-    if (newSelected.has(userId)) {
-      newSelected.delete(userId);
-    } else {
-      newSelected.add(userId);
-    }
-    setSelectedUserIds(newSelected);
-  };
-
-  const handleBulkDeactivate = async () => {
-    try {
-      const userIds = Array.from(selectedUserIds);
-      
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          is_active: false,
-          deactivated_at: new Date().toISOString(),
-          deactivated_by: user?.id
-        })
-        .in('id', userIds);
-
-      if (error) throw error;
-
-      // Log all deactivations
-      await Promise.all(
-        userIds.map(userId =>
-          supabase.from('user_management_log').insert({
-            action_type: 'bulk_deactivate',
-            target_user_id: userId,
-            performed_by: user?.id,
-            details: 'Bulk deactivation'
-          })
-        )
-      );
-
-      toast({
-        title: 'Success',
-        description: `${userIds.length} users deactivated successfully`,
-      });
-
-      setSelectedUserIds(new Set());
-      setBulkActionDialogOpen(false);
-      setBulkSelectMode(false);
-      fetchUsers();
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to deactivate users',
-        variant: 'destructive',
-      });
-    }
-  };
-
   const saveEditUser = async () => {
-    if (!selectedUser) return;
-    
-    if (!validateEditForm()) {
-      return;
-    }
-    
+    if (!selectedUser || !validateEditForm()) { setSavingEdit(false); return; }
     try {
       setSavingEdit(true);
-      const nameTrimmed = (editForm.full_name || '').trim();
-      const phoneDigits = (editForm.phone || '').replace(/\D/g, '');
-
-      // Validate department head assignment
-      if (editForm.role === 'department_head') {
-        if (!editForm.department) {
-          toast({ 
-            title: 'Department Required', 
-            description: 'Please select a department for the department head', 
-            variant: 'destructive' 
-          });
-          return;
-        }
-
-        // Check if another user is already department head for this department
-        const { data: existingHeads } = await supabase
-          .from('profiles')
-          .select('id, full_name, user_roles!inner(role)')
-          .eq('department', editForm.department)
-          .eq('user_roles.role', 'department_head')
-          .neq('id', selectedUser.id);
-
-        if (existingHeads && existingHeads.length > 0) {
-          toast({ 
-            title: 'Department Head Exists', 
-            description: `${existingHeads[0].full_name} is already the department head for ${editForm.department}`, 
-            variant: 'destructive' 
-          });
-          return;
-        }
-      }
-
-      const normalizedDepartment = editForm.department && editForm.department.trim() ? editForm.department.trim() : null;
-      const normalizedEmployeeId = (editForm.employee_id || '').trim();
-
-      // Check for duplicate employee ID (other users)
-      if (normalizedEmployeeId) {
-        const { data: existingEmp, error: empCheckError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('employee_id', normalizedEmployeeId)
-          .neq('id', selectedUser.id)
-          .maybeSingle();
-
-        if (empCheckError) {
-          toast({
-            title: 'Error',
-            description: empCheckError.message || 'Failed to validate Employee ID',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        if (existingEmp) {
-          toast({
-            title: 'Employee ID Exists',
-            description: 'Another user is already using this Employee ID',
-            variant: 'destructive',
-          });
-          return;
-        }
-      }
-
-      const updatePayload = {
-        full_name: nameTrimmed,
-        department: normalizedDepartment,
-        phone: phoneDigits || null,
-        is_department_head: editForm.role === 'department_head',
-        employee_id: normalizedEmployeeId
-      };
-      // Skip update if no changes
-      const oldDept = selectedUser.department || null;
-      const oldEmpId = selectedUser.employee_id || '';
-      if (
-        nameTrimmed === selectedUser.full_name &&
-        normalizedDepartment === oldDept &&
-        phoneDigits === (selectedUser.phone || '') &&
-        normalizedEmployeeId === oldEmpId &&
-        (editForm.role === selectedUser.user_roles?.[0]?.role)
-      ) {
-        toast({ title: 'No Changes', description: 'No changes to save.', variant: 'default' });
-        return;
-      }
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update(updatePayload)
-        .eq('id', selectedUser.id);
-
-      if (profileError) {
-        let userMsg = profileError.message;
-        if (profileError.code === '23505') userMsg = 'Employee ID must be unique.'; // Postgres duplicate error
-        toast({
-          title: 'Error',
-          description: userMsg || 'Failed to update user',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Update role if changed
-      if (editForm.role !== selectedUser.user_roles?.[0]?.role) {
-        const oldRole = selectedUser.user_roles?.[0]?.role;
-        
-        const { error: roleError } = await supabase.rpc('update_user_role', {
-          target_user_id: selectedUser.id,
-          new_role: editForm.role as any
-        });
-        
-        if (roleError) {
-          toast({
-            title: 'Error',
-            description: roleError.message || 'Failed to update user role',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        // Log permission history
-        await supabase.from('permission_history').insert({
-          user_id: selectedUser.id,
-          action: 'role_change',
-          old_role: oldRole,
-          new_role: editForm.role,
-          old_department: selectedUser.department,
-          new_department: normalizedDepartment,
-          changed_by: user?.id,
-          reason: 'Manual update via user management'
-        });
-      }
-
-      // Log department change if changed
-      if (normalizedDepartment !== oldDept && editForm.role === selectedUser.user_roles?.[0]?.role) {
-        await supabase.from('permission_history').insert({
-          user_id: selectedUser.id,
-          action: 'department_change',
-          old_department: oldDept,
-          new_department: normalizedDepartment,
-          changed_by: user?.id,
-          reason: 'Manual update via user management'
-        });
-      }
-
-      // Log user update
-      await supabase.from('user_management_log').insert({
-        action_type: 'update',
-        target_user_id: selectedUser.id,
-        performed_by: user?.id,
-        old_value: {
-          full_name: selectedUser.full_name,
-          department: oldDept,
-          phone: selectedUser.phone,
-          employee_id: oldEmpId,
-          role: selectedUser.user_roles?.[0]?.role
-        },
-        new_value: {
-          full_name: nameTrimmed,
-          department: normalizedDepartment,
-          phone: phoneDigits || null,
-          employee_id: normalizedEmployeeId,
-          role: editForm.role
-        },
-        details: 'User profile updated'
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast({ title: 'Error', description: 'You must be logged in', variant: 'destructive' }); setSavingEdit(false); return; }
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-update-user`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: selectedUser.id, email: editForm.email, full_name: editForm.full_name, employee_id: editForm.employee_id?.trim() || null, department: editForm.department || null, phone: editForm.phone || null, role: editForm.role })
       });
-
-      toast({
-        title: 'Success',
-        description: 'User updated successfully',
-      });
-
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to update user');
+      toast({ title: 'Success', description: 'User updated successfully' });
       setEditDialogOpen(false);
       setSelectedUser(null);
       fetchUsers();
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to update user',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message || 'Failed to update user', variant: 'destructive' });
     } finally {
       setSavingEdit(false);
     }
   };
 
   const handleAddUser = async () => {
-    if (savingAdd) return; // Prevent double submission
-    
-    // Preserve current admin session so we can restore it after creating the user
-    const { data: orig } = await supabase.auth.getSession();
-    const originalSession = orig?.session;
-
+    if (savingAdd) return;
     try {
       setSavingAdd(true);
-      
       const nameTrimmed = (addForm.full_name || '').trim();
-      if (!nameTrimmed) {
-        toast({ title: 'Name required', description: 'Please enter full name', variant: 'destructive' });
-        return;
-      }
-      if (!/^[A-Za-z ]+$/.test(nameTrimmed) || nameTrimmed.length > 25) {
-        toast({ title: 'Invalid name', description: 'Name must be letters and spaces only, max 25 characters', variant: 'destructive' });
-        return;
-      }
+      if (!nameTrimmed || !/^[A-Za-z ]+$/.test(nameTrimmed) || nameTrimmed.length > 25) { toast({ title: 'Invalid name', variant: 'destructive' }); setSavingAdd(false); return; }
       const phoneDigits = (addForm.phone || '').replace(/\D/g, '');
-      if (phoneDigits && phoneDigits.length !== 10) {
-        toast({ title: 'Invalid phone', description: 'Phone must be exactly 10 digits', variant: 'destructive' });
-        return;
-      }
+      if (phoneDigits && phoneDigits.length !== 10) { toast({ title: 'Invalid phone', variant: 'destructive' }); setSavingAdd(false); return; }
       const normalizedEmployeeId = (addForm.employee_id || '').trim();
-      if (!normalizedEmployeeId) {
-        toast({ title: 'Employee ID required', description: 'Please enter employee ID', variant: 'destructive' });
-        return;
-      }
-      if (normalizedEmployeeId.length !== 7 || !/^[0-9]+$/.test(normalizedEmployeeId)) {
-        toast({ title: 'Invalid Employee ID', description: 'Employee ID must be exactly 7 digits (numbers only)', variant: 'destructive' });
-        return;
-      }
-      if (!addForm.email || !addForm.email.trim()) {
-        toast({ title: 'Email required', description: 'Please enter email address', variant: 'destructive' });
-        return;
-      }
-      const emailTrimmed = addForm.email.trim();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
-        toast({ title: 'Invalid email', description: 'Please enter a valid email address', variant: 'destructive' });
-        return;
-      }
-      if (!addForm.department) {
-        toast({ title: 'Department required', description: 'Please select a department', variant: 'destructive' });
-        return;
-      }
-      if (!addForm.role) {
-        toast({ title: 'Role required', description: 'Please select a role', variant: 'destructive' });
-        return;
-      }
-
-      if (!addForm.password || !addForm.password.trim()) {
-        toast({ title: 'Password required', description: 'Please enter a password', variant: 'destructive' });
-        return;
-      }
-      if (addForm.password.length < 8) {
-        toast({ title: 'Password too short', description: 'Password must be at least 8 characters', variant: 'destructive' });
-        return;
-      }
-      if (!/[A-Z]/.test(addForm.password)) {
-        toast({ title: 'Password weak', description: 'Password must contain at least one uppercase letter', variant: 'destructive' });
-        return;
-      }
-      if (!/[a-z]/.test(addForm.password)) {
-        toast({ title: 'Password weak', description: 'Password must contain at least one lowercase letter', variant: 'destructive' });
-        return;
-      }
-      if (!/[0-9]/.test(addForm.password)) {
-        toast({ title: 'Password weak', description: 'Password must contain at least one number', variant: 'destructive' });
-        return;
-      }
-      if (!/[!@#$%^&*(),.?":{}|<>]/.test(addForm.password)) {
-        toast({ title: 'Password weak', description: 'Password must contain at least one special character', variant: 'destructive' });
-        return;
-      }
-      if (!addForm.confirm_password || !addForm.confirm_password.trim()) {
-        toast({ title: 'Confirm Password required', description: 'Please confirm the password', variant: 'destructive' });
-        return;
-      }
-      if (addForm.password !== addForm.confirm_password) {
-        toast({ title: 'Password mismatch', description: 'Password and Confirm Password must match', variant: 'destructive' });
-        return;
-      }
-
-      // Check for duplicate email BEFORE creating user
-      const { data: existingEmailUser, error: emailCheckError } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .eq('email', emailTrimmed)
-        .maybeSingle();
-
-      if (emailCheckError) {
-        console.error('Email check error:', emailCheckError);
-      }
-
-      if (existingEmailUser) {
-        toast({ 
-          title: 'Email already exists', 
-          description: 'A user with this email address already exists', 
-          variant: 'destructive' 
-        });
-        return;
-      }
-
-      // Check for duplicate employee ID BEFORE creating user
-      const { data: existingEmployeeId, error: employeeIdCheckError } = await supabase
-        .from('profiles')
-        .select('id, employee_id')
-        .eq('employee_id', normalizedEmployeeId)
-        .maybeSingle();
-
-      if (employeeIdCheckError) {
-        console.error('Employee ID check error:', employeeIdCheckError);
-      }
-
-      if (existingEmployeeId) {
-        toast({ 
-          title: 'Employee ID already exists', 
-          description: 'A user with this Employee ID already exists', 
-          variant: 'destructive' 
-        });
-        return;
-      }
-
-      // Validate department head assignment
-      if (addForm.role === 'department_head') {
-        if (!addForm.department) {
-          toast({ 
-            title: 'Department Required', 
-            description: 'Please select a department for the department head', 
-            variant: 'destructive' 
-          });
-          return;
-        }
-
-        // Check if another user is already department head for this department
-        const { data: existingHeads } = await supabase
-          .from('profiles')
-          .select('id, full_name, user_roles!inner(role)')
-          .eq('department', addForm.department)
-          .eq('user_roles.role', 'department_head');
-
-        if (existingHeads && existingHeads.length > 0) {
-          toast({ 
-            title: 'Department Head Exists', 
-            description: `${existingHeads[0].full_name} is already the department head for ${addForm.department}`, 
-            variant: 'destructive' 
-          });
-          return;
-        }
-      }
-
-      const normalizedDepartment = addForm.department?.trim() || null;
-
-      // Create user via Supabase Auth (this automatically hashes the password)
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: emailTrimmed,
-        password: addForm.password,
-        options: {
-          data: {
-            full_name: nameTrimmed,
-            department: normalizedDepartment,
-            phone: phoneDigits,
-            employee_id: normalizedEmployeeId
-          }
-        }
+      if (!normalizedEmployeeId || normalizedEmployeeId.length !== 7 || !/^[0-9]+$/.test(normalizedEmployeeId)) { toast({ title: 'Invalid Employee ID', variant: 'destructive' }); setSavingAdd(false); return; }
+      const emailLower = addForm.email.trim().toLowerCase();
+      if (!emailLower || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower)) { toast({ title: 'Invalid email', variant: 'destructive' }); setSavingAdd(false); return; }
+      if (!addForm.department) { toast({ title: 'Department required', variant: 'destructive' }); setSavingAdd(false); return; }
+      const pwd = addForm.password;
+      if (!pwd || pwd.length < 8 || !/[A-Z]/.test(pwd) || !/[a-z]/.test(pwd) || !/[0-9]/.test(pwd) || !/[^A-Za-z0-9]/.test(pwd)) { toast({ title: 'Weak password', description: 'Must have 8+ chars with uppercase, lowercase, number, and special character', variant: 'destructive' }); setSavingAdd(false); return; }
+      if (pwd !== addForm.confirm_password) { toast({ title: 'Passwords do not match', variant: 'destructive' }); setSavingAdd(false); return; }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast({ title: 'Error', description: 'You must be logged in', variant: 'destructive' }); setSavingAdd(false); return; }
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-create-user`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailLower, password: pwd, full_name: nameTrimmed, employee_id: normalizedEmployeeId, department: addForm.department, phone: phoneDigits || null, role: addForm.role })
       });
-
-      if (authError) {
-        let errorMessage = 'Failed to create user account';
-        
-        // Handle specific auth errors
-        if (authError.message.includes('already registered')) {
-          errorMessage = 'This email address is already registered';
-        } else if (authError.message.includes('password')) {
-          errorMessage = 'Password does not meet requirements';
-        } else if (authError.message) {
-          errorMessage = authError.message;
-        }
-
-        toast({
-          title: 'Error',
-          description: errorMessage,
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      if (authData.user) {
-        // Wait a moment for the trigger to create the profile
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Update profile details with department, phone, employee_id
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            department: normalizedDepartment,
-            phone: phoneDigits || null,
-            is_department_head: addForm.role === 'department_head',
-            employee_id: normalizedEmployeeId
-          })
-          .eq('id', authData.user.id);
-
-        if (profileError) {
-          console.error('Profile update error:', profileError);
-          let userMsg = profileError.message;
-          if (profileError.code === '23505') userMsg = 'Employee ID must be unique.'; // Postgres duplicate error
-          // Don't throw - profile was created, just department update failed
-          toast({
-            title: 'Error',
-            description: userMsg || 'Failed to create user',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        // Assign role if different from default
-        if (addForm.role !== 'user') {
-          try {
-            await updateUserRole(authData.user.id, addForm.role);
-          } catch (roleError: any) {
-            console.error('Role assignment error:', roleError);
-            toast({
-              title: 'Warning',
-              description: `User created but role assignment failed: ${roleError.message}`,
-              variant: 'destructive',
-            });
-            // Don't return - user was created, just role wasn't assigned
-          }
-        }
-      }
-
-      // Restore original admin session (prevents auto-login as the new user)
-      if (originalSession?.access_token && originalSession.refresh_token) {
-        await supabase.auth.setSession({
-          access_token: originalSession.access_token,
-          refresh_token: originalSession.refresh_token,
-        });
-      }
-
-      // Log user creation
-      if (authData.user?.id) {
-        await supabase.from('user_management_log').insert({
-          action_type: 'create',
-          target_user_id: authData.user.id,
-          performed_by: user?.id,
-          new_value: {
-            full_name: nameTrimmed,
-            email: addForm.email,
-            department: normalizedDepartment,
-            phone: phoneDigits || null,
-            employee_id: normalizedEmployeeId,
-            role: addForm.role
-          },
-          details: 'New user created via user management'
-        });
-      }
-
-      toast({
-        title: 'Success',
-        description: 'User created successfully',
-      });
-
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to create user');
+      toast({ title: 'Success', description: 'User created successfully' });
+      setAddForm({ full_name: '', email: '', password: '', confirm_password: '', department: '', phone: '', employee_id: '', role: 'user' });
       setAddDialogOpen(false);
-      setAddForm({
-        full_name: '',
-        email: '',
-        password: '',
-        confirm_password: '',
-        department: '',
-        phone: '',
-        employee_id: '',
-        role: 'user'
-      });
       fetchUsers();
     } catch (error: any) {
-      // Attempt to restore original session on error as well
-      if (originalSession?.access_token && originalSession.refresh_token) {
-        try {
-          await supabase.auth.setSession({
-            access_token: originalSession.access_token,
-            refresh_token: originalSession.refresh_token,
-          });
-        } catch {}
-      }
-
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to create user',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message || 'Failed to add user', variant: 'destructive' });
     } finally {
       setSavingAdd(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  // Validation function for imported user data
-  const validateImportRow = (row: any, rowNumber: number, existingEmployeeIds: Set<string>, existingEmails: Set<string>): ImportUserRow => {
-    const errors: string[] = [];
-    
-    const employeeId = (row['employee_id'] || row['Employee ID'] || '').toString().trim().toUpperCase();
-    const fullName = (row['full_name'] || row['Full Name'] || row['Name'] || '').toString().trim();
-    const email = (row['email'] || row['Email'] || '').toString().trim().toLowerCase();
-    const password = (row['password'] || row['Password'] || '').toString();
-    const department = (row['department'] || row['Department'] || '').toString().trim();
-    const phone = (row['phone'] || row['Phone'] || '').toString().trim();
-    const role = (row['role'] || row['Role'] || 'user').toString().trim().toLowerCase();
-
-    // Required field validations
-    if (!employeeId) {
-      errors.push('Employee ID is required');
-    } else if (employeeId.length > 25) {
-      errors.push('Employee ID must be 25 characters or less');
-    } else if (!/^[A-Za-z0-9_-]+$/.test(employeeId)) {
-      errors.push('Employee ID can only contain letters, numbers, hyphens, and underscores');
-    } else if (existingEmployeeIds.has(employeeId)) {
-      errors.push('Employee ID already exists in file');
-    }
-
-    if (!fullName) {
-      errors.push('Full Name is required');
-    } else if (!/^[A-Za-z ]+$/.test(fullName)) {
-      errors.push('Full Name must contain only letters and spaces');
-    } else if (fullName.length > 25) {
-      errors.push('Full Name must be 25 characters or less');
-    }
-
-    if (!email) {
-      errors.push('Email is required');
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errors.push('Invalid email format');
-    } else if (existingEmails.has(email)) {
-      errors.push('Email already exists in file');
-    }
-
-    if (!password) {
-      errors.push('Password is required');
-    } else if (password.length < 6) {
-      errors.push('Password must be at least 6 characters');
-    }
-
-    // Optional field validations
-    if (phone) {
-      const phoneDigits = phone.replace(/\D/g, '');
-      if (phoneDigits.length !== 10) {
-        errors.push('Phone must be exactly 10 digits');
-      }
-    }
-
-    const validRoles = ['user', 'hr', 'admin', 'super_admin', 'financer', 'department_head'];
-    if (!validRoles.includes(role)) {
-      errors.push(`Role must be one of: ${validRoles.join(', ')}`);
-    }
-
-    if (role === 'department_head' && !department) {
-      errors.push('Department is required for department head role');
-    }
-
-    if (department && !DEPARTMENTS.includes(department)) {
-      errors.push(`Department must be one of: ${DEPARTMENTS.join(', ')}`);
-    }
-
-    return {
-      employee_id: employeeId,
-      full_name: fullName,
-      email: email,
-      password: password,
-      department: department,
-      phone: phone,
-      role: role,
-      rowNumber: rowNumber,
-      errors: errors,
-      isValid: errors.length === 0
-    };
-  };
-
-  // File upload and parsing handler
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    if (!['csv', 'xlsx', 'xls'].includes(fileExtension || '')) {
-      toast({
-        title: 'Invalid File',
-        description: 'Please upload a CSV or XLSX file',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+  const confirmDeleteUser = async () => {
+    if (!selectedUser) return;
     try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const data = e.target?.result;
-          let jsonData: any[] = [];
-
-          if (fileExtension === 'csv') {
-            // Parse CSV
-            const workbook = XLSX.read(data, { type: 'binary', sheetRows: 0 });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            jsonData = XLSX.utils.sheet_to_json(worksheet);
-          } else {
-            // Parse XLSX
-            const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            jsonData = XLSX.utils.sheet_to_json(worksheet);
-          }
-
-          if (jsonData.length === 0) {
-            toast({
-              title: 'Empty File',
-              description: 'The uploaded file contains no data',
-              variant: 'destructive',
-            });
-            return;
-          }
-
-          // Check for existing employee IDs and emails in file
-          const existingEmployeeIds = new Set<string>();
-          const existingEmails = new Set<string>();
-          
-          // Validate and prepare import data
-          const validatedData: ImportUserRow[] = jsonData.map((row, index) => {
-            const employeeId = (row['employee_id'] || row['Employee ID'] || '').toString().trim().toUpperCase();
-            const email = (row['email'] || row['Email'] || '').toString().trim().toLowerCase();
-            
-            if (employeeId) existingEmployeeIds.add(employeeId);
-            if (email) existingEmails.add(email);
-            
-            return validateImportRow(row, index + 2, new Set(), new Set()); // +2 because Excel rows start at 2 (header + 1)
-          });
-
-          // Re-validate with all employee IDs and emails from file
-          const finalValidatedData: ImportUserRow[] = validatedData.map((row, index) => {
-            const allEmployeeIds = new Set(validatedData.map(r => r.employee_id).filter(Boolean));
-            const allEmails = new Set(validatedData.map(r => r.email).filter(Boolean));
-            allEmployeeIds.delete(row.employee_id);
-            allEmails.delete(row.email);
-            return validateImportRow(jsonData[index], index + 2, allEmployeeIds, allEmails);
-          });
-
-          // Check against database for existing employee IDs and emails
-          const existingEmployeeIdsInDb = new Set<string>();
-          const existingEmailsInDb = new Set<string>();
-
-          try {
-            const { data: existingProfiles } = await supabase
-              .from('profiles')
-              .select('employee_id, email')
-              .not('employee_id', 'is', null);
-
-            existingProfiles?.forEach(profile => {
-              if (profile.employee_id) existingEmployeeIdsInDb.add(profile.employee_id.toUpperCase());
-              if (profile.email) existingEmailsInDb.add(profile.email.toLowerCase());
-            });
-          } catch (error) {
-            console.error('Error checking existing users:', error);
-          }
-
-          // Add database duplicate errors
-          const finalDataWithDbCheck: ImportUserRow[] = finalValidatedData.map(row => {
-            const errors = [...row.errors];
-            
-            if (row.employee_id && existingEmployeeIdsInDb.has(row.employee_id)) {
-              errors.push('Employee ID already exists in database');
-            }
-            
-            if (row.email && existingEmailsInDb.has(row.email)) {
-              errors.push('Email already exists in database');
-            }
-
-            return {
-              ...row,
-              errors: errors,
-              isValid: errors.length === 0
-            };
-          });
-
-          setImportData(finalDataWithDbCheck);
-          setImportPreviewOpen(true);
-        } catch (error: any) {
-          toast({
-            title: 'Parse Error',
-            description: error.message || 'Failed to parse file',
-            variant: 'destructive',
-          });
-        }
-      };
-
-      if (fileExtension === 'csv') {
-        reader.readAsBinaryString(file);
-      } else {
-        reader.readAsArrayBuffer(file);
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to read file',
-        variant: 'destructive',
+      setDeletingUser(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast({ title: 'Error', description: 'You must be logged in', variant: 'destructive' }); setDeletingUser(false); return; }
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-delete-user`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: selectedUser.id })
       });
-    }
-
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  // Bulk import handler
-  const handleBulkImport = async () => {
-    const validRows = importData.filter(row => row.isValid);
-    
-    if (validRows.length === 0) {
-      toast({
-        title: 'No Valid Data',
-        description: 'Please fix the errors before importing',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setImporting(true);
-    const { data: orig } = await supabase.auth.getSession();
-    const originalSession = orig?.session;
-
-    let successCount = 0;
-    let failCount = 0;
-    const failedRows: { row: number; error: string }[] = [];
-
-    try {
-      for (const row of validRows) {
-        try {
-          // Create user via Supabase Auth
-          const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: row.email,
-            password: row.password,
-            options: {
-              data: {
-                full_name: row.full_name,
-                department: row.department || null,
-                phone: row.phone || null,
-                employee_id: row.employee_id
-              }
-            }
-          });
-
-          if (authError) {
-            failCount++;
-            failedRows.push({ row: row.rowNumber, error: authError.message });
-            continue;
-          }
-
-          if (authData.user) {
-            // Wait for profile creation
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            // Update profile with employee_id, department, phone
-            const phoneDigits = row.phone ? row.phone.replace(/\D/g, '') : null;
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .update({
-                department: row.department || null,
-                phone: phoneDigits || null,
-                is_department_head: row.role === 'department_head',
-                employee_id: row.employee_id
-              })
-              .eq('id', authData.user.id);
-
-            if (profileError) {
-              failCount++;
-              failedRows.push({ row: row.rowNumber, error: profileError.message });
-              continue;
-            }
-
-            // Assign role if different from default
-            if (row.role !== 'user') {
-              await updateUserRole(authData.user.id, row.role);
-            }
-
-            successCount++;
-          }
-        } catch (error: any) {
-          failCount++;
-          failedRows.push({ row: row.rowNumber, error: error.message || 'Unknown error' });
-        }
-      }
-
-      // Restore original session
-      if (originalSession?.access_token && originalSession.refresh_token) {
-        await supabase.auth.setSession({
-          access_token: originalSession.access_token,
-          refresh_token: originalSession.refresh_token,
-        });
-      }
-
-      // Show summary
-      toast({
-        title: 'Import Complete',
-        description: `${successCount} users imported successfully${failCount > 0 ? `, ${failCount} failed` : ''}`,
-        variant: failCount > 0 ? 'default' : 'default',
-      });
-
-      if (failedRows.length > 0) {
-        console.error('Failed rows:', failedRows);
-      }
-
-      setImportPreviewOpen(false);
-      setImportData([]);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to delete user');
+      toast({ title: 'Success', description: `User ${selectedUser.full_name} deleted` });
+      setDeleteDialogOpen(false);
+      setSelectedUser(null);
       fetchUsers();
     } catch (error: any) {
-      // Restore session on error
-      if (originalSession?.access_token && originalSession.refresh_token) {
-        try {
-          await supabase.auth.setSession({
-            access_token: originalSession.access_token,
-            refresh_token: originalSession.refresh_token,
-          });
-        } catch {}
-      }
-
-      toast({
-        title: 'Import Error',
-        description: error.message || 'Failed to import users',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message || 'Failed to delete user', variant: 'destructive' });
     } finally {
-      setImporting(false);
+      setDeletingUser(false);
     }
   };
 
-  // Export functionality
-  const handleExport = (exportFormat: 'csv' | 'xlsx') => {
-    try {
-      if (users.length === 0) {
-        toast({
-          title: 'No Users',
-          description: 'There are no users to export',
-          variant: 'destructive',
-        });
-        return;
-      }
+  if (loading) return <div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (userRole !== 'super_admin') return <div className="flex flex-col items-center justify-center min-h-screen p-6"><Shield className="h-16 w-16 text-destructive mb-4" /><h1 className="text-2xl font-bold mb-2">Access Denied</h1></div>;
 
-      const exportData = users.map(user => ({
-        'Employee ID': user.employee_id || '',
-        'Full Name': user.full_name,
-        'Email': user.email,
-        'Department': user.department || '',
-        'Phone': user.phone || '',
-        'Role': getRoleDisplayName(user.user_roles?.[0]?.role || 'user'),
-        'Created At': format(new Date(user.created_at), 'yyyy-MM-dd')
-      }));
-
-      const fileName = `User_List_${format(new Date(), 'yyyy-MM-dd')}`;
-
-      if (exportFormat === 'csv') {
-        // Generate CSV
-        const headers = Object.keys(exportData[0] || {});
-        const csvRows = [
-          headers.join(','),
-          ...exportData.map(row => headers.map(header => `"${row[header as keyof typeof row] || ''}"`).join(','))
-        ];
-        const csvContent = csvRows.join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `${fileName}.csv`;
-        link.click();
-      } else {
-        // Generate XLSX
-        const worksheet = XLSX.utils.json_to_sheet(exportData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Users');
-        XLSX.writeFile(workbook, `${fileName}.xlsx`);
-      }
-
-      toast({
-        title: 'Export Successful',
-        description: `Users exported as ${exportFormat.toUpperCase()}`,
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Export Error',
-        description: error.message || 'Failed to export users',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // While userRole is still being resolved or data is loading, show spinner instead of Access Denied
-  if (loading || userRole === null) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (userRole !== 'super_admin') {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Access Denied
-            </CardTitle>
-            <CardDescription>
-              You don't have permission to access this page. Only Super Admins can manage users.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
+  const activeUsers = users.filter(u => u.is_active !== false);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>User Management</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+    <div className="p-6 space-y-6">
+      <Breadcrumb><BreadcrumbList><BreadcrumbItem><BreadcrumbLink href="/">Home</BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><BreadcrumbPage>User Management</BreadcrumbPage></BreadcrumbItem></BreadcrumbList></Breadcrumb>
+      <div className="flex items-center justify-between"><div><h1 className="text-3xl font-bold">User Management</h1><p className="text-muted-foreground">Manage user accounts</p></div><Button onClick={() => setAddDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add User</Button></div>
+      <Card><CardHeader><CardTitle className="flex items-center gap-2"><UsersIcon className="h-5 w-5" />All Users</CardTitle><CardDescription>Total: {activeUsers.length} users</CardDescription></CardHeader>
+        <CardContent><Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Employee ID</TableHead><TableHead>Department</TableHead><TableHead>Phone</TableHead><TableHead>Role</TableHead><TableHead>Created</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+            <TableBody>{activeUsers.map((u) => (<TableRow key={u.id}><TableCell className="font-medium">{u.full_name}</TableCell><TableCell>{u.email}</TableCell><TableCell>{u.employee_id || '-'}</TableCell><TableCell>{u.department || '-'}</TableCell><TableCell>{u.phone || '-'}</TableCell>
+                  <TableCell><Badge variant={getRoleBadgeVariant(u.user_roles?.[0]?.role || 'user')}>{getRoleDisplayName(u.user_roles?.[0]?.role || 'user')}</Badge></TableCell><TableCell>{format(new Date(u.created_at), 'MMM d, yyyy')}</TableCell>
+                  <TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="sm">Actions</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => handleEditUser(u)}><Pencil className="mr-2 h-4 w-4" />Edit</DropdownMenuItem><DropdownMenuItem onClick={() => { setSelectedUser(u); setDeleteDialogOpen(true); }} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>))}</TableBody></Table></CardContent></Card>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <UsersIcon className="h-8 w-8" />
-            User Management
-          </h2>
-          <p className="text-muted-foreground">Manage user roles and permissions</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            accept=".csv,.xlsx,.xls"
-            className="hidden"
-          />
-          <Button
-            variant="outline"
-            onClick={() => setShowInactiveUsers(!showInactiveUsers)}
-          >
-            {showInactiveUsers ? 'Hide' : 'Show'} Inactive Users
-          </Button>
-          {bulkSelectMode ? (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setBulkSelectMode(false);
-                  setSelectedUserIds(new Set());
-                }}
-              >
-                Cancel Selection
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => setBulkActionDialogOpen(true)}
-                disabled={selectedUserIds.size === 0}
-              >
-                Deactivate ({selectedUserIds.size})
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => setBulkSelectMode(true)}
-              >
-                Bulk Actions
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Import Users
-              </Button>
-            </>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export Users
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleExport('csv')}>
-                Export as CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('xlsx')}>
-                Export as XLSX
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button onClick={() => setAddDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add User
-          </Button>
-        </div>
-      </div>
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Add New User</DialogTitle></DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Full Name *</Label><Input value={addForm.full_name} onChange={(e) => setAddForm({ ...addForm, full_name: e.target.value })} /></div><div className="space-y-2"><Label>Employee ID *</Label><Input value={addForm.employee_id} onChange={(e) => setAddForm({ ...addForm, employee_id: e.target.value })} /></div></div>
+            <div className="space-y-2"><Label>Email *</Label><Input type="email" value={addForm.email} onChange={(e) => setAddForm({ ...addForm, email: e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Password *</Label><Input type="password" value={addForm.password} onChange={(e) => setAddForm({ ...addForm, password: e.target.value })} /></div><div className="space-y-2"><Label>Confirm Password *</Label><Input type="password" value={addForm.confirm_password} onChange={(e) => setAddForm({ ...addForm, confirm_password: e.target.value })} /></div></div>
+            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Department *</Label><Select value={addForm.department} onValueChange={(v) => setAddForm({ ...addForm, department: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sortedDepartments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Phone</Label><Input value={addForm.phone} onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })} /></div></div>
+            <div className="space-y-2"><Label>Role *</Label><Select value={addForm.role} onValueChange={(v) => setAddForm({ ...addForm, role: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="user">User</SelectItem><SelectItem value="hr">HR</SelectItem><SelectItem value="financer">Finance</SelectItem><SelectItem value="department_head">Department Head</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem></SelectContent></Select></div>
+          </div><DialogFooter><Button variant="outline" onClick={() => setAddDialogOpen(false)}>Cancel</Button><Button onClick={handleAddUser} disabled={savingAdd}>{savingAdd ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : 'Create User'}</Button></DialogFooter></DialogContent></Dialog>
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="divide-y">
-            {users
-              .filter(u => showInactiveUsers || u.is_active !== false)
-              .map((userProfile) => (
-              <div key={userProfile.id} className={`p-4 hover:bg-accent/50 transition-colors ${!userProfile.is_active ? 'opacity-60 bg-muted/30' : ''}`}>
-                <div className="flex items-center justify-between">
-                  {bulkSelectMode && userRole === 'super_admin' && (
-                    <input
-                      type="checkbox"
-                      checked={selectedUserIds.has(userProfile.id)}
-                      onChange={() => toggleBulkSelect(userProfile.id)}
-                      disabled={userProfile.id === user?.id || userProfile.user_roles?.[0]?.role === 'super_admin'}
-                      className="mr-3"
-                    />
-                  )}
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-3">
-                      <h3 className="font-semibold text-foreground">{userProfile.full_name}</h3>
-                      <Badge variant={getRoleBadgeVariant(userProfile.user_roles?.[0]?.role || 'user')}>
-                        {getRoleDisplayName(userProfile.user_roles?.[0]?.role || 'user')}
-                      </Badge>
-                      <span className={`text-xs ${userProfile.is_active === false ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                        {userProfile.is_active === false ? 'inactive' : 'active'}
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {userProfile.email} • {userProfile.department || 'No Department'} • Last login: {formatDate(userProfile.created_at)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm w-[110px]">{userProfile.employee_id || '-'}</span>
-                    {userRole === 'super_admin' && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEditUser(userProfile)}
-                          disabled={userProfile.id === user?.id}
-                          title="Edit User"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        {userProfile.is_active ? (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeactivateUser(userProfile)}
-                            disabled={userProfile.id === user?.id || userProfile.user_roles?.[0]?.role === 'super_admin'}
-                            title={
-                              userProfile.id === user?.id 
-                                ? "Cannot deactivate your own account" 
-                                : userProfile.user_roles?.[0]?.role === 'super_admin'
-                                ? "Cannot deactivate Super Admin"
-                                : "Deactivate User"
-                            }
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleReactivateUser(userProfile)}
-                            title="Reactivate User"
-                            className="text-green-600 hover:text-green-600 hover:bg-green-100"
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => fetchPermissionHistory(userProfile.id)}
-                          title="View Permission History"
-                        >
-                          <Shield className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Edit User</DialogTitle></DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Full Name *</Label><Input value={editForm.full_name} onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })} />{editFormErrors.full_name && <p className="text-sm text-destructive">{editFormErrors.full_name}</p>}</div><div className="space-y-2"><Label>Employee ID *</Label><Input value={editForm.employee_id} onChange={(e) => setEditForm({ ...editForm, employee_id: e.target.value })} />{editFormErrors.employee_id && <p className="text-sm text-destructive">{editFormErrors.employee_id}</p>}</div></div>
+            <div className="space-y-2"><Label>Email (read-only)</Label><Input value={editForm.email} disabled /></div>
+            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Department *</Label><Select value={editForm.department} onValueChange={(v) => setEditForm({ ...editForm, department: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sortedDepartments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select>{editFormErrors.department && <p className="text-sm text-destructive">{editFormErrors.department}</p>}</div><div className="space-y-2"><Label>Phone</Label><Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />{editFormErrors.phone && <p className="text-sm text-destructive">{editFormErrors.phone}</p>}</div></div>
+            <div className="space-y-2"><Label>Role *</Label><Select value={editForm.role} onValueChange={(v) => setEditForm({ ...editForm, role: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="user">User</SelectItem><SelectItem value="hr">HR</SelectItem><SelectItem value="financer">Finance</SelectItem><SelectItem value="department_head">Department Head</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem></SelectContent></Select></div>
+          </div><DialogFooter><Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button><Button onClick={saveEditUser} disabled={savingEdit}>{savingEdit ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Changes'}</Button></DialogFooter></DialogContent></Dialog>
 
-      {/* Edit User Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>
-              Update user information and role assignment
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* Employee ID field -- edit mode (read-only) */}
-            <div className="space-y-2">
-              <Label htmlFor="edit-employee-id">
-                Employee ID <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="edit-employee-id"
-                value={editForm.employee_id}
-                disabled
-                readOnly
-                className="bg-muted cursor-not-allowed"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Full Name</Label>
-              <Input
-                id="edit-name"
-                value={editForm.full_name}
-                onChange={(e) => {
-                  const raw = e.target.value || '';
-                  const filtered = raw.replace(/[^A-Za-z ]/g, '').slice(0, 25);
-                  setEditForm({ ...editForm, full_name: filtered });
-                }}
-                className={editFormErrors.full_name ? 'border-destructive' : ''}
-              />
-              {editFormErrors.full_name && (
-                <p className="text-sm text-destructive">{editFormErrors.full_name}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={editForm.email}
-                disabled
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-department">
-                Department <span className="text-destructive">*</span>
-              </Label>
-              <Select value={editForm.department || ''} disabled>
-                <SelectTrigger className="bg-muted cursor-not-allowed">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {sortedDepartments.map((dept) => (
-                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-phone">Phone</Label>
-              <Input
-                id="edit-phone"
-                value={editForm.phone}
-                onChange={(e) => {
-                  const digits = (e.target.value || '').replace(/\D/g, '').slice(0, 10);
-                  setEditForm({ ...editForm, phone: digits });
-                }}
-                className={editFormErrors.phone ? 'border-destructive' : ''}
-              />
-              {editFormErrors.phone && (
-                <p className="text-sm text-destructive">{editFormErrors.phone}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-role">
-                Role <span className="text-destructive">*</span>
-              </Label>
-              <Select value={editForm.role} onValueChange={handleRoleChange}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">User</SelectItem>
-                  <SelectItem value="hr">HR</SelectItem>
-                  <SelectItem value="department_head">Department Head</SelectItem>
-                  <SelectItem value="financer">Finance Admin</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="super_admin">Super Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={saveEditUser} disabled={savingEdit}>
-              {savingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {savingEdit ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Role Change Confirmation Dialog */}
-      <AlertDialog open={roleChangeConfirmOpen} onOpenChange={setRoleChangeConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Role Change</AlertDialogTitle>
-            <AlertDialogDescription>
-              You are about to assign a higher privilege role ({pendingRoleChange === 'admin' ? 'Admin' : 'Super Admin'}) to this user. 
-              This will grant them elevated permissions in the system. Are you sure you want to proceed?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={cancelRoleChange}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmRoleChange}>Confirm</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Add User Dialog */}
-      <Dialog open={addDialogOpen} onOpenChange={(open) => {
-        setAddDialogOpen(open);
-        if (!open) {
-          // Reset form when dialog closes
-          setAddForm({
-            full_name: '',
-            email: '',
-            password: '',
-            confirm_password: '',
-            department: '',
-            phone: '',
-            employee_id: '',
-            role: 'user'
-          });
-        }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New User</DialogTitle>
-            <DialogDescription>
-              Create a new user account with role assignment
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* Employee ID field -- add mode */}
-            <div className="space-y-2">
-              <Label htmlFor="add-employee-id">
-                Employee ID <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="add-employee-id"
-                value={addForm.employee_id}
-                onChange={(e) => {
-                  const raw = e.target.value || '';
-                  const filtered = raw.replace(/[^0-9]/g, '').slice(0, 7);
-                  setAddForm({ ...addForm, employee_id: filtered });
-                }}
-                required
-                maxLength={7}
-                placeholder="Enter Employee ID (7 digits)"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-name">
-                Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="add-name"
-                value={addForm.full_name}
-                onChange={(e) => {
-                  const raw = e.target.value || '';
-                  const filtered = raw.replace(/[^A-Za-z ]/g, '').slice(0, 25);
-                  setAddForm({ ...addForm, full_name: filtered });
-                }}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-email">
-                Email <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="add-email"
-                type="email"
-                value={addForm.email}
-                onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-password">
-                Password <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="add-password"
-                type="password"
-                value={addForm.password}
-                onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
-                placeholder="Enter password"
-              />
-              <p className="text-xs text-muted-foreground">
-                Must be 8+ characters with uppercase, lowercase, number, and special character
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-confirm-password">
-                Confirm Password <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="add-confirm-password"
-                type="password"
-                value={addForm.confirm_password}
-                onChange={(e) => setAddForm({ ...addForm, confirm_password: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-department">
-                Department <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={addForm.department}
-                onValueChange={(value) => setAddForm({ ...addForm, department: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sortedDepartments.map((dept) => (
-                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-phone">Phone</Label>
-              <Input
-                id="add-phone"
-                value={addForm.phone}
-                onChange={(e) => {
-                  const digits = (e.target.value || '').replace(/\D/g, '').slice(0, 10);
-                  setAddForm({ ...addForm, phone: digits });
-                }}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-role">
-                Role <span className="text-destructive">*</span>
-              </Label>
-              <Select value={addForm.role} onValueChange={(value) => setAddForm({ ...addForm, role: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">User</SelectItem>
-                  <SelectItem value="hr">HR</SelectItem>
-                  <SelectItem value="department_head">Department Head</SelectItem>
-                  <SelectItem value="financer">Finance Admin</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="super_admin">Super Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setAddDialogOpen(false)}
-              disabled={savingAdd}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleAddUser}
-              disabled={savingAdd}
-            >
-              {savingAdd ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                'Create User'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Deactivate User Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
-        if (!deletingUser) {
-          setDeleteDialogOpen(open);
-        }
-      }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Deactivate User</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <p>
-                Are you sure you want to deactivate <strong>{selectedUser?.full_name}</strong>'s account?
-              </p>
-              <div className="bg-muted p-3 rounded-md text-sm space-y-1">
-                <p><strong>Email:</strong> {selectedUser?.email}</p>
-                <p><strong>Employee ID:</strong> {selectedUser?.employee_id}</p>
-                <p><strong>Department:</strong> {selectedUser?.department || 'N/A'}</p>
-                <p><strong>Role:</strong> {selectedUser?.user_roles?.[0]?.role.replace('_', ' ').toUpperCase()}</p>
-              </div>
-              <p className="text-amber-600 font-medium">
-                This user will be marked as inactive and can be reactivated later. Historical data will be preserved.
-              </p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletingUser}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmDeactivateUser}
-              disabled={deletingUser}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deletingUser ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deactivating...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Deactivate User
-                </>
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Import Preview Dialog */}
-      <Dialog open={importPreviewOpen} onOpenChange={(open) => {
-        if (!importing) {
-          setImportPreviewOpen(open);
-          if (!open) {
-            setImportData([]);
-          }
-        }
-      }}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Import Preview</DialogTitle>
-            <DialogDescription>
-              Review the data before importing. Invalid rows are highlighted in red.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-              <div className="flex items-center gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Rows</p>
-                  <p className="text-2xl font-bold">{importData.length}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Valid Rows</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {importData.filter(r => r.isValid).length}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Invalid Rows</p>
-                  <p className="text-2xl font-bold text-red-600">
-                    {importData.filter(r => !r.isValid).length}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="border rounded-lg overflow-hidden">
-              <div className="max-h-[400px] overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Row</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Employee ID</TableHead>
-                      <TableHead>Full Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Department</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Errors</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {importData.map((row) => (
-                      <TableRow
-                        key={row.rowNumber}
-                        className={row.isValid ? '' : 'bg-red-50'}
-                      >
-                        <TableCell>{row.rowNumber}</TableCell>
-                        <TableCell>
-                          {row.isValid ? (
-                            <Badge className="bg-green-500">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Valid
-                            </Badge>
-                          ) : (
-                            <Badge variant="destructive">
-                              <X className="h-3 w-3 mr-1" />
-                              Invalid
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>{row.employee_id}</TableCell>
-                        <TableCell>{row.full_name}</TableCell>
-                        <TableCell>{row.email}</TableCell>
-                        <TableCell>{row.department || '-'}</TableCell>
-                        <TableCell>{row.phone || '-'}</TableCell>
-                        <TableCell>{row.role}</TableCell>
-                        <TableCell>
-                          {row.errors.length > 0 ? (
-                            <div className="text-sm text-red-600">
-                              {row.errors.map((error, idx) => (
-                                <div key={idx}>• {error}</div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-sm text-green-600">No errors</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setImportPreviewOpen(false);
-                setImportData([]);
-              }}
-              disabled={importing}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleBulkImport}
-              disabled={importing || importData.filter(r => r.isValid).length === 0}
-            >
-              {importing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                `Import ${importData.filter(r => r.isValid).length} Users`
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete User</AlertDialogTitle><AlertDialogDescription>Are you sure you want to delete <strong>{selectedUser?.full_name}</strong>? This will permanently remove their account.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmDeleteUser} disabled={deletingUser} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deletingUser ? 'Deleting...' : 'Delete User'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   );
 };
