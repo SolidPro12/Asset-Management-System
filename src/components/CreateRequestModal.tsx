@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -23,7 +24,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, ChevronDown, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -31,6 +32,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { z } from 'zod';
 import { DEPARTMENTS } from '@/lib/constants';
 import { Constants } from '@/integrations/supabase/types';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 const LOCATIONS = ['Guindy', 'Vandalur', 'Madurai', 'Bangalore', 'US'];
 
@@ -92,6 +94,8 @@ export function CreateRequestModal({
     request_type: 'regular' as 'regular' | 'express',
     notes: '',
   });
+  const [categoryComboOpen, setCategoryComboOpen] = useState(false);
+  const [departmentComboOpen, setDepartmentComboOpen] = useState(false);
 
   // Fetch asset categories from database
   useEffect(() => {
@@ -186,11 +190,11 @@ export function CreateRequestModal({
           specification: (editRequest.specification || editRequest.reason || ''),
           location: editRequest.location || '',
           department: editRequest.department || '',
-          expected_delivery_date: editRequest.expected_delivery_date 
+          expected_delivery_date: editRequest.expected_delivery_date
             ? new Date(editRequest.expected_delivery_date)
             : undefined,
-          request_type: editRequest.request_type === 'express' 
-            ? 'express' 
+          request_type: editRequest.request_type === 'express'
+            ? 'express'
             : 'regular',
           notes: editRequest.notes || '',
         });
@@ -224,7 +228,6 @@ export function CreateRequestModal({
       setRequestId('AR???');
     }
   };
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -294,7 +297,7 @@ export function CreateRequestModal({
             hint: updateError.hint,
             code: updateError.code,
           });
-          
+
           // Provide user-friendly error messages
           if (updateError.code === '42501') {
             throw new Error('Permission denied: You do not have permission to update this request. Please contact an administrator.');
@@ -367,14 +370,14 @@ export function CreateRequestModal({
       setErrors({});
     } catch (error: any) {
       console.error(editRequest ? 'Error updating request:' : 'Error creating request:', error);
-      
+
       // Display detailed error message
-      const errorMessage = error?.message || 
-                          (error?.details ? `${error.message}: ${error.details}` : null) ||
-                          (editRequest ? 'Failed to update request. Please check your permissions and try again.' : 'Failed to create request');
-      
+      const errorMessage = error?.message ||
+        (error?.details ? `${error.message}: ${error.details}` : null) ||
+        (editRequest ? 'Failed to update request. Please check your permissions and try again.' : 'Failed to create request');
+
       toast.error(errorMessage);
-      
+
       // If it's a validation error, set field errors
       if (error?.issues && Array.isArray(error.issues)) {
         const fieldErrors: Record<string, string> = {};
@@ -413,25 +416,52 @@ export function CreateRequestModal({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="category">Asset Category <span className="text-red-500">*</span></Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => {
-                  setFormData({ ...formData, category: value });
-                  setErrors({ ...errors, category: '' });
-                }}
-                required
-              >
-                <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {formatCategoryName(category)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={categoryComboOpen} onOpenChange={setCategoryComboOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      'w-full justify-between',
+                      errors.category && 'border-red-500'
+                    )}
+                  >
+                    {formData.category
+                      ? formatCategoryName(formData.category)
+                      : 'Select category'}
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[320px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search category..." />
+                    <CommandEmpty>No category found.</CommandEmpty>
+                    <CommandList>
+                      <CommandGroup>
+                        {categories.map((category) => (
+                          <CommandItem
+                            key={category}
+                            value={category}
+                            onSelect={(value) => {
+                              setFormData({ ...formData, category: value });
+                              setErrors({ ...errors, category: '' });
+                              setCategoryComboOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                formData.category === category ? 'opacity-100' : 'opacity-0'
+                              }`}
+                            />
+                            {formatCategoryName(category)}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               {errors.category && (
                 <p className="text-sm text-destructive">{errors.category}</p>
               )}
@@ -572,25 +602,50 @@ export function CreateRequestModal({
 
             <div className="space-y-2">
               <Label htmlFor="department">Department <span className="text-red-500">*</span></Label>
-              <Select
-                value={formData.department}
-                onValueChange={(value) => {
-                  setFormData({ ...formData, department: value });
-                  setErrors({ ...errors, department: '' });
-                }}
-                required
-              >
-                <SelectTrigger className={errors.department ? 'border-red-500' : ''}>
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {DEPARTMENTS.map((dept) => (
-                    <SelectItem key={dept} value={dept}>
-                      {dept}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={departmentComboOpen} onOpenChange={setDepartmentComboOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      'w-full justify-between',
+                      errors.department && 'border-red-500'
+                    )}
+                  >
+                    {formData.department || 'Select department'}
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[320px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search department..." />
+                    <CommandEmpty>No department found.</CommandEmpty>
+                    <CommandList>
+                      <CommandGroup>
+                        {DEPARTMENTS.map((dept) => (
+                          <CommandItem
+                            key={dept}
+                            value={dept}
+                            onSelect={(value) => {
+                              setFormData({ ...formData, department: value });
+                              setErrors({ ...errors, department: '' });
+                              setDepartmentComboOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                formData.department === dept ? 'opacity-100' : 'opacity-0'
+                              }`}
+                            />
+                            {dept}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               {errors.department && (
                 <p className="text-sm text-destructive">{errors.department}</p>
               )}

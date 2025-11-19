@@ -24,13 +24,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, ChevronDown, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { DEPARTMENTS } from '@/lib/constants';
 import { useEmailNotifications } from '@/hooks/useEmailNotifications';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 interface Asset {
   id: string;
@@ -84,6 +85,9 @@ export function AllocateAssetModal({
   const [condition, setCondition] = useState('good');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [employeeComboOpen, setEmployeeComboOpen] = useState(false);
+  const [departmentComboOpen, setDepartmentComboOpen] = useState(false);
+  const [editDepartmentComboOpen, setEditDepartmentComboOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -347,34 +351,92 @@ export function AllocateAssetModal({
 
               <div className="space-y-2">
                 <Label>Employee</Label>
-                <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select employee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees.map((employee) => (
-                      <SelectItem key={employee.id} value={employee.id}>
-                        {employee.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={employeeComboOpen} onOpenChange={setEmployeeComboOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between"
+                    >
+                      {selectedEmployeeId
+                        ? employees.find((e) => e.id === selectedEmployeeId)?.full_name || 'Select employee'
+                        : 'Select employee'}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[320px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search employee..." />
+                      <CommandEmpty>No employee found.</CommandEmpty>
+                      <CommandList>
+                        <CommandGroup>
+                          {employees.map((employee) => (
+                            <CommandItem
+                              key={employee.id}
+                              value={employee.full_name}
+                              onSelect={() => {
+                                setSelectedEmployeeId(employee.id);
+                                setEmployeeComboOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={`mr-2 h-4 w-4 ${
+                                  selectedEmployeeId === employee.id ? 'opacity-100' : 'opacity-0'
+                                }`}
+                              />
+                              {employee.full_name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">
                 <Label>Department *</Label>
-                <Select value={department} onValueChange={setDepartment} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DEPARTMENTS.map((dept) => (
-                      <SelectItem key={dept} value={dept}>
-                        {dept}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={departmentComboOpen} onOpenChange={setDepartmentComboOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between"
+                    >
+                      {department || 'Select department'}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[320px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search department..." />
+                      <CommandEmpty>No department found.</CommandEmpty>
+                      <CommandList>
+                        <CommandGroup>
+                          {DEPARTMENTS.map((dept) => (
+                            <CommandItem
+                              key={dept}
+                              value={dept}
+                              onSelect={(value) => {
+                                setDepartment(value);
+                                setDepartmentComboOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={`mr-2 h-4 w-4 ${
+                                  department === dept ? 'opacity-100' : 'opacity-0'
+                                }`}
+                              />
+                              {dept}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">
@@ -399,18 +461,46 @@ export function AllocateAssetModal({
             <>
               <div className="space-y-2">
                 <Label>Department *</Label>
-                <Select value={department} onValueChange={setDepartment} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DEPARTMENTS.map((dept) => (
-                      <SelectItem key={dept} value={dept}>
-                        {dept}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={editDepartmentComboOpen} onOpenChange={setEditDepartmentComboOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between"
+                    >
+                      {department || 'Select department'}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[320px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search department..." />
+                      <CommandEmpty>No department found.</CommandEmpty>
+                      <CommandList>
+                        <CommandGroup>
+                          {DEPARTMENTS.map((dept) => (
+                            <CommandItem
+                              key={dept}
+                              value={dept}
+                              onSelect={(value) => {
+                                setDepartment(value);
+                                setEditDepartmentComboOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={`mr-2 h-4 w-4 ${
+                                  department === dept ? 'opacity-100' : 'opacity-0'
+                                }`}
+                              />
+                              {dept}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">

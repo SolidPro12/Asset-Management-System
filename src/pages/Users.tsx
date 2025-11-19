@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users as UsersIcon, Shield, Loader2, Plus, Pencil, Trash2, Download, Upload, Search, X } from 'lucide-react';
+import { Users as UsersIcon, Shield, Loader2, Plus, Pencil, Trash2, Download, Upload, Search, X, Check, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,6 +16,8 @@ import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DEPARTMENTS } from '@/lib/constants';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import * as XLSX from 'xlsx';
 
 interface UserProfile {
@@ -50,6 +52,7 @@ const Users = () => {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [departmentComboOpen, setDepartmentComboOpen] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const sortedDepartments = [...DEPARTMENTS].sort((a, b) => a.localeCompare(b));
@@ -318,19 +321,93 @@ const Users = () => {
 
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Add New User</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Full Name *</Label><Input value={addForm.full_name} onChange={(e) => setAddForm({ ...addForm, full_name: e.target.value })} /></div><div className="space-y-2"><Label>Employee ID *</Label><Input value={addForm.employee_id} onChange={(e) => setAddForm({ ...addForm, employee_id: e.target.value })} /></div></div>
-            <div className="space-y-2"><Label>Email *</Label><Input type="email" value={addForm.email} onChange={(e) => setAddForm({ ...addForm, email: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Password *</Label><Input type="password" value={addForm.password} onChange={(e) => setAddForm({ ...addForm, password: e.target.value })} /></div><div className="space-y-2"><Label>Confirm Password *</Label><Input type="password" value={addForm.confirm_password} onChange={(e) => setAddForm({ ...addForm, confirm_password: e.target.value })} /></div></div>
-            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Department *</Label><Select value={addForm.department} onValueChange={(v) => setAddForm({ ...addForm, department: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sortedDepartments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Phone</Label><Input value={addForm.phone} onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })} /></div></div>
-            <div className="space-y-2"><Label>Role *</Label><Select value={addForm.role} onValueChange={(v) => setAddForm({ ...addForm, role: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="user">User</SelectItem><SelectItem value="hr">HR</SelectItem><SelectItem value="financer">Finance</SelectItem><SelectItem value="department_head">Department Head</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem></SelectContent></Select></div>
+            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Full Name <span className="text-destructive">*</span></Label><Input value={addForm.full_name} onChange={(e) => {
+              const raw = e.target.value;
+              const cleaned = raw.replace(/[^A-Za-z ]/g, '').slice(0, 25);
+              setAddForm({ ...addForm, full_name: cleaned });
+            }} /></div><div className="space-y-2"><Label>Employee ID <span className="text-destructive">*</span></Label><Input value={addForm.employee_id} onChange={(e) => {
+              const raw = e.target.value;
+              const cleaned = raw.replace(/\D/g, '').slice(0, 7);
+              setAddForm({ ...addForm, employee_id: cleaned });
+            }} /></div></div>
+            <div className="space-y-2"><Label>Email <span className="text-destructive">*</span></Label><Input type="email" value={addForm.email} onChange={(e) => {
+              const raw = e.target.value;
+              setAddForm({ ...addForm, email: raw.toLowerCase() });
+            }} /></div>
+            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Password <span className="text-destructive">*</span></Label><Input type="password" value={addForm.password} onChange={(e) => {
+              const raw = e.target.value;
+              const cleaned = raw.replace(/\s/g, '');
+              setAddForm({ ...addForm, password: cleaned });
+            }} /></div><div className="space-y-2"><Label>Confirm Password <span className="text-destructive">*</span></Label><Input type="password" value={addForm.confirm_password} onChange={(e) => {
+              const raw = e.target.value;
+              const cleaned = raw.replace(/\s/g, '');
+              setAddForm({ ...addForm, confirm_password: cleaned });
+            }} /></div></div>
+            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Department <span className="text-destructive">*</span></Label>
+              <Popover open={departmentComboOpen} onOpenChange={setDepartmentComboOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between"
+                  >
+                    {addForm.department || 'Select department'}
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search department..." />
+                    <CommandEmpty>No department found.</CommandEmpty>
+                    <CommandList>
+                      <CommandGroup>
+                        {sortedDepartments.map((dept) => (
+                          <CommandItem
+                            key={dept}
+                            value={dept}
+                            onSelect={(value) => {
+                              setAddForm({ ...addForm, department: value });
+                              setDepartmentComboOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${addForm.department === dept ? 'opacity-100' : 'opacity-0'}`}
+                            />
+                            {dept}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div><div className="space-y-2"><Label>Phone</Label><Input value={addForm.phone} onChange={(e) => {
+              const raw = e.target.value;
+              const cleaned = raw.replace(/\D/g, '').slice(0, 10);
+              setAddForm({ ...addForm, phone: cleaned });
+            }} /></div></div>
+            <div className="space-y-2"><Label>Role <span className="text-destructive">*</span></Label><Select value={addForm.role} onValueChange={(v) => setAddForm({ ...addForm, role: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="user">User</SelectItem><SelectItem value="hr">HR</SelectItem><SelectItem value="financer">Finance</SelectItem><SelectItem value="department_head">Department Head</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem></SelectContent></Select></div>
           </div><DialogFooter><Button variant="outline" onClick={() => setAddDialogOpen(false)}>Cancel</Button><Button onClick={handleAddUser} disabled={savingAdd}>{savingAdd ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : 'Create User'}</Button></DialogFooter></DialogContent></Dialog>
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Edit User</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Full Name *</Label><Input value={editForm.full_name} onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })} />{editFormErrors.full_name && <p className="text-sm text-destructive">{editFormErrors.full_name}</p>}</div><div className="space-y-2"><Label>Employee ID *</Label><Input value={editForm.employee_id} onChange={(e) => setEditForm({ ...editForm, employee_id: e.target.value })} />{editFormErrors.employee_id && <p className="text-sm text-destructive">{editFormErrors.employee_id}</p>}</div></div>
+            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Full Name <span className="text-destructive">*</span></Label><Input value={editForm.full_name} onChange={(e) => {
+              const raw = e.target.value;
+              const cleaned = raw.replace(/[^A-Za-z ]/g, '').slice(0, 25);
+              setEditForm({ ...editForm, full_name: cleaned });
+            }} />{editFormErrors.full_name && <p className="text-sm text-destructive">{editFormErrors.full_name}</p>}</div><div className="space-y-2"><Label>Employee ID <span className="text-destructive">*</span></Label><Input value={editForm.employee_id} onChange={(e) => {
+              const raw = e.target.value;
+              const cleaned = raw.replace(/\D/g, '').slice(0, 7);
+              setEditForm({ ...editForm, employee_id: cleaned });
+            }} />{editFormErrors.employee_id && <p className="text-sm text-destructive">{editFormErrors.employee_id}</p>}</div></div>
             <div className="space-y-2"><Label>Email (read-only)</Label><Input value={editForm.email} disabled /></div>
-            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Department *</Label><Select value={editForm.department} onValueChange={(v) => setEditForm({ ...editForm, department: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sortedDepartments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select>{editFormErrors.department && <p className="text-sm text-destructive">{editFormErrors.department}</p>}</div><div className="space-y-2"><Label>Phone</Label><Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />{editFormErrors.phone && <p className="text-sm text-destructive">{editFormErrors.phone}</p>}</div></div>
-            <div className="space-y-2"><Label>Role *</Label><Select value={editForm.role} onValueChange={(v) => setEditForm({ ...editForm, role: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="user">User</SelectItem><SelectItem value="hr">HR</SelectItem><SelectItem value="financer">Finance</SelectItem><SelectItem value="department_head">Department Head</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem></SelectContent></Select></div>
+            <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Department <span className="text-destructive">*</span></Label><Select value={editForm.department} onValueChange={(v) => setEditForm({ ...editForm, department: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{sortedDepartments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select>{editFormErrors.department && <p className="text-sm text-destructive">{editFormErrors.department}</p>}</div><div className="space-y-2"><Label>Phone</Label><Input value={editForm.phone} onChange={(e) => {
+              const raw = e.target.value;
+              const cleaned = raw.replace(/\D/g, '').slice(0, 10);
+              setEditForm({ ...editForm, phone: cleaned });
+            }} />{editFormErrors.phone && <p className="text-sm text-destructive">{editFormErrors.phone}</p>}</div></div>
+            <div className="space-y-2"><Label>Role <span className="text-destructive">*</span></Label><Select value={editForm.role} onValueChange={(v) => setEditForm({ ...editForm, role: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="user">User</SelectItem><SelectItem value="hr">HR</SelectItem><SelectItem value="financer">Finance</SelectItem><SelectItem value="department_head">Department Head</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem></SelectContent></Select></div>
           </div><DialogFooter><Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button><Button onClick={saveEditUser} disabled={savingEdit}>{savingEdit ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Changes'}</Button></DialogFooter></DialogContent></Dialog>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete User</AlertDialogTitle><AlertDialogDescription>Are you sure you want to delete <strong>{selectedUser?.full_name}</strong>? This will permanently remove their account.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmDeleteUser} disabled={deletingUser} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deletingUser ? 'Deleting...' : 'Delete User'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>

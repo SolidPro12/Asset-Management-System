@@ -90,7 +90,8 @@ const Auth = () => {
       .regex(/[A-Z]/, 'Password must contain an uppercase letter')
       .regex(/[a-z]/, 'Password must contain a lowercase letter')
       .regex(/[0-9]/, 'Password must contain a number')
-      .regex(/[^A-Za-z0-9]/, 'Password must contain a special character'),
+      .regex(/[^A-Za-z0-9]/, 'Password must contain a special character')
+      .regex(/^\S+$/, 'Password must not contain spaces'),
     employeeId: z.string()
       .trim()
       .length(7, 'Employee ID must be exactly 7 digits')
@@ -139,8 +140,10 @@ const Auth = () => {
       }
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     const data = {
-      email,
+      email: normalizedEmail,
       password,
       ...(!isLogin && { Name, employeeId }),
     };
@@ -155,7 +158,7 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        const { error } = await signIn(email, password);
+        const { error } = await signIn(normalizedEmail, password);
         if (!error) {
           toast.success('Welcome back!');
         } else {
@@ -167,7 +170,7 @@ const Auth = () => {
           return;
         }
         const normalizedEmployeeId = employeeId ? employeeId.trim() : '';
-        const { error } = await signUp(email, password, Name, normalizedEmployeeId);
+        const { error } = await signUp(normalizedEmail, password, Name, normalizedEmployeeId);
         if (error) toast.error(error.message.includes('already registered') ? 'This email is already registered' : error.message);
         else toast.success('Account created successfully!');
       }
