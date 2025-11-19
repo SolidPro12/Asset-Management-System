@@ -64,7 +64,7 @@ interface AllocateAssetModalProps {
   onSuccess: () => void;
 }
 
-const LOCATIONS = ['Guindy', 'Vandalur'];
+const LOCATIONS = ['Guindy', 'Vandalur', 'Madurai', 'Bangalore', 'US'];
 
 export function AllocateAssetModal({
   open,

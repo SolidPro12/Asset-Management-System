@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ChangeEvent } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -46,8 +46,15 @@ const ASSET_CATEGORIES = [
   'Bags',
   'Chargers',
   'Headphones',
+  'Desktop PC',
+  'Mobile',
+  'Tablets',
   'Wireless Keyboard & Mouse',
   'Wired Keyboard & Mouse',
+  'Wireless Keyboard',
+  'Wired Keyboard',
+  'Wired Mouse',
+  'Wireless Mouse',
   'Laptop Stand',
   'Mouse Pad',
   'Monitor',
@@ -60,17 +67,47 @@ const ASSET_CATEGORIES = [
 
 const getAssetFields = (category: string) => {
   // Asset ID is always the first field for all categories
-  const baseFields = ['assetId', 'model', 'serviceTag', 'purchaseDate', 'cost', 'note'];
+  const baseFields = ['assetId', 'assetType', 'model', 'serviceTag', 'purchaseDate', 'cost', 'note'];
   
   switch (category) {
     case 'Laptop':
-      return ['assetId', 'model', 'serviceTag', 'ram', 'processor', 'organizationId', 'purchaseDate', 'cost', 'note'];
+      return [
+        'assetId',
+        'assetType',
+        'model',
+        'serviceTag',
+        'ram',
+        'processor',
+        'storage',
+        'operatingSystem',
+        'organizationId',
+        'purchaseDate',
+        'cost',
+        'note',
+      ];
+    case 'Bags':
+      return ['assetId', 'assetType', 'brand', 'serviceTag', 'purchaseDate', 'cost', 'bagAttachment', 'note'];
     case 'Monitor':
-      return ['assetId', 'model', 'serviceTag', 'screenSize', 'resolution', 'refreshRate', 'connectivity', 'purchaseDate', 'cost', 'note'];
+      return [
+        'assetId',
+        'assetType',
+        'model',
+        'serviceTag',
+        'screenSize',
+        'resolution',
+        'refreshRate',
+        'connectivity',
+        'color',
+        'purchaseDate',
+        'cost',
+        'note',
+      ];
     case 'Headphones':
-      return ['assetId', 'model', 'serviceTag', 'connectivity', 'purchaseDate', 'cost', 'note'];
+      return ['assetId', 'assetType', 'model', 'serviceTag', 'connectivity', 'purchaseDate', 'cost', 'note'];
     case 'TV':
-      return ['assetId', 'model', 'serviceTag', 'screenSize', 'smartTV', 'purchaseDate', 'cost', 'note'];
+      return ['assetId', 'assetType', 'model', 'serviceTag', 'screenSize', 'smartTV', 'purchaseDate', 'cost', 'note'];
+    case 'Pendrives':
+      return ['assetId', 'assetType', 'size', 'serialNumber', 'purchaseDate', 'cost', 'note'];
     default:
       return baseFields;
   }
@@ -79,6 +116,7 @@ const getAssetFields = (category: string) => {
 const getFieldLabel = (field: string) => {
   const labels: Record<string, string> = {
     assetId: 'Asset ID',
+    assetType: 'Asset Type',
     model: 'Model',
     serviceTag: 'Service Tag',
     ram: 'RAM',
@@ -86,6 +124,13 @@ const getFieldLabel = (field: string) => {
     organizationId: 'Organization ID',
     purchaseDate: 'Purchase Date',
     cost: 'Cost',
+    brand: 'Brand',
+    storage: 'Storage',
+    operatingSystem: 'Operating System',
+    bagAttachment: 'Image Attachment',
+    color: 'Colour',
+    size: 'Size',
+    serialNumber: 'Serial No',
     note: 'Notes',
     screenSize: 'Screen Size',
     resolution: 'Resolution',
@@ -99,6 +144,7 @@ const getFieldLabel = (field: string) => {
 export const AddAssetDialog = ({ open, onOpenChange, onSuccess, editAsset }: AddAssetDialogProps) => {
   const [category, setCategory] = useState('');
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const { addAsset, isSubmitting } = useAddAsset();
 
   // Initialize form when editAsset changes
@@ -112,6 +158,7 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess, editAsset }: Add
         assetId: editAsset.asset_id,
         model: editAsset.model || '',
         serviceTag: editAsset.serial_number || editAsset.asset_tag || '',
+        serialNumber: editAsset.serial_number || '',
         brand: editAsset.brand || '',
         purchaseDate: editAsset.purchase_date ? editAsset.purchase_date.split('T')[0] : '',
         cost: editAsset.purchase_cost || '',
@@ -121,6 +168,7 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess, editAsset }: Add
     } else if (!editAsset && open) {
       setCategory('');
       setFormData({});
+      setAttachmentFile(null);
     }
   }, [editAsset, open]);
 
@@ -131,21 +179,61 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess, editAsset }: Add
       return;
     }
 
+    if (!formData.assetType) {
+      toast({
+        title: 'Error',
+        description: 'Asset Type is required.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let submitData = { ...formData };
+
+    if (category === 'Bags' && attachmentFile) {
+      const fileExt = attachmentFile.name.split('.').pop();
+      const fileName = `bags/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('asset-attachments')
+        .upload(fileName, attachmentFile);
+
+      if (uploadError) {
+        toast({
+          title: 'Error',
+          description: 'Failed to upload attachment. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('asset-attachments')
+        .getPublicUrl(fileName);
+
+      submitData = {
+        ...submitData,
+        attachmentUrl: publicUrlData.publicUrl,
+      };
+    }
+
     if (editAsset) {
       // Update asset logic
-      const success = await updateAsset(editAsset.id, formData, category);
+      const success = await updateAsset(editAsset.id, submitData, category);
       if (success) {
         setCategory('');
         setFormData({});
+        setAttachmentFile(null);
         onOpenChange(false);
         onSuccess?.();
       }
     } else {
       // Add asset logic
-      const success = await addAsset(formData, category);
+      const success = await addAsset(submitData, category);
       if (success) {
         setCategory('');
         setFormData({});
+        setAttachmentFile(null);
         onOpenChange(false);
         onSuccess?.();
       }
@@ -157,10 +245,17 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess, editAsset }: Add
       const getCategoryEnum = (cat: string): string => {
         const mapping: Record<string, string> = {
           'Laptop': 'laptop',
+          'Desktop PC': 'desktop',
           'Monitor': 'monitor',
           'Headphones': 'headset',
+          'Mobile': 'phone',
+          'Tablets': 'tablet',
           'Wireless Keyboard & Mouse': 'keyboard',
           'Wired Keyboard & Mouse': 'keyboard',
+          'Wireless Keyboard': 'keyboard',
+          'Wired Keyboard': 'keyboard',
+          'Wired Mouse': 'mouse',
+          'Wireless Mouse': 'mouse',
           'Mouse Pad': 'mouse',
           'TV': 'other',
           'Bags': 'other',
@@ -175,11 +270,11 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess, editAsset }: Add
       const assetData = {
         asset_id: formData.assetId,
         asset_name: formData.model || category,
-        asset_tag: formData.serviceTag || `${category}-${Date.now()}`,
+        asset_tag: formData.serialNumber || formData.serviceTag || `${category}-${Date.now()}`,
         category: getCategoryEnum(category) as any,
         brand: formData.brand || null,
         model: formData.model || null,
-        serial_number: formData.serviceTag || null,
+        serial_number: formData.serialNumber || formData.serviceTag || null,
         purchase_date: formData.purchaseDate || null,
         purchase_cost: formData.cost ? parseFloat(formData.cost) : null,
         notes: formData.note || null,
@@ -228,6 +323,45 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess, editAsset }: Add
   };
 
   const renderField = (field: string) => {
+    if (field === 'assetType') {
+      return (
+        <div key={field} className="space-y-2">
+          <Label htmlFor="assetType">
+            {getFieldLabel(field)} <span className="text-destructive ml-1">*</span>
+          </Label>
+          <Select
+            value={formData.assetType || ''}
+            onValueChange={(value) => handleInputChange('assetType', value)}
+            required
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select asset type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Physical">Physical</SelectItem>
+              <SelectItem value="Digital">Digital</SelectItem>
+              <SelectItem value="Infrastructure">Infrastructure</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      );
+    }
+    if (field === 'bagAttachment') {
+      return (
+        <div key={field} className="space-y-2">
+          <Label htmlFor="bagAttachment">{getFieldLabel(field)}</Label>
+          <Input
+            id="bagAttachment"
+            type="file"
+            accept="image/*"
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              const file = e.target.files?.[0] || null;
+              setAttachmentFile(file);
+            }}
+          />
+        </div>
+      );
+    }
     if (field === 'smartTV') {
       return (
         <div key={field} className="flex items-center space-x-2">
@@ -262,7 +396,7 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess, editAsset }: Add
       <div key={field} className="space-y-2">
         <Label htmlFor={field}>
           {getFieldLabel(field)}
-          {['assetId', 'model', 'serviceTag', 'cost'].includes(field) && (
+          {['assetId', 'brand', 'model', 'serviceTag', 'serialNumber', 'cost'].includes(field) && (
             <span className="text-destructive ml-1">*</span>
           )}
         </Label>
@@ -272,7 +406,7 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess, editAsset }: Add
           value={formData[field] || ''}
           onChange={(e) => handleInputChange(field, e.target.value)}
           placeholder={`Enter ${getFieldLabel(field).toLowerCase()}`}
-          required={['assetId', 'model', 'serviceTag', 'cost'].includes(field)}
+          required={['assetId', 'brand', 'model', 'serviceTag', 'serialNumber', 'cost'].includes(field)}
           disabled={editAsset && field === 'assetId'}
         />
       </div>
@@ -328,6 +462,7 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess, editAsset }: Add
               onClick={() => {
                 setCategory('');
                 setFormData({});
+                setAttachmentFile(null);
                 onOpenChange(false);
               }}
               disabled={isSubmitting}

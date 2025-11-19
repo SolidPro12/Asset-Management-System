@@ -32,7 +32,7 @@ import { z } from 'zod';
 import { DEPARTMENTS } from '@/lib/constants';
 import { Constants } from '@/integrations/supabase/types';
 
-const LOCATIONS = ['Guindy', 'Vandalur'];
+const LOCATIONS = ['Guindy', 'Vandalur', 'Madurai', 'Bangalore', 'US'];
 
 // Helper function to format category name for display
 const formatCategoryName = (category: string): string => {
@@ -454,6 +454,7 @@ export function CreateRequestModal({
                   <SelectItem value="extern">Extern</SelectItem>
                   <SelectItem value="Intern">Intern</SelectItem>
                   <SelectItem value="Employee">Employee</SelectItem>
+                  <SelectItem value="Consultant">Consultant</SelectItem>
                 </SelectContent>
               </Select>
               {errors.employment_type && (

@@ -81,6 +81,7 @@ const Assets = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [assetTypeFilter, setAssetTypeFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -149,8 +150,10 @@ const Assets = () => {
     
     const matchesCategory = categoryFilter === 'all' || asset.category === categoryFilter;
     const matchesStatus = statusFilter === 'all' || asset.status === statusFilter;
+    const assetType = asset.specifications?.assetType || '';
+    const matchesAssetType = assetTypeFilter === 'all' || assetType === assetTypeFilter;
     
-    return matchesSearch && matchesCategory && matchesStatus;
+    return matchesSearch && matchesCategory && matchesStatus && matchesAssetType;
   });
 
   const getStatusColor = (status: string) => {
@@ -199,6 +202,7 @@ const Assets = () => {
     setSearchQuery('');
     setCategoryFilter('all');
     setStatusFilter('all');
+    setAssetTypeFilter('all');
   };
 
   const toggleAssetSelection = (assetId: string) => {
@@ -761,7 +765,7 @@ const Assets = () => {
         {/* Search & Filters */}
         <Card className="p-4">
           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -782,6 +786,17 @@ const Assets = () => {
                       {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+              <Select value={assetTypeFilter} onValueChange={setAssetTypeFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Asset Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Asset Types</SelectItem>
+                  <SelectItem value="Physical">Physical</SelectItem>
+                  <SelectItem value="Digital">Digital</SelectItem>
+                  <SelectItem value="Infrastructure">Infrastructure</SelectItem>
                 </SelectContent>
               </Select>
               <div className="flex gap-2">
