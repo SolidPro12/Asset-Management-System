@@ -293,11 +293,47 @@ export const useEmailNotifications = () => {
     }
   };
 
+  const sendPasswordChangeEmail = async (params: {
+    recipientEmail: string;
+    recipientName: string;
+  }) => {
+    if (!(await isNotificationEnabled('password_change'))) {
+      console.log('Password change email notifications are disabled');
+      return false;
+    }
+
+    const subject = 'Password Successfully Updated';
+    const message = `Hi ${params.recipientName}, your password has been successfully updated. If you did not make this change, please contact your administrator immediately.`;
+
+    try {
+      const success = await sendStatusEmail({
+        recipientEmail: params.recipientEmail,
+        recipientName: params.recipientName,
+        status: 'approved',
+        message,
+        subject,
+        notificationType: 'password_change',
+        metadata: { timestamp: new Date().toISOString() }
+      });
+
+      if (!success) {
+        console.error('Failed to send password change notification');
+        return false;
+      }
+
+      return true;
+    } catch (error: any) {
+      console.error('Error sending password change email:', error);
+      return false;
+    }
+  };
+
   return {
     sendWelcomeEmail,
     sendAssetAssignmentEmail,
     sendTransferApprovalEmail,
     sendMaintenanceReminderEmail,
     sendTicketAssignmentEmail,
+    sendPasswordChangeEmail,
   };
 };

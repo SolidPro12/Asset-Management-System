@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useEmailNotifications } from '@/hooks/useEmailNotifications';
 import { Card, CardContent, CardHeader, CardDescription, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -56,6 +57,7 @@ const getInitials = (name: string) => {
 
 const Profile = () => {
   const { user } = useAuth();
+  const { sendPasswordChangeEmail } = useEmailNotifications();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userRole, setUserRole] = useState<string>('user');
   const [loading, setLoading] = useState(true);
@@ -210,6 +212,14 @@ const Profile = () => {
         setIsChangingPassword(false);
         setNewPassword('');
         setConfirmNewPassword('');
+        
+        // Send password change notification email
+        if (profile?.email && profile?.full_name) {
+          await sendPasswordChangeEmail({
+            recipientEmail: profile.email,
+            recipientName: profile.full_name,
+          });
+        }
       }
     } catch (error) {
       toast.error('An error occurred. Please try again.');
