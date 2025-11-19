@@ -1,25 +1,7 @@
 project_id = "brlbttpiiaezndkurcym"
 
-[functions.send-test-email]
-verify_jwt = true
-
 [functions.cancel-ticket]
 verify_jwt = true
 
-[functions.send-welcome-email]
-verify_jwt = false
-
-[functions.send-asset-assignment-email]
+[functions.send-status-email]
 verify_jwt = true
-
-[functions.send-transfer-approval-email]
-verify_jwt = true
-
-[functions.send-maintenance-reminder-email]
-verify_jwt = true
-
-[functions.send-ticket-assignment-email]
-verify_jwt = true
-
-[functions.send-email-digest]
-verify_jwt = false
