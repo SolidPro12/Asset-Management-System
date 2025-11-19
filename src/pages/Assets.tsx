@@ -148,7 +148,8 @@ const Assets = () => {
       asset.asset_tag.toLowerCase().includes(searchQuery.toLowerCase()) ||
       asset.category.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesCategory = categoryFilter === 'all' || asset.category === categoryFilter;
+    const assetCategoryKey = asset.specifications?.originalCategory || asset.category;
+    const matchesCategory = categoryFilter === 'all' || assetCategoryKey === categoryFilter;
     const matchesStatus = statusFilter === 'all' || asset.status === statusFilter;
     const assetType = asset.specifications?.assetType || '';
     const matchesAssetType = assetTypeFilter === 'all' || assetType === assetTypeFilter;
@@ -531,7 +532,9 @@ const Assets = () => {
     }
   };
 
-  const assetCategories = Array.from(new Set(assets.map(a => a.category)));
+  const assetCategories = Array.from(
+    new Set(assets.map(a => a.specifications?.originalCategory || a.category))
+  );
   const sortedAssetCategories = [...assetCategories].sort((a, b) => {
     const al = (a || '').toLowerCase();
     const bl = (b || '').toLowerCase();
@@ -781,11 +784,13 @@ const Assets = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  {sortedAssetCategories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </SelectItem>
-                  ))}
+                  {sortedAssetCategories
+                    .filter((cat) => (cat || '').toLowerCase() !== 'other')
+                    .map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               <Select value={assetTypeFilter} onValueChange={setAssetTypeFilter}>
