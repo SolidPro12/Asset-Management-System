@@ -17,7 +17,7 @@ const isNotificationEnabled = async (notificationType: string): Promise<boolean>
   }
 };
 
-// Helper function to log email
+// Helper function to log email directly to database
 const logEmail = async (params: {
   notificationType: string;
   recipientEmail: string;
@@ -42,6 +42,32 @@ const logEmail = async (params: {
   }
 };
 
+// Helper function to send status emails via edge function
+const sendStatusEmail = async (params: {
+  recipientEmail: string;
+  recipientName: string;
+  status: 'approved' | 'rejected';
+  message: string;
+  subject: string;
+  notificationType: string;
+  metadata?: any;
+}) => {
+  try {
+    const { error } = await supabase.functions.invoke('send-status-email', {
+      body: params
+    });
+
+    if (error) {
+      console.error('Error sending status email:', error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('Error invoking send-status-email:', error);
+    return false;
+  }
+};
+
 export const useEmailNotifications = () => {
   const sendWelcomeEmail = async (userEmail: string, userName: string) => {
     if (!(await isNotificationEnabled('welcome_email'))) {
@@ -49,33 +75,31 @@ export const useEmailNotifications = () => {
       return false;
     }
 
+    const subject = 'Welcome to Asset Management System';
+    const message = `Hi ${userName}, welcome to the Asset Management System! Your account has been created successfully.`;
+    
     try {
-      const { error } = await supabase.functions.invoke('send-welcome-email', {
-        body: { userEmail, userName }
+      const success = await sendStatusEmail({
+        recipientEmail: userEmail,
+        recipientName: userName,
+        status: 'approved',
+        message,
+        subject,
+        notificationType: 'welcome_email'
       });
 
-      const subject = 'Welcome to Asset Management System';
-      
-      if (error) {
-        console.error('Error sending welcome email:', error);
+      if (!success) {
         await logEmail({
           notificationType: 'welcome_email',
           recipientEmail: userEmail,
           recipientName: userName,
           subject,
           status: 'failed',
-          errorMessage: error.message,
+          errorMessage: 'Failed to send email',
         });
         return false;
       }
-      
-      await logEmail({
-        notificationType: 'welcome_email',
-        recipientEmail: userEmail,
-        recipientName: userName,
-        subject,
-        status: 'sent',
-      });
+
       return true;
     } catch (error: any) {
       console.error('Error sending welcome email:', error);
@@ -83,7 +107,7 @@ export const useEmailNotifications = () => {
         notificationType: 'welcome_email',
         recipientEmail: userEmail,
         recipientName: userName,
-        subject: 'Welcome to Asset Management System',
+        subject,
         status: 'failed',
         errorMessage: error.message,
       });
@@ -104,48 +128,29 @@ export const useEmailNotifications = () => {
       return false;
     }
 
+    const subject = `Asset Assigned: ${params.assetName}`;
+    const message = `Hi ${params.userName}, the asset "${params.assetName}" has been assigned to you${params.assignedBy ? ' by ' + params.assignedBy : ''}.`;
+
     try {
-      const { error } = await supabase.functions.invoke('send-asset-assignment-email', {
-        body: params
-      });
-
-      const subject = `Asset Assigned: ${params.assetName}`;
-
-      if (error) {
-        console.error('Error sending asset assignment email:', error);
-        toast.error('Failed to send notification email');
-        await logEmail({
-          notificationType: 'asset_assignment',
-          recipientEmail: params.userEmail,
-          recipientName: params.userName,
-          subject,
-          status: 'failed',
-          errorMessage: error.message,
-          metadata: { assetName: params.assetName, assetId: params.assetId },
-        });
-        return false;
-      }
-      
-      await logEmail({
-        notificationType: 'asset_assignment',
+      const success = await sendStatusEmail({
         recipientEmail: params.userEmail,
         recipientName: params.userName,
+        status: 'approved',
+        message,
         subject,
-        status: 'sent',
-        metadata: { assetName: params.assetName, assetId: params.assetId },
+        notificationType: 'asset_assignment',
+        metadata: { assetName: params.assetName, assetId: params.assetId }
       });
+
+      if (!success) {
+        toast.error('Failed to send notification email');
+        return false;
+      }
+
       return true;
     } catch (error: any) {
       console.error('Error sending asset assignment email:', error);
-      await logEmail({
-        notificationType: 'asset_assignment',
-        recipientEmail: params.userEmail,
-        recipientName: params.userName,
-        subject: `Asset Assigned: ${params.assetName}`,
-        status: 'failed',
-        errorMessage: error.message,
-        metadata: { assetName: params.assetName, assetId: params.assetId },
-      });
+      toast.error('Failed to send notification email');
       return false;
     }
   };
@@ -164,48 +169,34 @@ export const useEmailNotifications = () => {
       return false;
     }
 
+    const subject = params.actionRequired 
+      ? `Action Required: Asset Transfer Approval - ${params.assetName}`
+      : `Asset Transfer ${params.transferStatus} - ${params.assetName}`;
+    
+    const message = params.actionRequired
+      ? `Hi ${params.recipientName}, your approval is required for the transfer of "${params.assetName}" to ${params.toUser}.`
+      : `Hi ${params.recipientName}, the transfer of "${params.assetName}" has been ${params.transferStatus}.`;
+
     try {
-      const { error } = await supabase.functions.invoke('send-transfer-approval-email', {
-        body: params
-      });
-
-      const subject = `Asset Transfer ${params.actionRequired ? 'Approval Required' : 'Update'}: ${params.assetName}`;
-
-      if (error) {
-        console.error('Error sending transfer approval email:', error);
-        toast.error('Failed to send notification email');
-        await logEmail({
-          notificationType: 'transfer_approval',
-          recipientEmail: params.recipientEmail,
-          recipientName: params.recipientName,
-          subject,
-          status: 'failed',
-          errorMessage: error.message,
-          metadata: { assetName: params.assetName, transferStatus: params.transferStatus },
-        });
-        return false;
-      }
-      
-      await logEmail({
-        notificationType: 'transfer_approval',
+      const success = await sendStatusEmail({
         recipientEmail: params.recipientEmail,
         recipientName: params.recipientName,
+        status: params.transferStatus === 'approved' ? 'approved' : 'rejected',
+        message,
         subject,
-        status: 'sent',
-        metadata: { assetName: params.assetName, transferStatus: params.transferStatus },
+        notificationType: 'transfer_approval',
+        metadata: { assetName: params.assetName, transferStatus: params.transferStatus }
       });
+
+      if (!success) {
+        toast.error('Failed to send notification email');
+        return false;
+      }
+
       return true;
     } catch (error: any) {
       console.error('Error sending transfer approval email:', error);
-      await logEmail({
-        notificationType: 'transfer_approval',
-        recipientEmail: params.recipientEmail,
-        recipientName: params.recipientName,
-        subject: `Asset Transfer Update: ${params.assetName}`,
-        status: 'failed',
-        errorMessage: error.message,
-        metadata: { assetName: params.assetName, transferStatus: params.transferStatus },
-      });
+      toast.error('Failed to send notification email');
       return false;
     }
   };
@@ -224,48 +215,33 @@ export const useEmailNotifications = () => {
       return false;
     }
 
+    const subject = `Maintenance Reminder: ${params.assetName}`;
+    const message = `Hi ${params.recipientName}, this is a reminder about ${params.maintenanceType} maintenance for "${params.assetName}"${params.scheduledDate ? ' scheduled for ' + params.scheduledDate : ''}.`;
+
     try {
-      const { error } = await supabase.functions.invoke('send-maintenance-reminder-email', {
-        body: params
-      });
-
-      const subject = `Maintenance Reminder: ${params.assetName} - ${params.maintenanceType}`;
-
-      if (error) {
-        console.error('Error sending maintenance reminder email:', error);
-        toast.error('Failed to send notification email');
-        await logEmail({
-          notificationType: 'maintenance_reminder',
-          recipientEmail: params.recipientEmail,
-          recipientName: params.recipientName,
-          subject,
-          status: 'failed',
-          errorMessage: error.message,
-          metadata: { assetName: params.assetName, maintenanceType: params.maintenanceType },
-        });
-        return false;
-      }
-      
-      await logEmail({
-        notificationType: 'maintenance_reminder',
+      const success = await sendStatusEmail({
         recipientEmail: params.recipientEmail,
         recipientName: params.recipientName,
+        status: 'approved',
+        message,
         subject,
-        status: 'sent',
-        metadata: { assetName: params.assetName, maintenanceType: params.maintenanceType },
+        notificationType: 'maintenance_reminder',
+        metadata: { 
+          assetName: params.assetName, 
+          maintenanceType: params.maintenanceType,
+          scheduledDate: params.scheduledDate 
+        }
       });
+
+      if (!success) {
+        toast.error('Failed to send notification email');
+        return false;
+      }
+
       return true;
     } catch (error: any) {
       console.error('Error sending maintenance reminder email:', error);
-      await logEmail({
-        notificationType: 'maintenance_reminder',
-        recipientEmail: params.recipientEmail,
-        recipientName: params.recipientName,
-        subject: `Maintenance Reminder: ${params.assetName}`,
-        status: 'failed',
-        errorMessage: error.message,
-        metadata: { assetName: params.assetName, maintenanceType: params.maintenanceType },
-      });
+      toast.error('Failed to send notification email');
       return false;
     }
   };
@@ -286,48 +262,33 @@ export const useEmailNotifications = () => {
       return false;
     }
 
+    const subject = `Ticket Assigned: ${params.ticketTitle}`;
+    const message = `Hi ${params.recipientName}, ticket "${params.ticketTitle}" has been assigned to you${params.priority ? ' with ' + params.priority + ' priority' : ''}.`;
+
     try {
-      const { error } = await supabase.functions.invoke('send-ticket-assignment-email', {
-        body: params
-      });
-
-      const subject = `Ticket Assigned: ${params.ticketTitle} [${params.priority?.toUpperCase()}]`;
-
-      if (error) {
-        console.error('Error sending ticket assignment email:', error);
-        toast.error('Failed to send notification email');
-        await logEmail({
-          notificationType: 'ticket_assignment',
-          recipientEmail: params.recipientEmail,
-          recipientName: params.recipientName,
-          subject,
-          status: 'failed',
-          errorMessage: error.message,
-          metadata: { ticketId: params.ticketId, ticketTitle: params.ticketTitle },
-        });
-        return false;
-      }
-      
-      await logEmail({
-        notificationType: 'ticket_assignment',
+      const success = await sendStatusEmail({
         recipientEmail: params.recipientEmail,
         recipientName: params.recipientName,
+        status: 'approved',
+        message,
         subject,
-        status: 'sent',
-        metadata: { ticketId: params.ticketId, ticketTitle: params.ticketTitle },
+        notificationType: 'ticket_assignment',
+        metadata: { 
+          ticketId: params.ticketId,
+          ticketTitle: params.ticketTitle,
+          priority: params.priority 
+        }
       });
+
+      if (!success) {
+        toast.error('Failed to send notification email');
+        return false;
+      }
+
       return true;
     } catch (error: any) {
       console.error('Error sending ticket assignment email:', error);
-      await logEmail({
-        notificationType: 'ticket_assignment',
-        recipientEmail: params.recipientEmail,
-        recipientName: params.recipientName,
-        subject: `Ticket Assigned: ${params.ticketTitle}`,
-        status: 'failed',
-        errorMessage: error.message,
-        metadata: { ticketId: params.ticketId, ticketTitle: params.ticketTitle },
-      });
+      toast.error('Failed to send notification email');
       return false;
     }
   };

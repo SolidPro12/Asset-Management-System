@@ -4,9 +4,8 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail, Settings, Bell } from 'lucide-react';
+import { Loader2, Mail, Settings, AlertCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -104,55 +103,21 @@ export default function EmailNotifications() {
     }
   };
 
-  const handleTestDigest = async () => {
-    if (!isSuperAdmin) {
-      toast({
-        title: 'Permission Denied',
-        description: 'Only Super Admins can send test digests',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const { error } = await supabase.functions.invoke('send-email-digest');
-
-      if (error) throw error;
-
-      toast({
-        title: 'Success',
-        description: 'Test digest email sent successfully',
-      });
-    } catch (error: any) {
-      console.error('Error sending test digest:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to send test digest',
-        variant: 'destructive',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'welcome_email': return '👋';
-      case 'asset_assignment': return '📦';
-      case 'transfer_approval': return '🔄';
-      case 'maintenance_reminder': return '🔧';
-      case 'ticket_assignment': return '🎫';
-      case 'email_digest': return '📊';
-      default: return '📧';
-    }
+    if (type.includes('welcome')) return '👋';
+    if (type.includes('asset')) return '📦';
+    if (type.includes('transfer')) return '🔄';
+    if (type.includes('maintenance')) return '🔧';
+    if (type.includes('ticket')) return '🎫';
+    if (type.includes('digest')) return '📊';
+    return '📧';
   };
 
   if (loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-96">
-          <Loader2 className="h-8 w-8 animate-spin" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </Layout>
     );
@@ -160,118 +125,77 @@ export default function EmailNotifications() {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Email Notifications</h1>
-            <p className="text-muted-foreground mt-2">
-              Manage email notification settings and preferences
-            </p>
-          </div>
-          <Bell className="h-8 w-8 text-muted-foreground" />
+      <div className="p-8 max-w-6xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Email Notifications</h1>
+          <p className="text-muted-foreground">
+            Manage email notification preferences for the system
+          </p>
         </div>
 
         {!isSuperAdmin && (
-          <Alert>
+          <Alert className="mb-6">
+            <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              You are viewing notification settings in read-only mode. Only Super Admins can modify these settings.
+              You are viewing notification settings in read-only mode. Only Super Administrators can modify these settings.
             </AlertDescription>
           </Alert>
         )}
 
-        <Tabs defaultValue="settings" className="space-y-6">
-          <TabsList>
+        <Alert className="mb-6 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+          <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertDescription className="text-blue-900 dark:text-blue-100">
+            <strong>Note:</strong> Email notifications are logged to the database. To enable actual email delivery, configure SMTP settings in your Supabase project's Auth settings.
+          </AlertDescription>
+        </Alert>
+
+        <Tabs defaultValue="settings" className="w-full">
+          <TabsList className="grid w-full grid-cols-1 max-w-md">
             <TabsTrigger value="settings">
               <Settings className="h-4 w-4 mr-2" />
-              Settings
-            </TabsTrigger>
-            <TabsTrigger value="digest">
-              <Mail className="h-4 w-4 mr-2" />
-              Digest
+              Notification Settings
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="settings" className="space-y-4">
+          <TabsContent value="settings" className="space-y-4 mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Notification Types</CardTitle>
+                <CardTitle>Email Notification Types</CardTitle>
                 <CardDescription>
-                  Enable or disable specific notification types
+                  Enable or disable specific types of email notifications
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4">
                 {settings.map((setting) => (
-                  <div key={setting.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-start space-x-4 flex-1">
-                      <span className="text-3xl">{getNotificationIcon(setting.notification_type)}</span>
-                      <div className="flex-1">
-                        <Label htmlFor={setting.id} className="text-base font-medium capitalize cursor-pointer">
-                          {setting.notification_type.replace(/_/g, ' ')}
+                  <div
+                    key={setting.id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <span className="text-2xl">
+                        {getNotificationIcon(setting.notification_type)}
+                      </span>
+                      <div>
+                        <Label htmlFor={setting.id} className="text-base font-medium">
+                          {setting.notification_type.split('_').map(word => 
+                            word.charAt(0).toUpperCase() + word.slice(1)
+                          ).join(' ')}
                         </Label>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {setting.description}
-                        </p>
+                        {setting.description && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {setting.description}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <Switch
                       id={setting.id}
                       checked={setting.enabled}
-                      onCheckedChange={(checked) => handleToggle(setting.id, checked)}
-                      disabled={!isSuperAdmin || saving}
+                      onCheckedChange={(enabled) => handleToggle(setting.id, enabled)}
+                      disabled={saving || !isSuperAdmin}
                     />
                   </div>
                 ))}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="digest" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Email Digest</CardTitle>
-                <CardDescription>
-                  Daily summary emails for administrators
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="p-4 border rounded-lg bg-muted/30">
-                    <h4 className="font-medium mb-2">📊 What's included in the digest:</h4>
-                    <ul className="space-y-2 text-sm text-muted-foreground ml-4">
-                      <li>• Pending transfer approvals</li>
-                      <li>• Upcoming maintenance (next 7 days)</li>
-                      <li>• Open support tickets</li>
-                      <li>• Pending asset requests</li>
-                    </ul>
-                  </div>
-
-                  <div className="p-4 border rounded-lg bg-muted/30">
-                    <h4 className="font-medium mb-2">⏰ Schedule:</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Email digests are automatically sent daily at 8:00 AM to all administrators and super administrators.
-                    </p>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <Button 
-                      onClick={handleTestDigest}
-                      disabled={!isSuperAdmin || saving}
-                      className="flex-1"
-                    >
-                      {saving ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Mail className="mr-2 h-4 w-4" />
-                          Send Test Digest Now
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
