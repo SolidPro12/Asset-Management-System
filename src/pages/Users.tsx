@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users as UsersIcon, Shield, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Users as UsersIcon, Shield, Loader2, Plus, Pencil, Trash2, Download, Upload, Search, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DEPARTMENTS } from '@/lib/constants';
+import * as XLSX from 'xlsx';
 
 interface UserProfile {
   id: string;
@@ -43,6 +44,12 @@ const Users = () => {
   const [savingEdit, setSavingEdit] = useState(false);
   const [savingAdd, setSavingAdd] = useState(false);
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const sortedDepartments = [...DEPARTMENTS].sort((a, b) => a.localeCompare(b));
@@ -194,18 +201,118 @@ const Users = () => {
     }
   };
 
+  const handleExportUsers = () => {
+    const exportData = activeUsers.map(u => ({
+      'Full Name': u.full_name,
+      'Email': u.email,
+      'Employee ID': u.employee_id || '',
+      'Department': u.department || '',
+      'Phone': u.phone || '',
+      'Role': u.user_roles?.[0]?.role || 'user',
+      'Created': format(new Date(u.created_at), 'yyyy-MM-dd')
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Users');
+    XLSX.writeFile(wb, `users_export_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    toast({ title: 'Success', description: 'Users exported successfully' });
+  };
+
+  const handleImportUsers = async () => {
+    if (!importFile) { toast({ title: 'Error', description: 'Please select a file', variant: 'destructive' }); return; }
+    try {
+      setImporting(true);
+      const data = await importFile.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+      
+      if (jsonData.length === 0) { toast({ title: 'Error', description: 'File is empty', variant: 'destructive' }); setImporting(false); return; }
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast({ title: 'Error', description: 'You must be logged in', variant: 'destructive' }); setImporting(false); return; }
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const row of jsonData) {
+        try {
+          const fullName = (row['Full Name'] || '').trim();
+          const email = (row['Email'] || '').trim().toLowerCase();
+          const employeeId = (row['Employee ID'] || '').trim();
+          const department = (row['Department'] || '').trim();
+          const phone = (row['Phone'] || '').replace(/\D/g, '');
+          const role = (row['Role'] || 'user').toLowerCase();
+          const password = row['Password'] || 'TempPass123!';
+          
+          if (!fullName || !/^[A-Za-z ]+$/.test(fullName) || fullName.length > 25) { errorCount++; continue; }
+          if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorCount++; continue; }
+          if (!employeeId || employeeId.length !== 7 || !/^[0-9]+$/.test(employeeId)) { errorCount++; continue; }
+          if (!department || !DEPARTMENTS.includes(department)) { errorCount++; continue; }
+          if (phone && phone.length !== 10) { errorCount++; continue; }
+          
+          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-create-user`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, full_name: fullName, employee_id: employeeId, department, phone: phone || null, role })
+          });
+          
+          if (response.ok) successCount++; else errorCount++;
+        } catch { errorCount++; }
+      }
+      
+      toast({ title: 'Import Complete', description: `${successCount} users imported, ${errorCount} failed` });
+      setImportDialogOpen(false);
+      setImportFile(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Import failed', variant: 'destructive' });
+    } finally {
+      setImporting(false);
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (userRole !== 'super_admin') return <div className="flex flex-col items-center justify-center min-h-screen p-6"><Shield className="h-16 w-16 text-destructive mb-4" /><h1 className="text-2xl font-bold mb-2">Access Denied</h1></div>;
 
   const activeUsers = users.filter(u => u.is_active !== false);
+  const filteredUsers = activeUsers.filter(u => {
+    const matchesSearch = searchQuery === '' || 
+      u.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesDepartment = departmentFilter === 'all' || u.department === departmentFilter;
+    const matchesRole = roleFilter === 'all' || u.user_roles?.[0]?.role === roleFilter;
+    return matchesSearch && matchesDepartment && matchesRole;
+  });
 
   return (
     <div className="p-6 space-y-6">
       <Breadcrumb><BreadcrumbList><BreadcrumbItem><BreadcrumbLink href="/">Home</BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><BreadcrumbPage>User Management</BreadcrumbPage></BreadcrumbItem></BreadcrumbList></Breadcrumb>
-      <div className="flex items-center justify-between"><div><h1 className="text-3xl font-bold">User Management</h1><p className="text-muted-foreground">Manage user accounts</p></div><Button onClick={() => setAddDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add User</Button></div>
-      <Card><CardHeader><CardTitle className="flex items-center gap-2"><UsersIcon className="h-5 w-5" />All Users</CardTitle><CardDescription>Total: {activeUsers.length} users</CardDescription></CardHeader>
+      <div className="flex items-center justify-between"><div><h1 className="text-3xl font-bold">User Management</h1><p className="text-muted-foreground">Manage user accounts</p></div><div className="flex gap-2"><Button variant="outline" onClick={handleExportUsers}><Download className="mr-2 h-4 w-4" />Export</Button><Button variant="outline" onClick={() => setImportDialogOpen(true)}><Upload className="mr-2 h-4 w-4" />Import</Button><Button onClick={() => setAddDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add User</Button></div></div>
+      
+      <Card className="p-4">
+        <div className="flex flex-wrap gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search by name or email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 pr-9" />
+              {searchQuery && <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')} className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"><X className="h-4 w-4" /></Button>}
+            </div>
+          </div>
+          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+            <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Departments" /></SelectTrigger>
+            <SelectContent><SelectItem value="all">All Departments</SelectItem>{sortedDepartments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Roles" /></SelectTrigger>
+            <SelectContent><SelectItem value="all">All Roles</SelectItem><SelectItem value="user">User</SelectItem><SelectItem value="hr">HR</SelectItem><SelectItem value="financer">Finance</SelectItem><SelectItem value="department_head">Department Head</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem></SelectContent>
+          </Select>
+        </div>
+      </Card>
+
+      <Card><CardHeader><CardTitle className="flex items-center gap-2"><UsersIcon className="h-5 w-5" />All Users</CardTitle><CardDescription>Showing: {filteredUsers.length} of {activeUsers.length} users</CardDescription></CardHeader>
         <CardContent><Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Employee ID</TableHead><TableHead>Department</TableHead><TableHead>Phone</TableHead><TableHead>Role</TableHead><TableHead>Created</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
-            <TableBody>{activeUsers.map((u) => (<TableRow key={u.id}><TableCell className="font-medium">{u.full_name}</TableCell><TableCell>{u.email}</TableCell><TableCell>{u.employee_id || '-'}</TableCell><TableCell>{u.department || '-'}</TableCell><TableCell>{u.phone || '-'}</TableCell>
+            <TableBody>{filteredUsers.map((u) => (<TableRow key={u.id}><TableCell className="font-medium">{u.full_name}</TableCell><TableCell>{u.email}</TableCell><TableCell>{u.employee_id || '-'}</TableCell><TableCell>{u.department || '-'}</TableCell><TableCell>{u.phone || '-'}</TableCell>
                   <TableCell><Badge variant={getRoleBadgeVariant(u.user_roles?.[0]?.role || 'user')}>{getRoleDisplayName(u.user_roles?.[0]?.role || 'user')}</Badge></TableCell><TableCell>{format(new Date(u.created_at), 'MMM d, yyyy')}</TableCell>
                   <TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="sm">Actions</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => handleEditUser(u)}><Pencil className="mr-2 h-4 w-4" />Edit</DropdownMenuItem><DropdownMenuItem onClick={() => { setSelectedUser(u); setDeleteDialogOpen(true); }} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>))}</TableBody></Table></CardContent></Card>
 
@@ -227,6 +334,12 @@ const Users = () => {
           </div><DialogFooter><Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button><Button onClick={saveEditUser} disabled={savingEdit}>{savingEdit ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Changes'}</Button></DialogFooter></DialogContent></Dialog>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete User</AlertDialogTitle><AlertDialogDescription>Are you sure you want to delete <strong>{selectedUser?.full_name}</strong>? This will permanently remove their account.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmDeleteUser} disabled={deletingUser} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deletingUser ? 'Deleting...' : 'Delete User'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}><DialogContent><DialogHeader><DialogTitle>Import Users</DialogTitle><DialogDescription>Upload an Excel file with user data. Required columns: Full Name, Email, Employee ID, Department. Optional: Phone, Role, Password.</DialogDescription></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2"><Label>Excel File</Label><Input type="file" accept=".xlsx,.xls" onChange={(e) => setImportFile(e.target.files?.[0] || null)} /></div>
+            <div className="text-sm text-muted-foreground space-y-1"><p>• Employee ID must be 7 digits</p><p>• Phone must be 10 digits (optional)</p><p>• Department must match existing departments</p><p>• Default password: TempPass123! (if not provided)</p></div>
+          </div><DialogFooter><Button variant="outline" onClick={() => setImportDialogOpen(false)}>Cancel</Button><Button onClick={handleImportUsers} disabled={!importFile || importing}>{importing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importing...</> : 'Import Users'}</Button></DialogFooter></DialogContent></Dialog>
     </div>
   );
 };
