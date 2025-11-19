@@ -62,9 +62,7 @@ const Settings = () => {
   const [tlsEnabled, setTlsEnabled] = useState(true);
   const [authenticationEnabled, setAuthenticationEnabled] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [testEmail, setTestEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSending, setIsSending] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
 
   // Active tab state
@@ -244,45 +242,7 @@ const Settings = () => {
     }
   };
 
-  // Handle Test Email
-  const handleTestEmail = async () => {
-    if (!isSuperAdmin) {
-      toast.error('Only Super Admins can send test emails');
-      return;
-    }
-
-    if (!testEmail.trim()) {
-      toast.error('Please enter a test email address');
-      return;
-    }
-
-    if (!isValidEmail(testEmail)) {
-      toast.error('Please enter a valid email address');
-      return;
-    }
-
-    try {
-      setIsSending(true);
-
-      const { data, error } = await supabase.functions.invoke('send-test-email', {
-        body: { testEmail }
-      });
-
-      if (error) {
-        console.error('Error sending test email:', error);
-        toast.error(error.message || 'Failed to send test email');
-        return;
-      }
-
-      toast.success(`Test email sent successfully to ${testEmail}`);
-      setTestEmail('');
-    } catch (error: any) {
-      console.error('Error sending test email:', error);
-      toast.error(error.message || 'Failed to send test email');
-    } finally {
-      setIsSending(false);
-    }
-  };
+  // Email testing is done through Supabase Auth SMTP configuration
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -769,53 +729,62 @@ const Settings = () => {
 
                   {/* Test & Verify Sub-tab */}
                   <TabsContent value="test" className="space-y-6 mt-6">
-                    {!isSuperAdmin && (
-                      <div className="bg-muted/50 border border-border rounded-lg p-4 mb-4">
-                        <p className="text-sm text-muted-foreground">
-                          Only Super Admins can send test emails.
-                        </p>
-                      </div>
-                    )}
-
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Test Email Configuration</h3>
+                      <h3 className="text-lg font-semibold">Email System Configuration</h3>
                       <p className="text-sm text-muted-foreground">
-                        Test your SMTP configuration by sending a test email. Make sure to save your SMTP settings before testing.
+                        This system uses Supabase for email notifications. Configure SMTP settings in Supabase Auth to enable actual email delivery.
                       </p>
 
-                      <div className="space-y-4 pt-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="testEmail">Test Email Address</Label>
-                          <Input
-                            id="testEmail"
-                            type="email"
-                            value={testEmail}
-                            onChange={(e) => setTestEmail(e.target.value)}
-                            placeholder="test@example.com"
-                            disabled={!isSuperAdmin}
-                          />
-                        </div>
+                      <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                          <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                          <div className="space-y-3 flex-1">
+                            <div>
+                              <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                                Configure SMTP in Supabase
+                              </h4>
+                              <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                                Email notifications are currently logged to the database. To enable actual email delivery:
+                              </p>
+                            </div>
+                            
+                            <ol className="text-sm text-blue-900 dark:text-blue-100 space-y-2 list-decimal list-inside">
+                              <li>Access your Supabase project dashboard</li>
+                              <li>Navigate to <strong>Authentication → Email Templates</strong></li>
+                              <li>Click on <strong>SMTP Settings</strong></li>
+                              <li>Enter your SMTP provider details:
+                                <ul className="ml-6 mt-1 list-disc list-inside text-blue-800 dark:text-blue-200">
+                                  <li>SMTP Host (e.g., smtp.office365.com)</li>
+                                  <li>SMTP Port (typically 587 for TLS)</li>
+                                  <li>SMTP Username</li>
+                                  <li>SMTP Password</li>
+                                  <li>Sender Email Address</li>
+                                </ul>
+                              </li>
+                              <li>Save and test your configuration</li>
+                            </ol>
 
-                        <div className="flex items-center gap-4">
-                          <Button 
-                            onClick={handleTestEmail} 
-                            variant="default"
-                            disabled={!isSuperAdmin || isSending || !testEmail.trim()}
-                            className="gap-2"
-                          >
-                            <Mail className="h-4 w-4" />
-                            {isSending ? 'Sending...' : 'Send Test Email'}
-                          </Button>
-                        </div>
-
-                        <div className="bg-muted/30 border border-border rounded-lg p-4 mt-4">
-                          <h4 className="font-medium mb-2">Current Configuration</h4>
-                          <div className="space-y-1 text-sm text-muted-foreground">
-                            <p><span className="font-medium">SMTP Server:</span> {smtpServer}</p>
-                            <p><span className="font-medium">Port:</span> {smtpPort}</p>
-                            <p><span className="font-medium">Username:</span> {smtpUsername || 'Not set'}</p>
-                            <p><span className="font-medium">TLS:</span> {tlsEnabled ? 'Enabled' : 'Disabled'}</p>
+                            <div className="bg-white/50 dark:bg-black/20 rounded p-3 mt-3">
+                              <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-1">Current Status</h5>
+                              <p className="text-sm text-blue-800 dark:text-blue-200">
+                                ✓ Email events are being logged to the database<br />
+                                ⚠ Actual email delivery requires SMTP configuration in Supabase
+                              </p>
+                            </div>
                           </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-muted/30 border border-border rounded-lg p-4">
+                        <h4 className="font-medium mb-2">Local Configuration (Reference Only)</h4>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          These settings are stored locally for reference. Actual SMTP configuration must be done in Supabase.
+                        </p>
+                        <div className="space-y-1 text-sm text-muted-foreground">
+                          <p><span className="font-medium">SMTP Server:</span> {smtpServer}</p>
+                          <p><span className="font-medium">Port:</span> {smtpPort}</p>
+                          <p><span className="font-medium">Username:</span> {smtpUsername || 'Not set'}</p>
+                          <p><span className="font-medium">TLS:</span> {tlsEnabled ? 'Enabled' : 'Disabled'}</p>
                         </div>
                       </div>
                     </div>
