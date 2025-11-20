@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -41,6 +42,7 @@ import {
   RotateCcw,
   Plus,
   Trash2,
+  ChevronDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -103,6 +105,7 @@ export default function AssetRequests() {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState<Date>();
+  const [departmentFilterOpen, setDepartmentFilterOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [viewRequest, setViewRequest] = useState<AssetRequest | null>(null);
   const [editRequest, setEditRequest] = useState<AssetRequest | null>(null);
@@ -175,12 +178,22 @@ export default function AssetRequests() {
     }
 
     if (searchTerm) {
-      filtered = filtered.filter(
-        (req) =>
-          req.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          req.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          req.profiles?.full_name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((req) => {
+        const reason = (req.reason || '').toLowerCase();
+        const category = (req.category || '').toLowerCase();
+        const fullName = (req.profiles?.full_name || '').toLowerCase();
+        const requestId = (req.request_id || '').toLowerCase();
+        const dept = (req.department || req.profiles?.department || '').toLowerCase();
+
+        return (
+          reason.includes(term) ||
+          category.includes(term) ||
+          fullName.includes(term) ||
+          requestId.includes(term) ||
+          dept.includes(term)
+        );
+      });
     }
 
     if (statusFilter !== 'all') {
@@ -510,20 +523,51 @@ export default function AssetRequests() {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-              <SelectTrigger className="h-10 bg-white">
-                <SelectValue placeholder="All Departments" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Departments</SelectItem>
-                {DEPARTMENTS.map((dept) => (
-                  <SelectItem key={dept} value={dept}>
-                    {dept}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div>
+            <Popover open={departmentFilterOpen} onOpenChange={setDepartmentFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 w-full bg-white justify-between"
+                >
+                  {departmentFilter === 'all' ? 'All Departments' : departmentFilter}
+                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[280px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search department..." />
+                  <CommandEmpty>No department found.</CommandEmpty>
+                  <CommandList>
+                    <CommandGroup>
+                      <CommandItem
+                        key="all"
+                        value="all"
+                        onSelect={() => {
+                          setDepartmentFilter('all');
+                          setDepartmentFilterOpen(false);
+                        }}
+                      >
+                        All Departments
+                      </CommandItem>
+                      {DEPARTMENTS.map((dept) => (
+                        <CommandItem
+                          key={dept}
+                          value={dept}
+                          onSelect={(value) => {
+                            setDepartmentFilter(value);
+                            setDepartmentFilterOpen(false);
+                          }}
+                        >
+                          {dept}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="flex gap-2">

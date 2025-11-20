@@ -27,6 +27,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // If user clicked the password reset link from email, send them
+        // directly to the Reset Password page instead of the dashboard
+        if (event === 'PASSWORD_RECOVERY') {
+          navigate('/reset-password');
+        }
       }
     );
 

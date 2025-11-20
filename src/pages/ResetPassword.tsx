@@ -58,6 +58,9 @@ const ResetPassword = () => {
         toast.error(error.message);
       } else {
         toast.success('Password updated successfully! Please log in.');
+        // Ensure the user is signed out so they return to the login screen,
+        // not directly to the dashboard with an existing session.
+        await supabase.auth.signOut();
         navigate('/auth');
       }
     } catch (error) {
@@ -133,7 +136,12 @@ const ResetPassword = () => {
               type="button" 
               variant="outline" 
               className="w-full" 
-              onClick={() => navigate('/auth')}
+              onClick={async () => {
+                // Also sign out on manual Back to Login so the user always
+                // returns to the unauthenticated login screen.
+                await supabase.auth.signOut();
+                navigate('/auth');
+              }}
             >
               Back to Login
             </Button>

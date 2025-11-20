@@ -58,12 +58,6 @@ const Auth = () => {
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (user) {
-      navigate('/');
-    }
-  }, [user, navigate]);
-
   // Clear confirm password when switching between login/signup
   useEffect(() => {
     if (isLogin) {
