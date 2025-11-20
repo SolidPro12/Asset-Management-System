@@ -322,10 +322,11 @@ const Dashboard = () => {
         setMyRequests(myRequestsWithProfiles);
       }
 
-      // Organization-wide request status counts for HR dashboard cards
+      // Request status counts for THIS HR user's requests (cards)
       const { data: allRequests, error: allRequestsError } = await supabase
         .from('asset_requests')
-        .select('status');
+        .select('status')
+        .eq('requester_id', user.id);
 
       if (allRequestsError) throw allRequestsError;
 
@@ -355,11 +356,12 @@ const Dashboard = () => {
         setApprovedAssets(allocationsData);
       }
 
-      // Fetch all approved asset requests for table display
+      // Fetch approved asset requests CREATED BY THIS HR user for table display
       const { data: approvedReqsData, error: approvedReqsError } = await supabase
         .from('asset_requests')
         .select('*')
         .eq('status', 'approved')
+        .eq('requester_id', user.id)
         .order('approved_at', { ascending: false });
 
       if (approvedReqsError) throw approvedReqsError;

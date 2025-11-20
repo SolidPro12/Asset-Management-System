@@ -133,7 +133,7 @@ export default function AssetRequests() {
 
   useEffect(() => {
     applyFilters();
-  }, [requests, searchTerm, statusFilter, priorityFilter, departmentFilter, dateFilter]);
+  }, [requests, searchTerm, statusFilter, priorityFilter, departmentFilter, dateFilter, userRole]);
 
   const fetchRequests = async () => {
     try {
@@ -168,6 +168,11 @@ export default function AssetRequests() {
 
   const applyFilters = () => {
     let filtered = [...requests];
+
+    // HR should only see their own requests
+    if (userRole === 'hr' && user) {
+      filtered = filtered.filter((req) => req.requester_id === user.id);
+    }
 
     if (searchTerm) {
       filtered = filtered.filter(
@@ -211,7 +216,13 @@ export default function AssetRequests() {
   };
 
   const getStatusCount = (status: string) => {
-    return requests.filter((req) => req.status === status).length;
+    // Use the same HR visibility rule for status cards
+    const visibleRequests =
+      userRole === 'hr' && user
+        ? requests.filter((req) => req.requester_id === user.id)
+        : requests;
+
+    return visibleRequests.filter((req) => req.status === status).length;
   };
 
   const handleApprove = async (requestId: string) => {
@@ -279,41 +290,60 @@ export default function AssetRequests() {
   };
 
   const canCancelRequest = (request: AssetRequest): { canCancel: boolean; reason?: string } => {
-    // Cannot cancel if already cancelled
+    if (!user) {
+      return { canCancel: false, reason: 'You must be logged in to cancel requests' };
+    }
+
+    const isOwner = request.requester_id === user.id;
+
+    // Cannot cancel if already in a terminal/non-cancellable state
     if (request.status === 'cancelled') {
       return { canCancel: false, reason: 'Request is already cancelled' };
     }
-    
-    // Cannot cancel if already approved
+
     if (request.status === 'approved') {
       return { canCancel: false, reason: 'Cannot cancel approved requests' };
     }
-    
-    // Cannot cancel if in progress
+
     if (request.status === 'in_progress') {
       return { canCancel: false, reason: 'Cannot cancel requests in progress' };
     }
-    
-    // Cannot cancel if already fulfilled
+
     if (request.status === 'fulfilled') {
       return { canCancel: false, reason: 'Cannot cancel fulfilled requests' };
     }
-    
-    // Cannot cancel if already rejected
+
     if (request.status === 'rejected') {
       return { canCancel: false, reason: 'Cannot cancel rejected requests' };
     }
-    
-    // HR can only cancel pending requests
-    if (userRole === 'hr' && request.status === 'pending') {
+
+    // HR can only cancel their own pending requests
+    if (userRole === 'hr') {
+      if (!isOwner) {
+        return { canCancel: false, reason: 'You can only cancel requests that you created' };
+      }
+
+      if (request.status === 'pending') {
+        return { canCancel: true };
+      }
+
+      return { canCancel: false, reason: 'You can only cancel your own pending requests' };
+    }
+
+    // Super admin can cancel their own requests under valid statuses
+    if (userRole === 'super_admin') {
+      if (!isOwner) {
+        return { canCancel: false, reason: 'You can only cancel requests that you created' };
+      }
+
       return { canCancel: true };
     }
-    
-    // Admins can cancel any valid status
-    if (userRole === 'admin' || userRole === 'super_admin') {
+
+    // Other admins keep broad cancel powers for valid statuses
+    if (userRole === 'admin') {
       return { canCancel: true };
     }
-    
+
     return { canCancel: false, reason: 'You do not have permission to cancel this request' };
   };
 
@@ -627,20 +657,22 @@ export default function AssetRequests() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {/* Edit button - Show for HR on requests created by HR */}
-                      {userRole === 'hr' && request.status === 'pending' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8"
-                          onClick={() => { setEditRequest(request); setIsCreateModalOpen(true); }}
-                          title="Edit Request"
-                        >
-                          <Edit className="h-3 w-3 mr-1" />
-                          Edit
-                        </Button>
-                      )}
-                      {/* Approve/Reject buttons - Only for admins on pending/in_progress requests */}
+                      {/* Edit button - Only for HR and Super Admin on their own pending requests */}
+                      {(userRole === 'hr' || userRole === 'super_admin') &&
+                        request.status === 'pending' &&
+                        request.requester_id === user?.id && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8"
+                            onClick={() => { setEditRequest(request); setIsCreateModalOpen(true); }}
+                            title="Edit Request"
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                        )}
+                      {/* Approve/Reject buttons - Only for non-HR users on pending/in_progress requests */}
                       {userRole !== 'hr' && (request.status === 'pending' || request.status === 'in_progress') && (
                         <>
                           <Button
@@ -661,27 +693,29 @@ export default function AssetRequests() {
                           </Button>
                         </>
                       )}
-                      {/* Cancel button - Only for HR on pending requests */}
-                      {userRole === 'hr' && (() => {
-                        const { canCancel } = canCancelRequest(request);
-                        return (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openCancelDialog(request)}
-                            disabled={!canCancel}
-                            className={cn(
-                              "h-8",
-                              canCancel 
-                                ? "border-orange-500 text-orange-600 hover:bg-orange-50" 
-                                : "opacity-50 cursor-not-allowed"
-                            )}
-                            title={canCancel ? "Cancel Request" : canCancelRequest(request).reason}
-                          >
-                            <XCircle className="h-3 w-3" />
-                          </Button>
-                        );
-                      })()}
+                      {/* Cancel button - Only for HR and Super Admin on their own requests */}
+                      {(userRole === 'hr' || userRole === 'super_admin') &&
+                        request.requester_id === user?.id &&
+                        (() => {
+                          const { canCancel } = canCancelRequest(request);
+                          return (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openCancelDialog(request)}
+                              disabled={!canCancel}
+                              className={cn(
+                                "h-8",
+                                canCancel
+                                  ? "border-orange-500 text-orange-600 hover:bg-orange-50"
+                                  : "opacity-50 cursor-not-allowed"
+                              )}
+                              title={canCancel ? "Cancel Request" : canCancelRequest(request).reason}
+                            >
+                              <XCircle className="h-3 w-3" />
+                            </Button>
+                          );
+                        })()}
                       {/* Delete button - Only for admins */}
                       {userRole !== 'hr' && (
                         <Button
