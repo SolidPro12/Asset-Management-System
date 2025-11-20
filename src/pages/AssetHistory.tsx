@@ -15,14 +15,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -45,10 +37,6 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
-import { AssetHistoryFilters } from "@/components/AssetHistoryFilters";
-import { AssetHistoryTable } from "@/components/AssetHistoryTable";
-import { ViewAssetHistoryModal } from "@/components/ViewAssetHistoryModal";
-import { useAssetHistory } from "@/hooks/useAssetHistory";
 import { AssetAllocationFilters } from "@/components/AssetAllocationFilters";
 import { AssetAllocationHistoryModal } from "@/components/AssetAllocationHistoryModal";
 import {
@@ -56,7 +44,6 @@ import {
   type AllocationFilters,
   type AssetAllocation,
 } from "@/hooks/useAssetAllocations";
-import type { AssetHistoryRecord, HistoryFilters } from "@/types/assetHistory";
 
 interface ActivityLog {
   id: string;
@@ -118,15 +105,7 @@ const AssetHistory = () => {
   const [serviceRecords, setServiceRecords] = useState<ServiceRecord[]>([]);
   const [tickets, setTickets] = useState<TicketRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRecord, setSelectedRecord] = useState<AssetHistoryRecord | null>(null);
   const [selectedAllocation, setSelectedAllocation] = useState<AssetAllocation | null>(null);
-  const [filters, setFilters] = useState<HistoryFilters>({
-    search: '',
-    category: 'all',
-    action: 'all',
-    dateFrom: undefined,
-    dateTo: undefined,
-  });
   const [allocationFilters, setAllocationFilters] = useState<AllocationFilters>({
     search: '',
     category: 'all',
@@ -136,7 +115,6 @@ const AssetHistory = () => {
     dateTo: undefined,
   });
 
-  const { records, loading: historyLoading, refetch } = useAssetHistory(filters);
   const { allocations, loading: allocationLoading } = useAssetAllocations(allocationFilters);
 
   // Check user role
@@ -169,31 +147,6 @@ const AssetHistory = () => {
       setLoading(false);
     }
   }, [assetId, userRole]);
-
-  // Fetch tickets for all assets in movement history
-  useEffect(() => {
-    if (!assetId && userRole === 'super_admin' && records.length > 0) {
-      fetchTicketsForAssets();
-    }
-  }, [records, assetId, userRole]);
-
-  const fetchTicketsForAssets = async () => {
-    try {
-      const assetIds = records.map(r => r.asset_id).filter(Boolean);
-      if (assetIds.length === 0) return;
-
-      const { data: ticketsData, error: ticketsError } = await supabase
-        .from("tickets")
-        .select("*")
-        .in("asset_id", assetIds)
-        .order("created_at", { ascending: false });
-
-      if (ticketsError) throw ticketsError;
-      setTickets(ticketsData || []);
-    } catch (error) {
-      console.error("Error fetching tickets:", error);
-    }
-  };
 
   const logAssetView = async () => {
     try {
@@ -358,20 +311,8 @@ const AssetHistory = () => {
     }
   };
 
-  const getTicketsForAsset = (assetId: string) => {
-    return tickets.filter(t => t.asset_id === assetId);
-  };
-
-  const handleViewRecord = (record: AssetHistoryRecord) => {
-    setSelectedRecord(record);
-  };
-
   const handleViewAllocation = (allocation: AssetAllocation) => {
     setSelectedAllocation(allocation);
-  };
-
-  const handleCloseModal = () => {
-    setSelectedRecord(null);
   };
 
   const handleCloseAllocationModal = () => {
@@ -382,147 +323,12 @@ const AssetHistory = () => {
   if (!assetId && userRole === 'super_admin') {
     return (
       <div className="container mx-auto p-6">
-        <Breadcrumb className="mb-6">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Asset History</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+        
 
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold">Asset History</h1>
-          <p className="text-muted-foreground mt-2">
-            Track all asset movements including assignments, returns, maintenance, and repairs with related tickets
-          </p>
-        </div>
-
-        <AssetHistoryFilters
-          filters={filters}
-          onFiltersChange={setFilters}
-          totalRecords={records.length}
-        />
-
-        {/* Enhanced Asset History Table with Tickets */}
-        <Card className="shadow-sm mt-6">
-          <CardHeader>
-            <CardTitle>Asset Movement History</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Showing {records.length} record{records.length !== 1 ? 's' : ''}
-            </p>
-          </CardHeader>
-          <CardContent>
-            {historyLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <p className="text-muted-foreground">Fetching asset history...</p>
-              </div>
-            ) : records.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <p className="text-muted-foreground text-lg">No asset records found</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Try adjusting your filters or check back later
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-md border overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="text-left p-4 font-semibold">Asset</th>
-                      <th className="text-left p-4 font-semibold">Action</th>
-                      <th className="text-left p-4 font-semibold">Details</th>
-                      <th className="text-left p-4 font-semibold">Date</th>
-                      <th className="text-left p-4 font-semibold">Performed By</th>
-                      <th className="text-left p-4 font-semibold">Condition</th>
-                      <th className="text-left p-4 font-semibold">Tickets</th>
-                      <th className="text-right p-4 font-semibold">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {records.map((record, index) => {
-                      const assetTickets = getTicketsForAsset(record.asset_id);
-                      return (
-                        <tr
-                          key={record.id}
-                          className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                        >
-                          <td className="p-4">
-                            <div className="space-y-1">
-                              <p className="font-medium text-sm">{record.asset_name || 'N/A'}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {record.asset_code || 'N/A'}
-                              </p>
-                              <Badge variant="outline" className="text-xs">
-                                {record.category || 'N/A'}
-                              </Badge>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <Badge className="bg-blue-100 text-blue-700">
-                              {record.action ? record.action.charAt(0).toUpperCase() + record.action.slice(1) : 'N/A'}
-                            </Badge>
-                          </td>
-                          <td className="p-4 max-w-xs">
-                            <p className="text-sm line-clamp-2">{record.details || 'No details'}</p>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-2 text-sm">
-                              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                              {record.action_date ? format(new Date(record.action_date), "yyyy-MM-dd") : 'N/A'}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <p className="text-sm">{record.performed_by_email || 'System'}</p>
-                          </td>
-                          <td className="p-4">
-                            <Badge className="bg-green-100 text-green-700">
-                              {record.condition ? record.condition.charAt(0).toUpperCase() + record.condition.slice(1) : 'N/A'}
-                            </Badge>
-                          </td>
-                          <td className="p-4">
-                            {assetTickets.length > 0 ? (
-                              <div className="space-y-1">
-                                {assetTickets.slice(0, 2).map((ticket) => (
-                                  <Badge key={ticket.id} variant="outline" className="text-xs block">
-                                    {ticket.ticket_id} - {ticket.status}
-                                  </Badge>
-                                ))}
-                                {assetTickets.length > 2 && (
-                                  <p className="text-xs text-muted-foreground">
-                                    +{assetTickets.length - 2} more
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-sm text-muted-foreground">No tickets</span>
-                            )}
-                          </td>
-                          <td className="p-4 text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewRecord(record)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
+        
         <section className="mt-10">
           <div className="mb-4">
-            <h2 className="text-2xl font-semibold">Asset Allocation Overview</h2>
+            <h2 className="text-2xl font-semibold">Asset History Overview</h2>
             <p className="text-sm text-muted-foreground mt-1">
               Monitor assignments, returns, and departmental allocation trends
             </p>
@@ -535,7 +341,7 @@ const AssetHistory = () => {
 
           <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>Asset Assignments</CardTitle>
+              <CardTitle>Asset History</CardTitle>
             </CardHeader>
             <CardContent>
               {allocationLoading ? (
@@ -552,6 +358,7 @@ const AssetHistory = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Asset ID</TableHead>
+                        <TableHead>Asset Category</TableHead>
                         <TableHead>Asset Type</TableHead>
                         <TableHead>Asset Name</TableHead>
                         <TableHead>Employee</TableHead>
@@ -564,10 +371,15 @@ const AssetHistory = () => {
                       {allocations.map((allocation) => (
                         <TableRow key={allocation.id} className="hover:bg-muted/50">
                           <TableCell className="font-medium">
-                            {allocation.asset_id?.slice(0, 8) || 'N/A'}
+                            {allocation.asset_details?.asset_id || allocation.asset_id?.slice(0, 8) || 'N/A'}
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline">{allocation.category}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {allocation.asset_details?.specifications?.assetType
+                              ? allocation.asset_details.specifications.assetType
+                              : 'N/A'}
                           </TableCell>
                           <TableCell>{allocation.asset_name}</TableCell>
                           <TableCell>{allocation.employee_name}</TableCell>
@@ -598,15 +410,6 @@ const AssetHistory = () => {
             </CardContent>
           </Card>
         </section>
-
-        {selectedRecord && (
-          <ViewAssetHistoryModal
-            record={selectedRecord}
-            open={!!selectedRecord}
-            onClose={handleCloseModal}
-          />
-        )}
-
         {selectedAllocation && (
           <AssetAllocationHistoryModal
             allocation={selectedAllocation}

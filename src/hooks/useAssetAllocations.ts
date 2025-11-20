@@ -15,6 +15,11 @@ export interface AssetAllocation {
   condition: string;
   department: string | null;
   notes: string | null;
+  asset_details?: {
+    asset_id: string;
+    asset_tag: string;
+    specifications: any;
+  } | null;
 }
 
 export interface AllocationFilters {
@@ -80,7 +85,7 @@ export function useAssetAllocations(filters: AllocationFilters) {
 
       let query = supabase
         .from('asset_allocations')
-        .select('*')
+        .select('*, asset_details:assets(asset_id, asset_tag, specifications)')
         .order('allocated_date', { ascending: false });
 
       // Apply search filter
