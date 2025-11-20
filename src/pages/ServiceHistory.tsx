@@ -31,6 +31,13 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { AddServiceModal } from '@/components/AddServiceModal';
 import * as XLSX from 'xlsx';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface ServiceHistoryRecord {
   id: string;
@@ -49,12 +56,74 @@ interface ServiceHistoryRecord {
   };
 }
 
+const SERVICE_TYPE_OPTIONS = [
+  { value: 'warranty', label: 'Warranty' },
+  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'repair', label: 'Repair' },
+  { value: 'cleaning', label: 'Cleaning' },
+  { value: 'upgrade', label: 'Upgrade' },
+  { value: 'inspection', label: 'Inspection' },
+];
+
 export default function ServiceHistory() {
   const [serviceHistory, setServiceHistory] = useState<ServiceHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [selectedRecord, setSelectedRecord] = useState<ServiceHistoryRecord | null>(null);
+  const [editingRecord, setEditingRecord] = useState<ServiceHistoryRecord | null>(null);
+  const [editForm, setEditForm] = useState({
+    service_type: '',
+    service_date: '',
+    vendor: '',
+    cost: '',
+    description: '',
+    notes: '',
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const handleOpenEdit = (record: ServiceHistoryRecord) => {
+    setEditingRecord(record);
+    setEditForm({
+      service_type: record.service_type || '',
+      service_date: format(new Date(record.service_date), 'yyyy-MM-dd'),
+      vendor: record.vendor || '',
+      cost: record.cost ? record.cost.toString() : '',
+      description: record.description || '',
+      notes: record.notes || '',
+    });
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingRecord) return;
+    setEditLoading(true);
+    try {
+      const { error } = await supabase
+        .from('service_history')
+        .update({
+          service_type: editForm.service_type,
+          service_date: new Date(editForm.service_date).toISOString(),
+          vendor: editForm.vendor.trim() || null,
+          cost: editForm.cost ? parseFloat(editForm.cost) : null,
+          description: editForm.description.trim() || null,
+          notes: editForm.notes.trim() || null,
+        })
+        .eq('id', editingRecord.id);
+
+      if (error) throw error;
+
+      toast.success('Service record updated');
+      setEditingRecord(null);
+      fetchServiceHistory();
+    } catch (error) {
+      console.error('Error updating service record:', error);
+      toast.error('Failed to update service record');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
 
   useEffect(() => {
     fetchServiceHistory();
@@ -146,17 +215,7 @@ export default function ServiceHistory() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>Service History</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+     
 
       <div className="flex items-center justify-between">
         <div>
@@ -252,10 +311,10 @@ export default function ServiceHistory() {
                   <TableCell>{getServiceStatus(record.service_type)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="icon">
+                      <Button variant="ghost" size="icon" onClick={() => setSelectedRecord(record)}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon">
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(record)}>
                         <Edit className="h-4 w-4" />
                       </Button>
                     </div>
@@ -272,6 +331,172 @@ export default function ServiceHistory() {
         onOpenChange={setIsServiceModalOpen}
         onSuccess={fetchServiceHistory}
       />
+
+      <Dialog open={!!selectedRecord} onOpenChange={(open) => !open && setSelectedRecord(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedRecord?.service_type || 'Service Details'}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedRecord?.assets?.asset_name ?? 'Unknown Asset'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedRecord && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Asset</p>
+                  <p className="font-medium">{selectedRecord.assets?.asset_name ?? 'Unknown'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Category</p>
+                  <p className="capitalize font-medium">{selectedRecord.assets?.category ?? 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Service Date</p>
+                  <p className="font-medium">
+                    {format(new Date(selectedRecord.service_date), 'PPP')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Vendor</p>
+                  <p className="font-medium">{selectedRecord.vendor || 'Internal Team'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Cost</p>
+                  <p className="font-medium">
+                    ₹ {selectedRecord.cost?.toLocaleString() || 0}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Performed By</p>
+                  <p className="font-medium">{selectedRecord.performed_by || 'N/A'}</p>
+                </div>
+              </div>
+
+              {selectedRecord.description && (
+                <div>
+                  <p className="text-muted-foreground text-sm mb-1">Description</p>
+                  <p className="text-sm">{selectedRecord.description}</p>
+                </div>
+              )}
+
+              {selectedRecord.notes && (
+                <div>
+                  <p className="text-muted-foreground text-sm mb-1">Notes</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {selectedRecord.notes}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingRecord} onOpenChange={(open) => !open && setEditingRecord(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Service Record</DialogTitle>
+            <DialogDescription>
+              Update details for {editingRecord?.assets?.asset_name ?? 'selected asset'}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingRecord && (
+            <form className="space-y-4" onSubmit={handleEditSubmit}>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Asset</p>
+                  <p className="font-medium">{editingRecord.assets?.asset_name ?? 'Unknown'}</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Category</p>
+                  <p className="capitalize font-medium">{editingRecord.assets?.category ?? 'N/A'}</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Service Type *</label>
+                  <Select
+                    value={editForm.service_type}
+                    onValueChange={(value) => setEditForm({ ...editForm, service_type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select service type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SERVICE_TYPE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Service Date *</label>
+                  <Input
+                    type="date"
+                    value={editForm.service_date}
+                    onChange={(e) => setEditForm({ ...editForm, service_date: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Vendor</label>
+                  <Input
+                    value={editForm.vendor}
+                    onChange={(e) => setEditForm({ ...editForm, vendor: e.target.value })}
+                    placeholder="Service provider"
+                    maxLength={200}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Cost (₹)</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editForm.cost}
+                    onChange={(e) => setEditForm({ ...editForm, cost: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description</label>
+                <textarea
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+                  rows={3}
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Notes</label>
+                <textarea
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+                  rows={3}
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button type="button" variant="outline" onClick={() => setEditingRecord(null)} disabled={editLoading}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={editLoading}>
+                  {editLoading ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
