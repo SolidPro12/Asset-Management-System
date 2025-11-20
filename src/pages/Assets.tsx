@@ -306,16 +306,23 @@ const Assets = () => {
 
   const handleExportExcel = () => {
     try {
-      if (filteredAssets.length === 0) {
+      // Always export only selected assets if any are selected
+      const assetsToExport = selectedAssets.size > 0 
+        ? assets.filter(asset => selectedAssets.has(asset.id))
+        : [];
+
+      if (assetsToExport.length === 0) {
         toast({
-          title: 'No data to export',
-          description: 'There are no assets to export.',
+          title: 'No assets selected',
+          description: selectedAssets.size > 0 
+            ? 'No matching selected assets found to export.' 
+            : 'Please select assets to export.',
           variant: 'destructive',
         });
         return;
       }
 
-      const exportData = filteredAssets.map(asset => ({
+      const exportData = assetsToExport.map(asset => ({
         'Asset ID': asset.asset_id || '',
         'Asset Name': asset.asset_name,
         'Asset Tag': asset.asset_tag,
@@ -346,8 +353,11 @@ const Assets = () => {
 
       toast({
         title: 'Export Successful',
-        description: `${filteredAssets.length} assets exported successfully.`,
+        description: `Exported ${assetsToExport.length} selected asset${assetsToExport.length !== 1 ? 's' : ''} successfully.`,
       });
+
+      // Clear selection after export
+      setSelectedAssets(new Set());
     } catch (error) {
       toast({
         title: 'Export Failed',
@@ -842,7 +852,7 @@ const Assets = () => {
                 <ToggleGroupItem 
                   value="grid" 
                   aria-label="Grid view" 
-                  className="data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm rounded-md px-3 py-1.5"
+                  className="data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm hover:bg-primary hover:text-primary-foreground rounded-md px-3 py-1.5 transition-colors"
                 >
                   <LayoutGrid className="h-4 w-4 mr-2" />
                   <span>Grid</span>
@@ -850,7 +860,7 @@ const Assets = () => {
                 <ToggleGroupItem 
                   value="list" 
                   aria-label="List view" 
-                  className="data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm rounded-md px-3 py-1.5"
+                  className="data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm hover:bg-primary hover:text-primary-foreground rounded-md px-3 py-1.5 transition-colors"
                 >
                   <List className="h-4 w-4 mr-2" />
                   <span>List</span>

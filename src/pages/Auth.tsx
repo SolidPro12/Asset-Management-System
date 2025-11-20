@@ -191,19 +191,37 @@ const Auth = () => {
 
     setSendingReset(true);
     try {
+      // First, check if the email exists in the database
+      const { data: user, error: userError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', resetEmail.trim().toLowerCase())
+        .maybeSingle();
+
+      if (userError) {
+        throw userError;
+      }
+
+      if (!user) {
+        toast.error('No account found with this email address');
+        return;
+      }
+
+      // If email exists, send the password reset email
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (error) {
-        toast.error('Failed to send reset email. Please try again.');
-      } else {
-        toast.success('Password reset link sent! Check your email.');
-        setForgotPasswordOpen(false);
-        setResetEmail('');
+        throw error;
       }
+
+      toast.success('Password reset link sent to your email');
+      setForgotPasswordOpen(false);
+      setResetEmail('');
     } catch (error) {
-      toast.error('An error occurred. Please try again.');
+      console.error('Password reset error:', error);
+      toast.error('Failed to send reset email. Please try again later.');
     } finally {
       setSendingReset(false);
     }

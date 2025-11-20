@@ -223,6 +223,8 @@ export function EditTicketModal({
               type="file"
               accept="image/png"
               onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)}
+              disabled={true}
+              title="Image upload is read-only. Please contact support to update the image."
             />
           </div>
 
