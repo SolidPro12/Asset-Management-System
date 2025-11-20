@@ -24,6 +24,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Calendar,
   MapPin,
   User,
@@ -32,7 +40,6 @@ import {
   AlertCircle,
   ArrowLeft,
   FileDown,
-  Search,
   Eye,
   CalendarIcon,
 } from "lucide-react";
@@ -42,7 +49,14 @@ import { AssetHistoryFilters } from "@/components/AssetHistoryFilters";
 import { AssetHistoryTable } from "@/components/AssetHistoryTable";
 import { ViewAssetHistoryModal } from "@/components/ViewAssetHistoryModal";
 import { useAssetHistory } from "@/hooks/useAssetHistory";
-import type { AssetHistoryRecord, HistoryFilters } from "@/pages/AssetMovementHistory";
+import { AssetAllocationFilters } from "@/components/AssetAllocationFilters";
+import { AssetAllocationHistoryModal } from "@/components/AssetAllocationHistoryModal";
+import {
+  useAssetAllocations,
+  type AllocationFilters,
+  type AssetAllocation,
+} from "@/hooks/useAssetAllocations";
+import type { AssetHistoryRecord, HistoryFilters } from "@/types/assetHistory";
 
 interface ActivityLog {
   id: string;
@@ -105,6 +119,7 @@ const AssetHistory = () => {
   const [tickets, setTickets] = useState<TicketRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRecord, setSelectedRecord] = useState<AssetHistoryRecord | null>(null);
+  const [selectedAllocation, setSelectedAllocation] = useState<AssetAllocation | null>(null);
   const [filters, setFilters] = useState<HistoryFilters>({
     search: '',
     category: 'all',
@@ -112,8 +127,17 @@ const AssetHistory = () => {
     dateFrom: undefined,
     dateTo: undefined,
   });
+  const [allocationFilters, setAllocationFilters] = useState<AllocationFilters>({
+    search: '',
+    category: 'all',
+    status: 'all',
+    department: 'all',
+    dateFrom: undefined,
+    dateTo: undefined,
+  });
 
   const { records, loading: historyLoading, refetch } = useAssetHistory(filters);
+  const { allocations, loading: allocationLoading } = useAssetAllocations(allocationFilters);
 
   // Check user role
   useEffect(() => {
@@ -342,8 +366,16 @@ const AssetHistory = () => {
     setSelectedRecord(record);
   };
 
+  const handleViewAllocation = (allocation: AssetAllocation) => {
+    setSelectedAllocation(allocation);
+  };
+
   const handleCloseModal = () => {
     setSelectedRecord(null);
+  };
+
+  const handleCloseAllocationModal = () => {
+    setSelectedAllocation(null);
   };
 
   // Super Admin Movement History View (no assetId)
@@ -488,11 +520,98 @@ const AssetHistory = () => {
           </CardContent>
         </Card>
 
+        <section className="mt-10">
+          <div className="mb-4">
+            <h2 className="text-2xl font-semibold">Asset Allocation Overview</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Monitor assignments, returns, and departmental allocation trends
+            </p>
+          </div>
+
+          <AssetAllocationFilters
+            filters={allocationFilters}
+            onFilterChange={setAllocationFilters}
+          />
+
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle>Asset Assignments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {allocationLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading allocations...
+                </div>
+              ) : allocations.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No asset allocations found
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Asset ID</TableHead>
+                        <TableHead>Asset Type</TableHead>
+                        <TableHead>Asset Name</TableHead>
+                        <TableHead>Employee</TableHead>
+                        <TableHead>Assigned Date</TableHead>
+                        <TableHead>Return Date</TableHead>
+                        <TableHead className="text-center">History</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allocations.map((allocation) => (
+                        <TableRow key={allocation.id} className="hover:bg-muted/50">
+                          <TableCell className="font-medium">
+                            {allocation.asset_id?.slice(0, 8) || 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{allocation.category}</Badge>
+                          </TableCell>
+                          <TableCell>{allocation.asset_name}</TableCell>
+                          <TableCell>{allocation.employee_name}</TableCell>
+                          <TableCell>
+                            {format(new Date(allocation.allocated_date), "MMM d, yyyy")}
+                          </TableCell>
+                          <TableCell>
+                            {allocation.return_date
+                              ? format(new Date(allocation.return_date), "MMM d, yyyy")
+                              : '-'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleViewAllocation(allocation)}
+                              className="h-8 w-8"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
         {selectedRecord && (
           <ViewAssetHistoryModal
             record={selectedRecord}
             open={!!selectedRecord}
             onClose={handleCloseModal}
+          />
+        )}
+
+        {selectedAllocation && (
+          <AssetAllocationHistoryModal
+            allocation={selectedAllocation}
+            open={!!selectedAllocation}
+            onClose={handleCloseAllocationModal}
           />
         )}
       </div>

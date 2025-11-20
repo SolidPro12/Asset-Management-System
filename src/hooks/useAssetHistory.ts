@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { AssetHistoryRecord, HistoryFilters } from '@/pages/AssetMovementHistory';
+import type { AssetHistoryRecord, HistoryFilters } from '@/types/assetHistory';
 
 export function useAssetHistory(filters: HistoryFilters) {
   const [records, setRecords] = useState<AssetHistoryRecord[]>([]);

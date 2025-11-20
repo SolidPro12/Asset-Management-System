@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Eye, CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
-import type { AssetHistoryRecord } from "@/pages/AssetMovementHistory";
+import type { AssetHistoryRecord } from "@/types/assetHistory";
 
 interface AssetHistoryTableProps {
   records: AssetHistoryRecord[];

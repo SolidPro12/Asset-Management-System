@@ -20,7 +20,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
-import type { HistoryFilters } from "@/pages/AssetMovementHistory";
+import type { HistoryFilters } from "@/types/assetHistory";
 
 interface AssetHistoryFiltersProps {
   filters: HistoryFilters;

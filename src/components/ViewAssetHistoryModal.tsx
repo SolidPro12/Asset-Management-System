@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CalendarIcon, User, Package, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
-import type { AssetHistoryRecord } from "@/pages/AssetMovementHistory";
+import type { AssetHistoryRecord } from "@/types/assetHistory";
 
 interface ViewAssetHistoryModalProps {
   record: AssetHistoryRecord;
