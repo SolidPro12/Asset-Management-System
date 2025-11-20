@@ -13,7 +13,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import assetSlide1 from '@/assets/asset-banner-1.svg';
-import assetSlide2 from '@/assets/asset-slide-2.png';
+import assetSlide2 from '@/assets/Real Time Monitoring.svg';
 import assetSlide3 from '@/assets/team management.svg';
 import ticketSlide1 from '@/assets/ticket management.svg';
 import solidproLogo from '@/assets/solidpro-logo.svg';
