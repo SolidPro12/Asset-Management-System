@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { Package, CheckCircle, AlertCircle, Wrench, FileText, Clock, TrendingUp, Download, Users, ArrowRight, Loader2, Zap } from 'lucide-react';
+import { Package, CheckCircle, AlertCircle, Wrench, FileText, Clock, TrendingUp, Download, Users, ArrowRight, Loader2, Zap, Upload } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
  
 import {
   Table,
@@ -29,7 +30,12 @@ import {
   PieChart,
   Pie,
   Legend,
+  LineChart,
+  Line,
 } from 'recharts';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
 interface DashboardStats {
   totalAssets: number;
@@ -146,6 +152,22 @@ const Dashboard = () => {
   // Global totals for Financer/Dept Head summary cards
   const [globalCategoryStats, setGlobalCategoryStats] = useState<CategoryStat[]>([]);
   const [globalTotalAssetValue, setGlobalTotalAssetValue] = useState<number>(0);
+  
+  // Finance Admin Charts & Filters
+  const [financeChartData, setFinanceChartData] = useState({
+    assetCountByCategory: [] as { category: string; count: number }[],
+    assetValueByCategory: [] as { category: string; value: number }[],
+    departmentCostData: [] as { department: string; cost: number }[],
+  });
+  const [financeFilters, setFinanceFilters] = useState({
+    department: 'all',
+    category: 'all',
+    financialYear: 'all',
+    startDate: '',
+    endDate: '',
+  });
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -175,6 +197,135 @@ const Dashboard = () => {
   }, [userRole]);
 
   const isFinancer = userRole === 'financer';
+
+  const fetchFinanceChartData = async () => {
+    try {
+      // Build query with filters
+      let assetsQuery = supabase
+        .from('assets')
+        .select('category, purchase_cost, purchase_date, department');
+      
+      let allocationsQuery = supabase
+        .from('asset_allocations')
+        .select('department, asset_id, assets(purchase_cost, category, purchase_date)');
+
+      // Apply filters
+      if (financeFilters.department !== 'all') {
+        assetsQuery = assetsQuery.eq('department', financeFilters.department);
+        allocationsQuery = allocationsQuery.eq('department', financeFilters.department);
+      }
+      
+      if (financeFilters.category !== 'all') {
+        assetsQuery = assetsQuery.eq('category', financeFilters.category as any);
+      }
+
+      // Date filters
+      if (financeFilters.startDate) {
+        assetsQuery = assetsQuery.gte('purchase_date', financeFilters.startDate);
+      }
+      if (financeFilters.endDate) {
+        assetsQuery = assetsQuery.lte('purchase_date', financeFilters.endDate);
+      }
+
+      // Financial Year filter (April to March)
+      if (financeFilters.financialYear !== 'all') {
+        const year = parseInt(financeFilters.financialYear);
+        const fyStart = `${year}-04-01`;
+        const fyEnd = `${year + 1}-03-31`;
+        assetsQuery = assetsQuery.gte('purchase_date', fyStart).lte('purchase_date', fyEnd);
+      }
+
+      const { data: assets } = await assetsQuery;
+      const { data: allocations } = await allocationsQuery;
+
+      if (assets) {
+        // Asset Count by Category
+        const countByCategory: Record<string, number> = {};
+        assets.forEach(asset => {
+          countByCategory[asset.category] = (countByCategory[asset.category] || 0) + 1;
+        });
+
+        // Asset Value by Category
+        const valueByCategory: Record<string, number> = {};
+        assets.forEach(asset => {
+          if (asset.purchase_cost) {
+            valueByCategory[asset.category] = (valueByCategory[asset.category] || 0) + Number(asset.purchase_cost);
+          }
+        });
+
+        setFinanceChartData({
+          assetCountByCategory: Object.entries(countByCategory).map(([category, count]) => ({
+            category,
+            count,
+          })),
+          assetValueByCategory: Object.entries(valueByCategory).map(([category, value]) => ({
+            category,
+            value,
+          })),
+          departmentCostData: [], // Will be calculated from allocations
+        });
+      }
+
+      // Department-wise Asset Cost
+      if (allocations) {
+        const costByDept: Record<string, number> = {};
+        allocations.forEach((alloc: any) => {
+          if (alloc.department && alloc.assets?.purchase_cost) {
+            costByDept[alloc.department] = (costByDept[alloc.department] || 0) + Number(alloc.assets.purchase_cost);
+          }
+        });
+
+        setFinanceChartData(prev => ({
+          ...prev,
+          departmentCostData: Object.entries(costByDept).map(([department, cost]) => ({
+            department,
+            cost,
+          })),
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching finance chart data:', error);
+    }
+  };
+
+  const fetchFilterOptions = async () => {
+    try {
+      // Fetch unique departments
+      const { data: deptData } = await supabase
+        .from('assets')
+        .select('department')
+        .not('department', 'is', null);
+      
+      if (deptData) {
+        const uniqueDepts = [...new Set(deptData.map(d => d.department).filter(Boolean))] as string[];
+        setDepartments(uniqueDepts);
+      }
+
+      // Fetch unique categories
+      const { data: catData } = await supabase
+        .from('assets')
+        .select('category');
+      
+      if (catData) {
+        const uniqueCats = [...new Set(catData.map(d => d.category))];
+        setCategories(uniqueCats);
+      }
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (isFinancer) {
+      fetchFinanceChartData();
+    }
+  }, [financeFilters, isFinancer]);
+
+  useEffect(() => {
+    if (isFinancer) {
+      fetchFilterOptions();
+    }
+  }, [isFinancer]);
 
   const fetchGlobalCategoryStats = async () => {
     try {
@@ -829,6 +980,371 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Error approving request:', error);
       toast.error('Failed to approve request');
+    }
+  };
+
+  // Finance Report Handlers
+  const handleExportReports = async () => {
+    try {
+      toast.info('Exporting financial reports...');
+      
+      // Fetch all assets with financial data
+      const { data: assets, error } = await supabase
+        .from('assets')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (!assets || assets.length === 0) {
+        toast.error('No asset data to export');
+        return;
+      }
+
+      // Format data for export
+      const exportData = assets.map(asset => ({
+        'Asset ID': asset.asset_id,
+        'Asset Tag': asset.asset_tag,
+        'Asset Name': asset.asset_name,
+        'Category': asset.category,
+        'Brand': asset.brand || 'N/A',
+        'Model': asset.model || 'N/A',
+        'Serial Number': asset.serial_number || 'N/A',
+        'Status': asset.status,
+        'Purchase Cost': asset.purchase_cost || 0,
+        'Purchase Date': asset.purchase_date ? format(new Date(asset.purchase_date), 'yyyy-MM-dd') : 'N/A',
+        'Warranty End Date': asset.warranty_end_date ? format(new Date(asset.warranty_end_date), 'yyyy-MM-dd') : 'N/A',
+        'Department': asset.department || 'N/A',
+        'Location': asset.location || 'N/A',
+        'Notes': asset.notes || 'N/A',
+      }));
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 12 }, { wch: 12 }, { wch: 25 }, { wch: 12 },
+        { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 12 },
+        { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 15 },
+        { wch: 15 }, { wch: 30 },
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Financial Reports');
+
+      // Generate filename with timestamp
+      const filename = `Financial_Reports_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.xlsx`;
+      
+      // Save file
+      XLSX.writeFile(wb, filename);
+      
+      toast.success('Financial reports exported successfully!');
+    } catch (error) {
+      console.error('Error exporting reports:', error);
+      toast.error('Failed to export financial reports');
+    }
+  };
+
+  const handleImportData = async () => {
+    try {
+      // Create file input
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.xlsx,.xls';
+      
+      input.onchange = async (e: any) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        toast.info('Processing import file...');
+
+        const reader = new FileReader();
+        reader.onload = async (event: any) => {
+          try {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+            if (jsonData.length === 0) {
+              toast.error('No data found in file');
+              return;
+            }
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            // Process each row
+            for (const row of jsonData as any[]) {
+              try {
+                const assetId = row['Asset ID'] || row['asset_id'];
+                const purchaseCost = parseFloat(row['Purchase Cost'] || row['purchase_cost'] || '0');
+                const purchaseDate = row['Purchase Date'] || row['purchase_date'];
+                const warrantyEndDate = row['Warranty End Date'] || row['warranty_end_date'];
+
+                if (!assetId) {
+                  errorCount++;
+                  continue;
+                }
+
+                // Update asset with financial data
+                const { error: updateError } = await supabase
+                  .from('assets')
+                  .update({
+                    purchase_cost: purchaseCost,
+                    purchase_date: purchaseDate || null,
+                    warranty_end_date: warrantyEndDate || null,
+                  })
+                  .eq('asset_id', assetId);
+
+                if (updateError) {
+                  console.error(`Error updating asset ${assetId}:`, updateError);
+                  errorCount++;
+                } else {
+                  successCount++;
+                }
+              } catch (rowError) {
+                console.error('Error processing row:', rowError);
+                errorCount++;
+              }
+            }
+
+            if (successCount > 0) {
+              toast.success(`Successfully imported ${successCount} asset records`);
+              // Refresh data
+              if (userRole === 'financer') {
+                fetchGlobalCategoryStats();
+              }
+            }
+            
+            if (errorCount > 0) {
+              toast.warning(`${errorCount} records failed to import`);
+            }
+          } catch (error) {
+            console.error('Error processing file:', error);
+            toast.error('Failed to process import file');
+          }
+        };
+
+        reader.readAsArrayBuffer(file);
+      };
+
+      input.click();
+    } catch (error) {
+      console.error('Error importing data:', error);
+      toast.error('Failed to import data');
+    }
+  };
+
+  const handleGenerateUtilizationReport = async () => {
+    try {
+      toast.info('Generating asset utilization report...');
+      
+      const { data: assets, error } = await supabase
+        .from('assets')
+        .select('category, status, asset_name, asset_id, department, location');
+
+      if (error) throw error;
+
+      // Calculate utilization by category
+      const categoryUtilization: Record<string, any> = {};
+      
+      assets?.forEach(asset => {
+        if (!categoryUtilization[asset.category]) {
+          categoryUtilization[asset.category] = {
+            total: 0,
+            assigned: 0,
+            available: 0,
+            maintenance: 0,
+          };
+        }
+        
+        categoryUtilization[asset.category].total++;
+        
+        if (asset.status === 'assigned') {
+          categoryUtilization[asset.category].assigned++;
+        } else if (asset.status === 'available') {
+          categoryUtilization[asset.category].available++;
+        } else if (asset.status === 'under_maintenance') {
+          categoryUtilization[asset.category].maintenance++;
+        }
+      });
+
+      // Create export data
+      const exportData = Object.entries(categoryUtilization).map(([category, stats]) => ({
+        'Category': category,
+        'Total Assets': stats.total,
+        'Assigned': stats.assigned,
+        'Available': stats.available,
+        'Under Maintenance': stats.maintenance,
+        'Utilization Rate (%)': ((stats.assigned / stats.total) * 100).toFixed(2),
+      }));
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      ws['!cols'] = [
+        { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
+        { wch: 18 }, { wch: 20 },
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Utilization Report');
+      
+      const filename = `Asset_Utilization_Report_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      
+      toast.success('Asset utilization report generated successfully!');
+    } catch (error) {
+      console.error('Error generating utilization report:', error);
+      toast.error('Failed to generate utilization report');
+    }
+  };
+
+  const handleGenerateFinancialSummary = async () => {
+    try {
+      toast.info('Generating financial summary...');
+      
+      const { data: assets, error } = await supabase
+        .from('assets')
+        .select('category, purchase_cost, status, purchase_date');
+
+      if (error) throw error;
+
+      // Calculate financial data by category
+      const categoryFinancials: Record<string, any> = {};
+      
+      assets?.forEach(asset => {
+        if (!categoryFinancials[asset.category]) {
+          categoryFinancials[asset.category] = {
+            totalCost: 0,
+            count: 0,
+            assigned: 0,
+            available: 0,
+          };
+        }
+        
+        categoryFinancials[asset.category].totalCost += asset.purchase_cost || 0;
+        categoryFinancials[asset.category].count++;
+        
+        if (asset.status === 'assigned') {
+          categoryFinancials[asset.category].assigned++;
+        } else if (asset.status === 'available') {
+          categoryFinancials[asset.category].available++;
+        }
+      });
+
+      // Create export data
+      const exportData = Object.entries(categoryFinancials).map(([category, stats]) => ({
+        'Category': category,
+        'Total Assets': stats.count,
+        'Total Investment': `$${stats.totalCost.toFixed(2)}`,
+        'Average Cost': `$${(stats.totalCost / stats.count).toFixed(2)}`,
+        'Assigned Assets': stats.assigned,
+        'Available Assets': stats.available,
+        'Utilization Rate (%)': ((stats.assigned / stats.count) * 100).toFixed(2),
+      }));
+
+      // Add summary row
+      const totalInvestment = Object.values(categoryFinancials).reduce((sum: number, cat: any) => sum + cat.totalCost, 0);
+      const totalAssets = Object.values(categoryFinancials).reduce((sum: number, cat: any) => sum + cat.count, 0);
+      
+      exportData.push({
+        'Category': 'TOTAL',
+        'Total Assets': totalAssets,
+        'Total Investment': `$${totalInvestment.toFixed(2)}`,
+        'Average Cost': `$${(totalInvestment / totalAssets).toFixed(2)}`,
+        'Assigned Assets': '',
+        'Available Assets': '',
+        'Utilization Rate (%)': '',
+      });
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      ws['!cols'] = [
+        { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 15 },
+        { wch: 18 }, { wch: 18 }, { wch: 20 },
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Financial Summary');
+      
+      const filename = `Financial_Summary_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      
+      toast.success('Financial summary generated successfully!');
+    } catch (error) {
+      console.error('Error generating financial summary:', error);
+      toast.error('Failed to generate financial summary');
+    }
+  };
+
+  const handleGenerateDepartmentAllocation = async () => {
+    try {
+      toast.info('Generating department allocation report...');
+      
+      const { data: allocations, error } = await supabase
+        .from('asset_allocations')
+        .select('department, category, asset_name, employee_name, allocated_date, status');
+
+      if (error) throw error;
+
+      // Group by department
+      const departmentData: Record<string, any> = {};
+      
+      allocations?.forEach(allocation => {
+        const dept = allocation.department || 'Unassigned';
+        
+        if (!departmentData[dept]) {
+          departmentData[dept] = {
+            totalAllocations: 0,
+            active: 0,
+            returned: 0,
+            categories: new Set(),
+          };
+        }
+        
+        departmentData[dept].totalAllocations++;
+        departmentData[dept].categories.add(allocation.category);
+        
+        if (allocation.status === 'active') {
+          departmentData[dept].active++;
+        } else if (allocation.status === 'returned') {
+          departmentData[dept].returned++;
+        }
+      });
+
+      // Create export data
+      const exportData = Object.entries(departmentData).map(([department, stats]) => ({
+        'Department': department,
+        'Total Allocations': stats.totalAllocations,
+        'Active Allocations': stats.active,
+        'Returned': stats.returned,
+        'Categories': Array.from(stats.categories).join(', '),
+        'Allocation Rate (%)': ((stats.active / stats.totalAllocations) * 100).toFixed(2),
+      }));
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      ws['!cols'] = [
+        { wch: 20 }, { wch: 18 }, { wch: 18 }, { wch: 12 },
+        { wch: 30 }, { wch: 20 },
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Department Allocation');
+      
+      const filename = `Department_Allocation_Report_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      
+      toast.success('Department allocation report generated successfully!');
+    } catch (error) {
+      console.error('Error generating department allocation report:', error);
+      toast.error('Failed to generate department allocation report');
     }
   };
 
@@ -1792,18 +2308,264 @@ const Dashboard = () => {
             </Card>
           </div>
         )}
+
+        {/* Finance Admin Charts with Filters */}
+        {isFinancer && (
+          <>
+            {/* Filters Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Analytical Filters</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Department</label>
+                    <Select
+                      value={financeFilters.department}
+                      onValueChange={(value) => setFinanceFilters(prev => ({ ...prev, department: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Departments" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Departments</SelectItem>
+                        {departments.map(dept => (
+                          <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Asset Category</label>
+                    <Select
+                      value={financeFilters.category}
+                      onValueChange={(value) => setFinanceFilters(prev => ({ ...prev, category: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {categories.map(cat => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Financial Year</label>
+                    <Select
+                      value={financeFilters.financialYear}
+                      onValueChange={(value) => setFinanceFilters(prev => ({ ...prev, financialYear: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Years" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Years</SelectItem>
+                        <SelectItem value="2024">FY 2024-25</SelectItem>
+                        <SelectItem value="2023">FY 2023-24</SelectItem>
+                        <SelectItem value="2022">FY 2022-23</SelectItem>
+                        <SelectItem value="2021">FY 2021-22</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Start Date</label>
+                    <Input
+                      type="date"
+                      value={financeFilters.startDate}
+                      onChange={(e) => setFinanceFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">End Date</label>
+                    <Input
+                      type="date"
+                      value={financeFilters.endDate}
+                      onChange={(e) => setFinanceFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Asset Distribution by Category - Bar Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Asset Distribution by Category</CardTitle>
+                  <p className="text-sm text-muted-foreground">Total number of assets in each category</p>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={{
+                      count: {
+                        label: "Asset Count",
+                        color: "hsl(var(--primary))",
+                      },
+                    }}
+                    className="h-[300px]"
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={financeChartData.assetCountByCategory}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis 
+                          dataKey="category" 
+                          tick={{ fill: 'hsl(var(--foreground))' }}
+                          angle={-45}
+                          textAnchor="end"
+                          height={80}
+                        />
+                        <YAxis tick={{ fill: 'hsl(var(--foreground))' }} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="count" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              {/* Asset Value by Category - Pie Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Asset Value by Category</CardTitle>
+                  <p className="text-sm text-muted-foreground">Total monetary value of assets grouped by category</p>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={{
+                      value: {
+                        label: "Total Value",
+                        color: "hsl(var(--primary))",
+                      },
+                    }}
+                    className="h-[300px]"
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={financeChartData.assetValueByCategory}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={(entry) => `${entry.category}: ₹${(entry.value / 1000).toFixed(0)}K`}
+                          outerRadius={80}
+                          fill="hsl(var(--primary))"
+                          dataKey="value"
+                        >
+                          {financeChartData.assetValueByCategory.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <ChartTooltip 
+                          content={({ payload }) => {
+                            if (payload && payload.length > 0) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                  <div className="grid gap-2">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-sm text-muted-foreground">{data.category}</span>
+                                      <span className="font-bold">₹{data.value.toLocaleString('en-IN')}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Department-wise Asset Cost - Full Width Line Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Department-wise Asset Cost Summary</CardTitle>
+                <p className="text-sm text-muted-foreground">Total asset cost allocated per department</p>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer
+                  config={{
+                    cost: {
+                      label: "Total Cost",
+                      color: "hsl(var(--primary))",
+                    },
+                  }}
+                  className="h-[350px]"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={financeChartData.departmentCostData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis 
+                        dataKey="department" 
+                        tick={{ fill: 'hsl(var(--foreground))' }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={100}
+                      />
+                      <YAxis 
+                        tick={{ fill: 'hsl(var(--foreground))' }}
+                        tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}K`}
+                      />
+                      <ChartTooltip 
+                        content={({ payload }) => {
+                          if (payload && payload.length > 0) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                <div className="grid gap-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-sm text-muted-foreground">{data.department}</span>
+                                    <span className="font-bold">₹{data.cost.toLocaleString('en-IN')}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="cost" 
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={3}
+                        dot={{ fill: 'hsl(var(--primary))', r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
         {/* Reports & Data Management (Financer) OR Department Assets Overview (Dept Head) */}
         {isFinancer ? (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Reports & Data Management</CardTitle>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={handleExportReports}>
                   <Download className="h-4 w-4 mr-2" />
                   Export Reports
                 </Button>
-                <Button variant="outline" size="sm">
-                  <FileText className="h-4 w-4 mr-2" />
+                <Button variant="outline" size="sm" onClick={handleImportData}>
+                  <Upload className="h-4 w-4 mr-2" />
                   Import Data
                 </Button>
               </div>
@@ -1816,7 +2578,7 @@ const Dashboard = () => {
                     <p className="text-sm text-muted-foreground">Comprehensive usage analytics</p>
                   </CardHeader>
                   <CardContent>
-                    <Button className="w-full">Generate</Button>
+                    <Button className="w-full" onClick={handleGenerateUtilizationReport}>Generate</Button>
                   </CardContent>
                 </Card>
 
@@ -1826,7 +2588,7 @@ const Dashboard = () => {
                     <p className="text-sm text-muted-foreground">Cost analysis and ROI metrics</p>
                   </CardHeader>
                   <CardContent>
-                    <Button className="w-full">Generate</Button>
+                    <Button className="w-full" onClick={handleGenerateFinancialSummary}>Generate</Button>
                   </CardContent>
                 </Card>
 
@@ -1836,7 +2598,7 @@ const Dashboard = () => {
                     <p className="text-sm text-muted-foreground">Asset distribution by department</p>
                   </CardHeader>
                   <CardContent>
-                    <Button className="w-full">Generate</Button>
+                    <Button className="w-full" onClick={handleGenerateDepartmentAllocation}>Generate</Button>
                   </CardContent>
                 </Card>
               </div>
