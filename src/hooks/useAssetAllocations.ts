@@ -33,6 +33,45 @@ export function useAssetAllocations(filters: AllocationFilters) {
 
   useEffect(() => {
     fetchAllocations();
+
+    // Set up real-time subscription for asset allocations
+    const channel = supabase
+      .channel('asset-allocations-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'asset_allocations'
+        },
+        () => {
+          // Refetch data when any change occurs
+          fetchAllocations();
+        }
+      )
+      .subscribe();
+
+    // Set up real-time subscription for tickets (to update history)
+    const ticketsChannel = supabase
+      .channel('tickets-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tickets'
+        },
+        () => {
+          // Refetch data when tickets change
+          fetchAllocations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      supabase.removeChannel(ticketsChannel);
+    };
   }, [filters]);
 
   const fetchAllocations = async () => {
