@@ -30,7 +30,12 @@ import {
   PieChart,
   Pie,
   Legend,
+  LineChart,
+  Line,
 } from 'recharts';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
 interface DashboardStats {
   totalAssets: number;
@@ -147,6 +152,22 @@ const Dashboard = () => {
   // Global totals for Financer/Dept Head summary cards
   const [globalCategoryStats, setGlobalCategoryStats] = useState<CategoryStat[]>([]);
   const [globalTotalAssetValue, setGlobalTotalAssetValue] = useState<number>(0);
+  
+  // Finance Admin Charts & Filters
+  const [financeChartData, setFinanceChartData] = useState({
+    assetCountByCategory: [] as { category: string; count: number }[],
+    assetValueByCategory: [] as { category: string; value: number }[],
+    departmentCostData: [] as { department: string; cost: number }[],
+  });
+  const [financeFilters, setFinanceFilters] = useState({
+    department: 'all',
+    category: 'all',
+    financialYear: 'all',
+    startDate: '',
+    endDate: '',
+  });
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -176,6 +197,135 @@ const Dashboard = () => {
   }, [userRole]);
 
   const isFinancer = userRole === 'financer';
+
+  const fetchFinanceChartData = async () => {
+    try {
+      // Build query with filters
+      let assetsQuery = supabase
+        .from('assets')
+        .select('category, purchase_cost, purchase_date, department');
+      
+      let allocationsQuery = supabase
+        .from('asset_allocations')
+        .select('department, asset_id, assets(purchase_cost, category, purchase_date)');
+
+      // Apply filters
+      if (financeFilters.department !== 'all') {
+        assetsQuery = assetsQuery.eq('department', financeFilters.department);
+        allocationsQuery = allocationsQuery.eq('department', financeFilters.department);
+      }
+      
+      if (financeFilters.category !== 'all') {
+        assetsQuery = assetsQuery.eq('category', financeFilters.category as any);
+      }
+
+      // Date filters
+      if (financeFilters.startDate) {
+        assetsQuery = assetsQuery.gte('purchase_date', financeFilters.startDate);
+      }
+      if (financeFilters.endDate) {
+        assetsQuery = assetsQuery.lte('purchase_date', financeFilters.endDate);
+      }
+
+      // Financial Year filter (April to March)
+      if (financeFilters.financialYear !== 'all') {
+        const year = parseInt(financeFilters.financialYear);
+        const fyStart = `${year}-04-01`;
+        const fyEnd = `${year + 1}-03-31`;
+        assetsQuery = assetsQuery.gte('purchase_date', fyStart).lte('purchase_date', fyEnd);
+      }
+
+      const { data: assets } = await assetsQuery;
+      const { data: allocations } = await allocationsQuery;
+
+      if (assets) {
+        // Asset Count by Category
+        const countByCategory: Record<string, number> = {};
+        assets.forEach(asset => {
+          countByCategory[asset.category] = (countByCategory[asset.category] || 0) + 1;
+        });
+
+        // Asset Value by Category
+        const valueByCategory: Record<string, number> = {};
+        assets.forEach(asset => {
+          if (asset.purchase_cost) {
+            valueByCategory[asset.category] = (valueByCategory[asset.category] || 0) + Number(asset.purchase_cost);
+          }
+        });
+
+        setFinanceChartData({
+          assetCountByCategory: Object.entries(countByCategory).map(([category, count]) => ({
+            category,
+            count,
+          })),
+          assetValueByCategory: Object.entries(valueByCategory).map(([category, value]) => ({
+            category,
+            value,
+          })),
+          departmentCostData: [], // Will be calculated from allocations
+        });
+      }
+
+      // Department-wise Asset Cost
+      if (allocations) {
+        const costByDept: Record<string, number> = {};
+        allocations.forEach((alloc: any) => {
+          if (alloc.department && alloc.assets?.purchase_cost) {
+            costByDept[alloc.department] = (costByDept[alloc.department] || 0) + Number(alloc.assets.purchase_cost);
+          }
+        });
+
+        setFinanceChartData(prev => ({
+          ...prev,
+          departmentCostData: Object.entries(costByDept).map(([department, cost]) => ({
+            department,
+            cost,
+          })),
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching finance chart data:', error);
+    }
+  };
+
+  const fetchFilterOptions = async () => {
+    try {
+      // Fetch unique departments
+      const { data: deptData } = await supabase
+        .from('assets')
+        .select('department')
+        .not('department', 'is', null);
+      
+      if (deptData) {
+        const uniqueDepts = [...new Set(deptData.map(d => d.department).filter(Boolean))] as string[];
+        setDepartments(uniqueDepts);
+      }
+
+      // Fetch unique categories
+      const { data: catData } = await supabase
+        .from('assets')
+        .select('category');
+      
+      if (catData) {
+        const uniqueCats = [...new Set(catData.map(d => d.category))];
+        setCategories(uniqueCats);
+      }
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (isFinancer) {
+      fetchFinanceChartData();
+    }
+  }, [financeFilters, isFinancer]);
+
+  useEffect(() => {
+    if (isFinancer) {
+      fetchFilterOptions();
+    }
+  }, [isFinancer]);
 
   const fetchGlobalCategoryStats = async () => {
     try {
@@ -2156,6 +2306,252 @@ const Dashboard = () => {
             </Card>
           </div>
         )}
+
+        {/* Finance Admin Charts with Filters */}
+        {isFinancer && (
+          <>
+            {/* Filters Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Analytical Filters</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Department</label>
+                    <Select
+                      value={financeFilters.department}
+                      onValueChange={(value) => setFinanceFilters(prev => ({ ...prev, department: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Departments" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Departments</SelectItem>
+                        {departments.map(dept => (
+                          <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Asset Category</label>
+                    <Select
+                      value={financeFilters.category}
+                      onValueChange={(value) => setFinanceFilters(prev => ({ ...prev, category: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {categories.map(cat => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Financial Year</label>
+                    <Select
+                      value={financeFilters.financialYear}
+                      onValueChange={(value) => setFinanceFilters(prev => ({ ...prev, financialYear: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Years" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Years</SelectItem>
+                        <SelectItem value="2024">FY 2024-25</SelectItem>
+                        <SelectItem value="2023">FY 2023-24</SelectItem>
+                        <SelectItem value="2022">FY 2022-23</SelectItem>
+                        <SelectItem value="2021">FY 2021-22</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Start Date</label>
+                    <Input
+                      type="date"
+                      value={financeFilters.startDate}
+                      onChange={(e) => setFinanceFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">End Date</label>
+                    <Input
+                      type="date"
+                      value={financeFilters.endDate}
+                      onChange={(e) => setFinanceFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Asset Distribution by Category - Bar Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Asset Distribution by Category</CardTitle>
+                  <p className="text-sm text-muted-foreground">Total number of assets in each category</p>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={{
+                      count: {
+                        label: "Asset Count",
+                        color: "hsl(var(--primary))",
+                      },
+                    }}
+                    className="h-[300px]"
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={financeChartData.assetCountByCategory}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis 
+                          dataKey="category" 
+                          tick={{ fill: 'hsl(var(--foreground))' }}
+                          angle={-45}
+                          textAnchor="end"
+                          height={80}
+                        />
+                        <YAxis tick={{ fill: 'hsl(var(--foreground))' }} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="count" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              {/* Asset Value by Category - Pie Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Asset Value by Category</CardTitle>
+                  <p className="text-sm text-muted-foreground">Total monetary value of assets grouped by category</p>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={{
+                      value: {
+                        label: "Total Value",
+                        color: "hsl(var(--primary))",
+                      },
+                    }}
+                    className="h-[300px]"
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={financeChartData.assetValueByCategory}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={(entry) => `${entry.category}: ₹${(entry.value / 1000).toFixed(0)}K`}
+                          outerRadius={80}
+                          fill="hsl(var(--primary))"
+                          dataKey="value"
+                        >
+                          {financeChartData.assetValueByCategory.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <ChartTooltip 
+                          content={({ payload }) => {
+                            if (payload && payload.length > 0) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                  <div className="grid gap-2">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-sm text-muted-foreground">{data.category}</span>
+                                      <span className="font-bold">₹{data.value.toLocaleString('en-IN')}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Department-wise Asset Cost - Full Width Line Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Department-wise Asset Cost Summary</CardTitle>
+                <p className="text-sm text-muted-foreground">Total asset cost allocated per department</p>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer
+                  config={{
+                    cost: {
+                      label: "Total Cost",
+                      color: "hsl(var(--primary))",
+                    },
+                  }}
+                  className="h-[350px]"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={financeChartData.departmentCostData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis 
+                        dataKey="department" 
+                        tick={{ fill: 'hsl(var(--foreground))' }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={100}
+                      />
+                      <YAxis 
+                        tick={{ fill: 'hsl(var(--foreground))' }}
+                        tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}K`}
+                      />
+                      <ChartTooltip 
+                        content={({ payload }) => {
+                          if (payload && payload.length > 0) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                <div className="grid gap-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-sm text-muted-foreground">{data.department}</span>
+                                    <span className="font-bold">₹{data.cost.toLocaleString('en-IN')}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="cost" 
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={3}
+                        dot={{ fill: 'hsl(var(--primary))', r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
         {/* Reports & Data Management (Financer) OR Department Assets Overview (Dept Head) */}
         {isFinancer ? (
           <Card>
