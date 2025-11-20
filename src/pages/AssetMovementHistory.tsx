@@ -56,11 +56,6 @@ export interface HistoryFilters {
   dateTo: Date | undefined;
 }
 
-const statusColors: Record<string, string> = {
-  active: "bg-green-100 text-green-700",
-  returned: "bg-gray-100 text-gray-700",
-};
-
 const AssetMovementHistory = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -174,11 +169,9 @@ const AssetMovementHistory = () => {
                       <TableHead>Asset Type</TableHead>
                       <TableHead>Asset Name</TableHead>
                       <TableHead>Employee</TableHead>
-                      <TableHead>Department</TableHead>
                       <TableHead>Assigned Date</TableHead>
                       <TableHead>Return Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-center">History</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -192,7 +185,6 @@ const AssetMovementHistory = () => {
                         </TableCell>
                         <TableCell>{allocation.asset_name}</TableCell>
                         <TableCell>{allocation.employee_name}</TableCell>
-                        <TableCell>{allocation.department || 'N/A'}</TableCell>
                         <TableCell>
                           {format(new Date(allocation.allocated_date), "MMM d, yyyy")}
                         </TableCell>
@@ -201,19 +193,14 @@ const AssetMovementHistory = () => {
                             ? format(new Date(allocation.return_date), "MMM d, yyyy")
                             : '-'}
                         </TableCell>
-                        <TableCell>
-                          <Badge className={statusColors[allocation.status] || "bg-gray-100"}>
-                            {allocation.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-center">
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
                             onClick={() => handleViewHistory(allocation)}
+                            className="h-8 w-8"
                           >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View History
+                            <Eye className="h-4 w-4" />
                           </Button>
                         </TableCell>
                       </TableRow>
