@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { Package, CheckCircle, AlertCircle, Wrench, FileText, Clock, TrendingUp, Download, Users, ArrowRight, Loader2, Zap } from 'lucide-react';
+import { Package, CheckCircle, AlertCircle, Wrench, FileText, Clock, TrendingUp, Download, Users, ArrowRight, Loader2, Zap, Upload } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
  
 import {
   Table,
@@ -827,6 +828,371 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Error approving request:', error);
       toast.error('Failed to approve request');
+    }
+  };
+
+  // Finance Report Handlers
+  const handleExportReports = async () => {
+    try {
+      toast.info('Exporting financial reports...');
+      
+      // Fetch all assets with financial data
+      const { data: assets, error } = await supabase
+        .from('assets')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (!assets || assets.length === 0) {
+        toast.error('No asset data to export');
+        return;
+      }
+
+      // Format data for export
+      const exportData = assets.map(asset => ({
+        'Asset ID': asset.asset_id,
+        'Asset Tag': asset.asset_tag,
+        'Asset Name': asset.asset_name,
+        'Category': asset.category,
+        'Brand': asset.brand || 'N/A',
+        'Model': asset.model || 'N/A',
+        'Serial Number': asset.serial_number || 'N/A',
+        'Status': asset.status,
+        'Purchase Cost': asset.purchase_cost || 0,
+        'Purchase Date': asset.purchase_date ? format(new Date(asset.purchase_date), 'yyyy-MM-dd') : 'N/A',
+        'Warranty End Date': asset.warranty_end_date ? format(new Date(asset.warranty_end_date), 'yyyy-MM-dd') : 'N/A',
+        'Department': asset.department || 'N/A',
+        'Location': asset.location || 'N/A',
+        'Notes': asset.notes || 'N/A',
+      }));
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 12 }, { wch: 12 }, { wch: 25 }, { wch: 12 },
+        { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 12 },
+        { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 15 },
+        { wch: 15 }, { wch: 30 },
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Financial Reports');
+
+      // Generate filename with timestamp
+      const filename = `Financial_Reports_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.xlsx`;
+      
+      // Save file
+      XLSX.writeFile(wb, filename);
+      
+      toast.success('Financial reports exported successfully!');
+    } catch (error) {
+      console.error('Error exporting reports:', error);
+      toast.error('Failed to export financial reports');
+    }
+  };
+
+  const handleImportData = async () => {
+    try {
+      // Create file input
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.xlsx,.xls';
+      
+      input.onchange = async (e: any) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        toast.info('Processing import file...');
+
+        const reader = new FileReader();
+        reader.onload = async (event: any) => {
+          try {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+            if (jsonData.length === 0) {
+              toast.error('No data found in file');
+              return;
+            }
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            // Process each row
+            for (const row of jsonData as any[]) {
+              try {
+                const assetId = row['Asset ID'] || row['asset_id'];
+                const purchaseCost = parseFloat(row['Purchase Cost'] || row['purchase_cost'] || '0');
+                const purchaseDate = row['Purchase Date'] || row['purchase_date'];
+                const warrantyEndDate = row['Warranty End Date'] || row['warranty_end_date'];
+
+                if (!assetId) {
+                  errorCount++;
+                  continue;
+                }
+
+                // Update asset with financial data
+                const { error: updateError } = await supabase
+                  .from('assets')
+                  .update({
+                    purchase_cost: purchaseCost,
+                    purchase_date: purchaseDate || null,
+                    warranty_end_date: warrantyEndDate || null,
+                  })
+                  .eq('asset_id', assetId);
+
+                if (updateError) {
+                  console.error(`Error updating asset ${assetId}:`, updateError);
+                  errorCount++;
+                } else {
+                  successCount++;
+                }
+              } catch (rowError) {
+                console.error('Error processing row:', rowError);
+                errorCount++;
+              }
+            }
+
+            if (successCount > 0) {
+              toast.success(`Successfully imported ${successCount} asset records`);
+              // Refresh data
+              if (userRole === 'financer') {
+                fetchGlobalCategoryStats();
+              }
+            }
+            
+            if (errorCount > 0) {
+              toast.warning(`${errorCount} records failed to import`);
+            }
+          } catch (error) {
+            console.error('Error processing file:', error);
+            toast.error('Failed to process import file');
+          }
+        };
+
+        reader.readAsArrayBuffer(file);
+      };
+
+      input.click();
+    } catch (error) {
+      console.error('Error importing data:', error);
+      toast.error('Failed to import data');
+    }
+  };
+
+  const handleGenerateUtilizationReport = async () => {
+    try {
+      toast.info('Generating asset utilization report...');
+      
+      const { data: assets, error } = await supabase
+        .from('assets')
+        .select('category, status, asset_name, asset_id, department, location');
+
+      if (error) throw error;
+
+      // Calculate utilization by category
+      const categoryUtilization: Record<string, any> = {};
+      
+      assets?.forEach(asset => {
+        if (!categoryUtilization[asset.category]) {
+          categoryUtilization[asset.category] = {
+            total: 0,
+            assigned: 0,
+            available: 0,
+            maintenance: 0,
+          };
+        }
+        
+        categoryUtilization[asset.category].total++;
+        
+        if (asset.status === 'assigned') {
+          categoryUtilization[asset.category].assigned++;
+        } else if (asset.status === 'available') {
+          categoryUtilization[asset.category].available++;
+        } else if (asset.status === 'under_maintenance') {
+          categoryUtilization[asset.category].maintenance++;
+        }
+      });
+
+      // Create export data
+      const exportData = Object.entries(categoryUtilization).map(([category, stats]) => ({
+        'Category': category,
+        'Total Assets': stats.total,
+        'Assigned': stats.assigned,
+        'Available': stats.available,
+        'Under Maintenance': stats.maintenance,
+        'Utilization Rate (%)': ((stats.assigned / stats.total) * 100).toFixed(2),
+      }));
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      ws['!cols'] = [
+        { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
+        { wch: 18 }, { wch: 20 },
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Utilization Report');
+      
+      const filename = `Asset_Utilization_Report_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      
+      toast.success('Asset utilization report generated successfully!');
+    } catch (error) {
+      console.error('Error generating utilization report:', error);
+      toast.error('Failed to generate utilization report');
+    }
+  };
+
+  const handleGenerateFinancialSummary = async () => {
+    try {
+      toast.info('Generating financial summary...');
+      
+      const { data: assets, error } = await supabase
+        .from('assets')
+        .select('category, purchase_cost, status, purchase_date');
+
+      if (error) throw error;
+
+      // Calculate financial data by category
+      const categoryFinancials: Record<string, any> = {};
+      
+      assets?.forEach(asset => {
+        if (!categoryFinancials[asset.category]) {
+          categoryFinancials[asset.category] = {
+            totalCost: 0,
+            count: 0,
+            assigned: 0,
+            available: 0,
+          };
+        }
+        
+        categoryFinancials[asset.category].totalCost += asset.purchase_cost || 0;
+        categoryFinancials[asset.category].count++;
+        
+        if (asset.status === 'assigned') {
+          categoryFinancials[asset.category].assigned++;
+        } else if (asset.status === 'available') {
+          categoryFinancials[asset.category].available++;
+        }
+      });
+
+      // Create export data
+      const exportData = Object.entries(categoryFinancials).map(([category, stats]) => ({
+        'Category': category,
+        'Total Assets': stats.count,
+        'Total Investment': `$${stats.totalCost.toFixed(2)}`,
+        'Average Cost': `$${(stats.totalCost / stats.count).toFixed(2)}`,
+        'Assigned Assets': stats.assigned,
+        'Available Assets': stats.available,
+        'Utilization Rate (%)': ((stats.assigned / stats.count) * 100).toFixed(2),
+      }));
+
+      // Add summary row
+      const totalInvestment = Object.values(categoryFinancials).reduce((sum: number, cat: any) => sum + cat.totalCost, 0);
+      const totalAssets = Object.values(categoryFinancials).reduce((sum: number, cat: any) => sum + cat.count, 0);
+      
+      exportData.push({
+        'Category': 'TOTAL',
+        'Total Assets': totalAssets,
+        'Total Investment': `$${totalInvestment.toFixed(2)}`,
+        'Average Cost': `$${(totalInvestment / totalAssets).toFixed(2)}`,
+        'Assigned Assets': '',
+        'Available Assets': '',
+        'Utilization Rate (%)': '',
+      });
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      ws['!cols'] = [
+        { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 15 },
+        { wch: 18 }, { wch: 18 }, { wch: 20 },
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Financial Summary');
+      
+      const filename = `Financial_Summary_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      
+      toast.success('Financial summary generated successfully!');
+    } catch (error) {
+      console.error('Error generating financial summary:', error);
+      toast.error('Failed to generate financial summary');
+    }
+  };
+
+  const handleGenerateDepartmentAllocation = async () => {
+    try {
+      toast.info('Generating department allocation report...');
+      
+      const { data: allocations, error } = await supabase
+        .from('asset_allocations')
+        .select('department, category, asset_name, employee_name, allocated_date, status');
+
+      if (error) throw error;
+
+      // Group by department
+      const departmentData: Record<string, any> = {};
+      
+      allocations?.forEach(allocation => {
+        const dept = allocation.department || 'Unassigned';
+        
+        if (!departmentData[dept]) {
+          departmentData[dept] = {
+            totalAllocations: 0,
+            active: 0,
+            returned: 0,
+            categories: new Set(),
+          };
+        }
+        
+        departmentData[dept].totalAllocations++;
+        departmentData[dept].categories.add(allocation.category);
+        
+        if (allocation.status === 'active') {
+          departmentData[dept].active++;
+        } else if (allocation.status === 'returned') {
+          departmentData[dept].returned++;
+        }
+      });
+
+      // Create export data
+      const exportData = Object.entries(departmentData).map(([department, stats]) => ({
+        'Department': department,
+        'Total Allocations': stats.totalAllocations,
+        'Active Allocations': stats.active,
+        'Returned': stats.returned,
+        'Categories': Array.from(stats.categories).join(', '),
+        'Allocation Rate (%)': ((stats.active / stats.totalAllocations) * 100).toFixed(2),
+      }));
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      ws['!cols'] = [
+        { wch: 20 }, { wch: 18 }, { wch: 18 }, { wch: 12 },
+        { wch: 30 }, { wch: 20 },
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Department Allocation');
+      
+      const filename = `Department_Allocation_Report_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      
+      toast.success('Department allocation report generated successfully!');
+    } catch (error) {
+      console.error('Error generating department allocation report:', error);
+      toast.error('Failed to generate department allocation report');
     }
   };
 
@@ -1796,12 +2162,12 @@ const Dashboard = () => {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Reports & Data Management</CardTitle>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={handleExportReports}>
                   <Download className="h-4 w-4 mr-2" />
                   Export Reports
                 </Button>
-                <Button variant="outline" size="sm">
-                  <FileText className="h-4 w-4 mr-2" />
+                <Button variant="outline" size="sm" onClick={handleImportData}>
+                  <Upload className="h-4 w-4 mr-2" />
                   Import Data
                 </Button>
               </div>
@@ -1814,7 +2180,7 @@ const Dashboard = () => {
                     <p className="text-sm text-muted-foreground">Comprehensive usage analytics</p>
                   </CardHeader>
                   <CardContent>
-                    <Button className="w-full">Generate</Button>
+                    <Button className="w-full" onClick={handleGenerateUtilizationReport}>Generate</Button>
                   </CardContent>
                 </Card>
 
@@ -1824,7 +2190,7 @@ const Dashboard = () => {
                     <p className="text-sm text-muted-foreground">Cost analysis and ROI metrics</p>
                   </CardHeader>
                   <CardContent>
-                    <Button className="w-full">Generate</Button>
+                    <Button className="w-full" onClick={handleGenerateFinancialSummary}>Generate</Button>
                   </CardContent>
                 </Card>
 
@@ -1834,7 +2200,7 @@ const Dashboard = () => {
                     <p className="text-sm text-muted-foreground">Asset distribution by department</p>
                   </CardHeader>
                   <CardContent>
-                    <Button className="w-full">Generate</Button>
+                    <Button className="w-full" onClick={handleGenerateDepartmentAllocation}>Generate</Button>
                   </CardContent>
                 </Card>
               </div>
