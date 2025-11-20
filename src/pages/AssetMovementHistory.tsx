@@ -10,11 +10,24 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { AssetHistoryFilters } from "@/components/AssetHistoryFilters";
-import { AssetHistoryTable } from "@/components/AssetHistoryTable";
-import { ViewAssetHistoryModal } from "@/components/ViewAssetHistoryModal";
-import { useAssetHistory } from "@/hooks/useAssetHistory";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Eye } from "lucide-react";
+import { format } from "date-fns";
+import { AssetAllocationFilters } from "@/components/AssetAllocationFilters";
+import { AssetAllocationHistoryModal } from "@/components/AssetAllocationHistoryModal";
+import { useAssetAllocations, type AllocationFilters } from "@/hooks/useAssetAllocations";
 
+// Export types for backward compatibility
 export interface AssetHistoryRecord {
   id: string;
   asset_id: string;
@@ -29,7 +42,6 @@ export interface AssetHistoryRecord {
   condition: 'excellent' | 'good' | 'fair' | null;
   notes: string | null;
   created_at: string;
-  // Legacy fields from original structure
   assigned_to: string | null;
   assigned_date: string | null;
   return_date: string | null;
@@ -48,16 +60,17 @@ const AssetMovementHistory = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null);
-  const [selectedRecord, setSelectedRecord] = useState<AssetHistoryRecord | null>(null);
-  const [filters, setFilters] = useState<HistoryFilters>({
+  const [selectedAllocation, setSelectedAllocation] = useState<any>(null);
+  const [filters, setFilters] = useState<AllocationFilters>({
     search: '',
     category: 'all',
-    action: 'all',
+    status: 'all',
+    department: 'all',
     dateFrom: undefined,
     dateTo: undefined,
   });
 
-  const { records, loading, refetch } = useAssetHistory(filters);
+  const { allocations, loading } = useAssetAllocations(filters);
 
   // Check if user is super admin
   useEffect(() => {
@@ -96,12 +109,12 @@ const AssetMovementHistory = () => {
     }
   };
 
-  const handleViewRecord = (record: AssetHistoryRecord) => {
-    setSelectedRecord(record);
+  const handleViewHistory = (allocation: any) => {
+    setSelectedAllocation(allocation);
   };
 
   const handleCloseModal = () => {
-    setSelectedRecord(null);
+    setSelectedAllocation(null);
   };
 
   // Don't render anything until we verify super admin access
@@ -118,7 +131,7 @@ const AssetMovementHistory = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f4ff] p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="container mx-auto max-w-7xl">
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
@@ -127,34 +140,82 @@ const AssetMovementHistory = () => {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Asset Movement History</BreadcrumbPage>
+              <BreadcrumbPage>Asset Assignment History</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
 
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Asset Movement History</h1>
-          <p className="text-muted-foreground mt-2">
-            Track all asset movements including assignments, returns, maintenance, and repairs
-          </p>
-        </div>
+        <AssetAllocationFilters filters={filters} onFilterChange={setFilters} />
 
-        <AssetHistoryFilters
-          filters={filters}
-          onFiltersChange={setFilters}
-          totalRecords={records.length}
-        />
+        <Card>
+          <CardHeader>
+            <CardTitle>Asset Assignments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading allocations...
+              </div>
+            ) : allocations.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No asset allocations found
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Asset ID</TableHead>
+                      <TableHead>Asset Type</TableHead>
+                      <TableHead>Asset Name</TableHead>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Assigned Date</TableHead>
+                      <TableHead>Return Date</TableHead>
+                      <TableHead className="text-center">History</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allocations.map((allocation) => (
+                      <TableRow key={allocation.id} className="hover:bg-muted/50">
+                        <TableCell className="font-medium">
+                          {allocation.asset_id?.slice(0, 8) || 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{allocation.category}</Badge>
+                        </TableCell>
+                        <TableCell>{allocation.asset_name}</TableCell>
+                        <TableCell>{allocation.employee_name}</TableCell>
+                        <TableCell>
+                          {format(new Date(allocation.allocated_date), "MMM d, yyyy")}
+                        </TableCell>
+                        <TableCell>
+                          {allocation.return_date
+                            ? format(new Date(allocation.return_date), "MMM d, yyyy")
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleViewHistory(allocation)}
+                            className="h-8 w-8"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        <AssetHistoryTable
-          records={records}
-          loading={loading}
-          onViewRecord={handleViewRecord}
-        />
-
-        {selectedRecord && (
-          <ViewAssetHistoryModal
-            record={selectedRecord}
-            open={!!selectedRecord}
+        {selectedAllocation && (
+          <AssetAllocationHistoryModal
+            allocation={selectedAllocation}
+            open={!!selectedAllocation}
             onClose={handleCloseModal}
           />
         )}
