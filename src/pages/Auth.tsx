@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Mail } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import assetSlide1 from '@/assets/asset-banner-1.svg';
@@ -55,7 +55,7 @@ const Auth = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [sendingReset, setSendingReset] = useState(false);
   
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, signInWithMicrosoft, user } = useAuth();
   const navigate = useNavigate();
 
   // Clear confirm password when switching between login/signup
@@ -227,6 +227,18 @@ const Auth = () => {
     }
   };
 
+  const handleMicrosoftSignIn = async () => {
+    setLoading(true);
+    try {
+      const { error } = await signInWithMicrosoft();
+      if (error) {
+        toast.error('Failed to sign in with Microsoft. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex">
       <div className="hidden lg:flex lg:w-1/2 bg-primary relative overflow-hidden">
@@ -332,6 +344,26 @@ const Auth = () => {
                     {loading ? 'Signing in...' : 'Sign In'}
                   </Button>
                 </form>
+
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleMicrosoftSignIn}
+                  disabled={loading}
+                >
+                  <Mail className="mr-2 h-4 w-4" />
+                  Sign in with Microsoft
+                </Button>
 
                 <div className="mt-4 text-center">
                   <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
