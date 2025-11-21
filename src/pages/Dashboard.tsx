@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { Package, CheckCircle, AlertCircle, Wrench, FileText, Clock, TrendingUp, Download, Users, ArrowRight, Loader2, Zap, Upload } from 'lucide-react';
+import { Package, CheckCircle, AlertCircle, Wrench, FileText, Clock, TrendingUp, Download, Users, ArrowRight, Loader2, Zap, Upload, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -1719,26 +1719,69 @@ const Dashboard = () => {
                       </Card>
                     ))}
                   </div>
-                  <div className="pt-2 flex items-center justify-center gap-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSuRecentReqPage((p) => Math.max(1, p - 1))}
-                      disabled={suRecentReqPage <= 1}
-                    >
-                      {'<'}
-                    </Button>
-                    <span className="text-sm">
-                      {suRecentReqPage}/{Math.max(1, Math.ceil(recentRequests.length / suPageSize))}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSuRecentReqPage((p) => Math.min(Math.max(1, Math.ceil(recentRequests.length / suPageSize)), p + 1))}
-                      disabled={suRecentReqPage >= Math.max(1, Math.ceil(recentRequests.length / suPageSize))}
-                    >
-                      {'>'}
-                    </Button>
+                  <div className="pt-2 flex items-center justify-center w-full px-4">
+                    <div className="flex items-center space-x-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSuRecentReqPage(1)}
+                        disabled={suRecentReqPage <= 1}
+                        className="hidden h-8 w-8 p-0 lg:flex"
+                        title="First page"
+                      >
+                        <ChevronsLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSuRecentReqPage((p) => Math.max(1, p - 1))}
+                        disabled={suRecentReqPage <= 1}
+                        className="h-8 w-8 p-0"
+                        title="Previous page"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <div className="flex items-center gap-1 px-2">
+                        <span className="text-sm">
+                          Page {suRecentReqPage} of {Math.max(1, Math.ceil(recentRequests.length / suPageSize))}
+                        </span>
+                        <span className="text-muted-foreground">|</span>
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm">Go to:</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max={Math.max(1, Math.ceil(recentRequests.length / suPageSize))}
+                            value={suRecentReqPage}
+                            onChange={(e) => {
+                              const page = e.target.value ? Number(e.target.value) : 1;
+                              setSuRecentReqPage(Math.min(Math.max(1, page), Math.ceil(recentRequests.length / suPageSize)));
+                            }}
+                            className="w-12 h-8 text-sm border rounded text-center"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSuRecentReqPage((p) => Math.min(Math.ceil(recentRequests.length / suPageSize), p + 1))}
+                        disabled={suRecentReqPage >= Math.ceil(recentRequests.length / suPageSize)}
+                        className="h-8 w-8 p-0"
+                        title="Next page"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSuRecentReqPage(Math.ceil(recentRequests.length / suPageSize))}
+                        disabled={suRecentReqPage >= Math.ceil(recentRequests.length / suPageSize)}
+                        className="hidden h-8 w-8 p-0 lg:flex"
+                        title="Last page"
+                      >
+                        <ChevronsRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1788,26 +1831,69 @@ const Dashboard = () => {
                     ))}
                   </TableBody>
                 </Table>
-                <div className="p-3 flex items-center justify-center gap-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSuAllocPage((p) => Math.max(1, p - 1))}
-                    disabled={suAllocPage <= 1}
-                  >
-                    {'<'}
-                  </Button>
-                  <span className="text-sm">
-                    {suAllocPage}/{Math.max(1, Math.ceil(recentAllocations.length / suPageSize))}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSuAllocPage((p) => Math.min(Math.max(1, Math.ceil(recentAllocations.length / suPageSize)), p + 1))}
-                    disabled={suAllocPage >= Math.max(1, Math.ceil(recentAllocations.length / suPageSize))}
-                  >
-                    {'>'}
-                  </Button>
+                <div className="p-3 flex items-center justify-center w-full px-4">
+                  <div className="flex items-center space-x-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSuAllocPage(1)}
+                      disabled={suAllocPage <= 1}
+                      className="hidden h-8 w-8 p-0 lg:flex"
+                      title="First page"
+                    >
+                      <ChevronsLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSuAllocPage((p) => Math.max(1, p - 1))}
+                      disabled={suAllocPage <= 1}
+                      className="h-8 w-8 p-0"
+                      title="Previous page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="flex items-center gap-1 px-2">
+                      <span className="text-sm">
+                        Page {suAllocPage} of {Math.max(1, Math.ceil(recentAllocations.length / suPageSize))}
+                      </span>
+                      <span className="text-muted-foreground">|</span>
+                      <div className="flex items-center space-x-1">
+                        <span className="text-sm">Go to:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max={Math.max(1, Math.ceil(recentAllocations.length / suPageSize))}
+                          value={suAllocPage}
+                          onChange={(e) => {
+                            const page = e.target.value ? Number(e.target.value) : 1;
+                            setSuAllocPage(Math.min(Math.max(1, page), Math.ceil(recentAllocations.length / suPageSize)));
+                          }}
+                          className="w-12 h-8 text-sm border rounded text-center"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSuAllocPage((p) => Math.min(Math.ceil(recentAllocations.length / suPageSize), p + 1))}
+                      disabled={suAllocPage >= Math.ceil(recentAllocations.length / suPageSize)}
+                      className="h-8 w-8 p-0"
+                      title="Next page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSuAllocPage(Math.ceil(recentAllocations.length / suPageSize))}
+                      disabled={suAllocPage >= Math.ceil(recentAllocations.length / suPageSize)}
+                      className="hidden h-8 w-8 p-0 lg:flex"
+                      title="Last page"
+                    >
+                      <ChevronsRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
@@ -2142,26 +2228,69 @@ const Dashboard = () => {
                     ))}
                   </TableBody>
                 </Table>
-                <div className="p-3 flex items-center justify-center gap-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAdminAllocPage((p) => Math.max(1, p - 1))}
-                    disabled={adminAllocPage <= 1}
-                  >
-                    {'<'}
-                  </Button>
-                  <span className="text-sm">
-                    {adminAllocPage}/{Math.max(1, Math.ceil(adminRecentAllocations.length / adminPageSize))}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAdminAllocPage((p) => Math.min(Math.max(1, Math.ceil(adminRecentAllocations.length / adminPageSize)), p + 1))}
-                    disabled={adminAllocPage >= Math.max(1, Math.ceil(adminRecentAllocations.length / adminPageSize))}
-                  >
-                    {'>'}
-                  </Button>
+                <div className="p-3 flex items-center justify-center w-full px-4">
+                  <div className="flex items-center space-x-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAdminAllocPage(1)}
+                      disabled={adminAllocPage <= 1}
+                      className="hidden h-8 w-8 p-0 lg:flex"
+                      title="First page"
+                    >
+                      <ChevronsLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAdminAllocPage((p) => Math.max(1, p - 1))}
+                      disabled={adminAllocPage <= 1}
+                      className="h-8 w-8 p-0"
+                      title="Previous page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="flex items-center gap-1 px-2">
+                      <span className="text-sm">
+                        Page {adminAllocPage} of {Math.max(1, Math.ceil(adminRecentAllocations.length / adminPageSize))}
+                      </span>
+                      <span className="text-muted-foreground">|</span>
+                      <div className="flex items-center space-x-1">
+                        <span className="text-sm">Go to:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max={Math.max(1, Math.ceil(adminRecentAllocations.length / adminPageSize))}
+                          value={adminAllocPage}
+                          onChange={(e) => {
+                            const page = e.target.value ? Number(e.target.value) : 1;
+                            setAdminAllocPage(Math.min(Math.max(1, page), Math.ceil(adminRecentAllocations.length / adminPageSize)));
+                          }}
+                          className="w-12 h-8 text-sm border rounded text-center"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAdminAllocPage((p) => Math.min(Math.ceil(adminRecentAllocations.length / adminPageSize), p + 1))}
+                      disabled={adminAllocPage >= Math.ceil(adminRecentAllocations.length / adminPageSize)}
+                      className="h-8 w-8 p-0"
+                      title="Next page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAdminAllocPage(Math.ceil(adminRecentAllocations.length / adminPageSize))}
+                      disabled={adminAllocPage >= Math.ceil(adminRecentAllocations.length / adminPageSize)}
+                      className="hidden h-8 w-8 p-0 lg:flex"
+                      title="Last page"
+                    >
+                      <ChevronsRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}

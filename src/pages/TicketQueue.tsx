@@ -28,7 +28,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, Clock } from 'lucide-react';
+import { Eye, Clock, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 interface Ticket {
   id: string;
@@ -65,6 +65,13 @@ const TicketQueue = () => {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [itStaff, setItStaff] = useState<any[]>([]);
   const [statusHistory, setStatusHistory] = useState<StatusHistory[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+  
+  // Calculate pagination values
+  const totalPages = Math.max(1, Math.ceil(tickets.length / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedTickets = tickets.slice(startIndex, startIndex + pageSize);
 
   useEffect(() => {
     fetchAllTickets();
@@ -237,8 +244,11 @@ const TicketQueue = () => {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>All Tickets</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Ticket Queue</CardTitle>
+          <div className="text-sm text-muted-foreground">
+            Showing {startIndex + 1}-{Math.min(startIndex + pageSize, tickets.length)} of {tickets.length} tickets
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -265,7 +275,7 @@ const TicketQueue = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                tickets.map((ticket) => (
+                paginatedTickets.map((ticket) => (
                   <TableRow key={ticket.id}>
                     <TableCell className="font-medium">{ticket.ticket_id}</TableCell>
                     <TableCell className="font-mono text-xs">
@@ -309,6 +319,74 @@ const TicketQueue = () => {
               )}
             </TableBody>
           </Table>
+          
+          {/* Pagination Controls */}
+          {!loading && tickets.length > 0 && (
+            <div className="p-3 flex items-center justify-center w-full border-t">
+              <div className="flex items-center space-x-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage <= 1}
+                  className="hidden h-8 w-8 p-0 lg:flex"
+                  title="First page"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                  className="h-8 w-8 p-0"
+                  title="Previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-1 px-2">
+                  <span className="text-sm">
+                    Page {currentPage} of {Math.max(1, totalPages)}
+                  </span>
+                  <span className="text-muted-foreground">|</span>
+                  <div className="flex items-center space-x-1">
+                    <span className="text-sm">Go to:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max={Math.max(1, totalPages)}
+                      value={currentPage}
+                      onChange={(e) => {
+                        const page = e.target.value ? Number(e.target.value) : 1;
+                        setCurrentPage(Math.min(Math.max(1, page), totalPages));
+                      }}
+                      className="w-12 h-8 text-sm border rounded text-center"
+                    />
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="h-8 w-8 p-0"
+                  title="Next page"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage >= totalPages}
+                  className="hidden h-8 w-8 p-0 lg:flex"
+                  title="Last page"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

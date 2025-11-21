@@ -33,7 +33,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, History, XCircle, Eye, Search, RotateCcw } from 'lucide-react';
+import { Plus, Pencil, History, XCircle, Eye, Search, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { CardHeader, CardTitle } from '@/components/ui/card';
@@ -736,26 +736,69 @@ const MyTickets = () => {
 
           {/* Pagination controls */}
           {filteredTickets.length > 0 && (
-            <div className="pt-4 border-t flex items-center justify-center gap-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage <= 1}
-              >
-                {'<'}
-              </Button>
-              <span className="text-sm">
-                {currentPage}/{totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage >= totalPages}
-              >
-                {'>'}
-              </Button>
+            <div className="p-3 flex items-center justify-center w-full border-t">
+              <div className="flex items-center space-x-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage <= 1}
+                  className="hidden h-8 w-8 p-0 lg:flex"
+                  title="First page"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                  className="h-8 w-8 p-0"
+                  title="Previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-1 px-2">
+                  <span className="text-sm">
+                    Page {currentPage} of {Math.max(1, totalPages)}
+                  </span>
+                  <span className="text-muted-foreground">|</span>
+                  <div className="flex items-center space-x-1">
+                    <span className="text-sm">Go to:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max={Math.max(1, totalPages)}
+                      value={currentPage}
+                      onChange={(e) => {
+                        const page = e.target.value ? Number(e.target.value) : 1;
+                        setCurrentPage(Math.min(Math.max(1, page), totalPages));
+                      }}
+                      className="w-12 h-8 text-sm border rounded text-center"
+                    />
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="h-8 w-8 p-0"
+                  title="Next page"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage >= totalPages}
+                  className="hidden h-8 w-8 p-0 lg:flex"
+                  title="Last page"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
