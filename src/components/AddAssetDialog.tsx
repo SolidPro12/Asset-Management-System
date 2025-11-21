@@ -63,6 +63,10 @@ const ASSET_CATEGORIES = [
   'TV',
   'Webcam',
   'Software',
+  'Screw Driver',
+  'Firewall Switches',
+  'Server',
+  'Door Access'
 ];
 
 const getAssetFields = (category: string) => {

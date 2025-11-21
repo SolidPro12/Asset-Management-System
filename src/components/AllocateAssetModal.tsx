@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { Textarea } from '@/components/ui/textarea'; 
 import { Calendar } from '@/components/ui/calendar';
 import {
   Popover,
@@ -352,9 +352,8 @@ export function AllocateAssetModal({
                       setErrors(prev => ({ ...prev, asset: '' }));
                     }
                   }}
-                  className={errors.asset ? 'border-red-500' : ''}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={errors.asset ? 'border-red-500' : ''}>
                     <SelectValue placeholder="Select asset" />
                   </SelectTrigger>
                   <SelectContent>
