@@ -8,6 +8,7 @@ interface AuthContextType {
   session: Session | null;
   signUp: (email: string, password: string, fullName: string, employeeId?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signInWithMicrosoft: () => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   loading: boolean;
 }
@@ -111,6 +112,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error };
   };
 
+  const signInWithMicrosoft = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'azure',
+      options: {
+        scopes: 'email profile openid',
+        redirectTo: `${window.location.origin}/`,
+      }
+    });
+
+    if (error) {
+      console.error("Microsoft sign-in error:", error);
+    }
+
+    return { error };
+  };
+
   const signOut = async () => {
     // Log logout activity before signing out
     if (user) {
@@ -131,7 +148,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, signUp, signIn, signOut, loading }}>
+    <AuthContext.Provider value={{ user, session, signUp, signIn, signInWithMicrosoft, signOut, loading }}>
       {children}
     </AuthContext.Provider>
   );
