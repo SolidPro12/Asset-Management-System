@@ -192,7 +192,6 @@ const getFieldLabel = (field: string) => {
     bagAttachment: 'Image Attachment',
     color: 'Colour',
     size: 'Size',
-    serialNumber: 'Serial No',
     note: 'Notes',
     screenSize: 'Screen Size',
     resolution: 'Resolution',
