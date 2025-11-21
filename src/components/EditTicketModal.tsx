@@ -19,6 +19,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+
+const RequiredField = ({ children }: { children: React.ReactNode }) => (
+  <>
+    {children} <span className="text-red-500">*</span>
+  </>
+);
+
+const ErrorMessage = ({ message }: { message: string }) => (
+  <p className="mt-1 text-sm text-red-500">{message}</p>
+);
 // Configurable bucket name for ticket attachments
 const TICKET_BUCKET = (import.meta as any).env?.VITE_SUPABASE_TICKET_BUCKET || 'ticket-attachments';
 
@@ -45,6 +55,14 @@ export function EditTicketModal({
   onSuccess,
 }: EditTicketModalProps) {
   const [loading, setLoading] = useState(false);
+  const [formErrors, setFormErrors] = useState({
+    title: '',
+    description: '',
+    priority: '',
+    issue_category: '',
+    location: ''
+  });
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -66,9 +84,21 @@ export function EditTicketModal({
     }
   }, [ticket]);
 
+  const validateForm = () => {
+    const errors = {
+      title: !formData.title.trim() ? 'Title is required' : '',
+      description: !formData.description.trim() ? 'Description is required' : '',
+      priority: !formData.priority ? 'Priority is required' : '',
+      issue_category: !formData.issue_category ? 'Issue category is required' : '',
+      location: !formData.location ? 'Location is required' : ''
+    };
+    setFormErrors(errors);
+    return !Object.values(errors).some(error => error !== '');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ticket) return;
+    if (!ticket || !validateForm()) return;
 
     setLoading(true);
     try {
@@ -143,32 +173,45 @@ export function EditTicketModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
+            <Label htmlFor="title">
+              <RequiredField>Title</RequiredField>
+            </Label>
             <Input
               id="title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               required
+              className={formErrors.title ? 'border-red-500' : ''}
             />
+            {formErrors.title && <ErrorMessage message={formErrors.title} />}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
+            <Label htmlFor="description">
+              <RequiredField>Description</RequiredField>
+            </Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={4}
               required
+              className={formErrors.description ? 'border-red-500' : ''}
             />
+            {formErrors.description && <ErrorMessage message={formErrors.description} />}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Priority *</Label>
+              <Label>
+                <RequiredField>Priority</RequiredField>
+              </Label>
               <Select
                 value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                onValueChange={(value) => {
+                  setFormData({ ...formData, priority: value });
+                  if (value) setFormErrors(prev => ({ ...prev, priority: '' }));
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -183,10 +226,15 @@ export function EditTicketModal({
             </div>
 
             <div className="space-y-2">
-              <Label>Issue Category *</Label>
+              <Label>
+                <RequiredField>Issue Category</RequiredField>
+              </Label>
               <Select
                 value={formData.issue_category}
-                onValueChange={(value) => setFormData({ ...formData, issue_category: value })}
+                onValueChange={(value) => {
+                  setFormData({ ...formData, issue_category: value });
+                  if (value) setFormErrors(prev => ({ ...prev, issue_category: '' }));
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -202,10 +250,15 @@ export function EditTicketModal({
           </div>
 
           <div className="space-y-2">
-            <Label>Location *</Label>
+            <Label>
+              <RequiredField>Location</RequiredField>
+            </Label>
             <Select
               value={formData.location}
-              onValueChange={(value) => setFormData({ ...formData, location: value })}
+              onValueChange={(value) => {
+                setFormData({ ...formData, location: value });
+                if (value) setFormErrors(prev => ({ ...prev, location: '' }));
+              }}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -215,6 +268,7 @@ export function EditTicketModal({
                 <SelectItem value="Vandalur">Vandalur</SelectItem>
               </SelectContent>
             </Select>
+            {formErrors.location && <ErrorMessage message={formErrors.location} />}
           </div>
 
           <div className="space-y-2">

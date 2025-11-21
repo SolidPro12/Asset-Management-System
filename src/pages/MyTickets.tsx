@@ -96,8 +96,6 @@ const MyTickets = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -515,22 +513,7 @@ const MyTickets = () => {
     // Status filter
     const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter;
     
-    // Date filter
-    let matchesDate = true;
-    if (dateFrom) {
-      const ticketDate = new Date(ticket.created_at);
-      const fromDate = new Date(dateFrom);
-      fromDate.setHours(0, 0, 0, 0);
-      if (ticketDate < fromDate) matchesDate = false;
-    }
-    if (dateTo) {
-      const ticketDate = new Date(ticket.created_at);
-      const toDate = new Date(dateTo);
-      toDate.setHours(23, 59, 59, 999);
-      if (ticketDate > toDate) matchesDate = false;
-    }
-    
-    return matchesSearch && matchesPriority && matchesStatus && matchesDate;
+    return matchesSearch && matchesPriority && matchesStatus;
   });
 
   // Pagination: 5 tickets per page
@@ -542,15 +525,10 @@ const MyTickets = () => {
   // Reset to first page whenever filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, priorityFilter, statusFilter, dateFrom, dateTo]);
+  }, [searchQuery, priorityFilter, statusFilter]);
 
-  const handleResetFilters = () => {
-    setSearchQuery('');
-    setPriorityFilter('all');
-    setStatusFilter('all');
-    setDateFrom('');
-    setDateTo('');
-  };
+  // Removed handleResetFilters function as it's no longer needed
+
 
   if (loading) {
     return (
@@ -574,17 +552,11 @@ const MyTickets = () => {
         </div>
 
         <Card>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-medium">Filters</CardTitle>
-              <Button variant="ghost" size="sm" onClick={handleResetFilters}>
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Reset
-              </Button>
-            </div>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-medium">Filters</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -620,18 +592,6 @@ const MyTickets = () => {
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
-              <Input
-                type="date"
-                placeholder="From Date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
-              <Input
-                type="date"
-                placeholder="To Date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
             </div>
           </CardContent>
         </Card>
@@ -654,14 +614,13 @@ const MyTickets = () => {
                 <TableHead>Status</TableHead>
                 <TableHead>Assigned To</TableHead>
                 <TableHead>Created Date</TableHead>
-                <TableHead>Completed Date</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredTickets.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center text-muted-foreground">
                     {tickets.length === 0 
                       ? 'No tickets found. Create your first ticket!'
                       : 'No tickets match the current filters.'}
@@ -702,11 +661,6 @@ const MyTickets = () => {
                       </TableCell>
                       <TableCell className={isCancelled ? 'text-muted-foreground' : ''}>
                         {format(new Date(ticket.created_at), 'MMM dd, yyyy')}
-                      </TableCell>
-                      <TableCell className={isCancelled ? 'text-muted-foreground' : ''}>
-                        {ticket.completed_at
-                          ? format(new Date(ticket.completed_at), 'MMM dd, yyyy')
-                          : '-'}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -856,11 +810,11 @@ const MyTickets = () => {
           setIsDialogOpen(open);
         }}
       >
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Ticket</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 pb-4">
             <div className="space-y-2">
               <Label htmlFor="ticket_id">Ticket ID</Label>
               <Input

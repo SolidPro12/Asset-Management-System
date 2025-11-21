@@ -253,8 +253,6 @@ const TicketQueue = () => {
                 <TableHead>Category</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Assigned To</TableHead>
-                <TableHead>Created Date</TableHead>
-                <TableHead>Completed Date</TableHead>
                 <TableHead>Update Status</TableHead>
                 <TableHead>View</TableHead>
               </TableRow>
@@ -262,7 +260,7 @@ const TicketQueue = () => {
             <TableBody>
               {tickets.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                     No tickets found.
                   </TableCell>
                 </TableRow>
@@ -279,13 +277,7 @@ const TicketQueue = () => {
                     <TableCell>{getPriorityBadge(ticket.priority)}</TableCell>
                     <TableCell className="capitalize">{ticket.issue_category}</TableCell>
                     <TableCell>{getStatusBadge(ticket.status)}</TableCell>
-                    <TableCell>{ticket.assigned_to_name}</TableCell>
-                    <TableCell>{format(new Date(ticket.created_at), 'MMM dd, yyyy')}</TableCell>
-                    <TableCell>
-                      {ticket.completed_at
-                        ? format(new Date(ticket.completed_at), 'MMM dd, yyyy')
-                        : '-'}
-                    </TableCell>
+                    <TableCell>{ticket.assigned_to_name || 'Unassigned'}</TableCell>
                     <TableCell>
                       <Select
                         value={ticket.status}

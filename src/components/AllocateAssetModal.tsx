@@ -88,9 +88,14 @@ export function AllocateAssetModal({
   const [employeeComboOpen, setEmployeeComboOpen] = useState(false);
   const [departmentComboOpen, setDepartmentComboOpen] = useState(false);
   const [editDepartmentComboOpen, setEditDepartmentComboOpen] = useState(false);
+  
+  // Form validation state
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (open) {
+      // Reset errors when modal opens
+      setErrors({});
       fetchAssets();
       fetchEmployees();
 
@@ -185,26 +190,26 @@ export function AllocateAssetModal({
     }
   };
 
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!allocation) {
+      if (!selectedAssetId) newErrors.asset = 'Please select an asset';
+      if (!selectedEmployeeId) newErrors.employee = 'Please select an employee';
+    }
+    
+    if (!department) newErrors.department = 'Department is required';
+    if (!location) newErrors.location = 'Location is required';
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async () => {
-    if (!allocation && (!selectedAssetId || !selectedEmployeeId)) {
-      toast({
-        title: 'Error',
-        description: 'Please select both asset and employee',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!department || !location) {
-      toast({
-        title: 'Error',
-        description: 'Please select both department and location',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+    if (!validateForm()) return;
+    
     setLoading(true);
+
     try {
       const asset = allocation ? null : assets.find((a) => a.id === selectedAssetId);
       const employee = allocation ? null : employees.find((e) => e.id === selectedEmployeeId);
@@ -323,19 +328,32 @@ export function AllocateAssetModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="border-b pb-4">
+          <DialogTitle className="text-xl">
             {allocation ? 'Edit Allocation' : 'Allocate New Asset'}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-2 -mr-2">
+          {/* Scrollable area */}
           {!allocation && (
             <>
               <div className="space-y-2">
-                <Label>Asset</Label>
-                <Select value={selectedAssetId} onValueChange={setSelectedAssetId}>
+                <div className="flex justify-between items-center">
+                  <Label>Asset</Label>
+                  {errors.asset && <span className="text-sm text-red-500">{errors.asset}</span>}
+                </div>
+                <Select 
+                  value={selectedAssetId} 
+                  onValueChange={(value) => {
+                    setSelectedAssetId(value);
+                    if (errors.asset) {
+                      setErrors(prev => ({ ...prev, asset: '' }));
+                    }
+                  }}
+                  className={errors.asset ? 'border-red-500' : ''}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select asset" />
                   </SelectTrigger>
@@ -350,8 +368,21 @@ export function AllocateAssetModal({
               </div>
 
               <div className="space-y-2">
-                <Label>Employee</Label>
-                <Popover open={employeeComboOpen} onOpenChange={setEmployeeComboOpen}>
+                <div className="flex justify-between items-center">
+                  <Label>Employee</Label>
+                  {errors.employee && <span className="text-sm text-red-500">{errors.employee}</span>}
+                </div>
+                <Popover 
+                  open={employeeComboOpen} 
+                  onOpenChange={(open) => {
+                    setEmployeeComboOpen(open);
+                    if (!open && !selectedEmployeeId && !allocation) {
+                      setErrors(prev => ({ ...prev, employee: 'Please select an employee' }));
+                    } else if (selectedEmployeeId && errors.employee) {
+                      setErrors(prev => ({ ...prev, employee: '' }));
+                    }
+                  }}
+                >
                   <PopoverTrigger asChild>
                     <Button
                       type="button"
@@ -396,8 +427,21 @@ export function AllocateAssetModal({
               </div>
 
               <div className="space-y-2">
-                <Label>Department *</Label>
-                <Popover open={departmentComboOpen} onOpenChange={setDepartmentComboOpen}>
+                <div className="flex justify-between items-center">
+                  <Label>Department <span className="text-red-500">*</span></Label>
+                  {errors.department && <span className="text-sm text-red-500">{errors.department}</span>}
+                </div>
+                <Popover 
+                  open={departmentComboOpen} 
+                  onOpenChange={(open) => {
+                    setDepartmentComboOpen(open);
+                    if (!open && !department) {
+                      setErrors(prev => ({ ...prev, department: 'Please select a department' }));
+                    } else if (department && errors.department) {
+                      setErrors(prev => ({ ...prev, department: '' }));
+                    }
+                  }}
+                >
                   <PopoverTrigger asChild>
                     <Button
                       type="button"
@@ -460,8 +504,21 @@ export function AllocateAssetModal({
           {allocation && (
             <>
               <div className="space-y-2">
-                <Label>Department *</Label>
-                <Popover open={editDepartmentComboOpen} onOpenChange={setEditDepartmentComboOpen}>
+                <div className="flex justify-between items-center">
+                  <Label>Department <span className="text-red-500">*</span></Label>
+                  {errors.department && <span className="text-sm text-red-500">{errors.department}</span>}
+                </div>
+                <Popover 
+                  open={editDepartmentComboOpen} 
+                  onOpenChange={(open) => {
+                    setEditDepartmentComboOpen(open);
+                    if (!open && !department) {
+                      setErrors(prev => ({ ...prev, department: 'Please select a department' }));
+                    } else if (department && errors.department) {
+                      setErrors(prev => ({ ...prev, department: '' }));
+                    }
+                  }}
+                >
                   <PopoverTrigger asChild>
                     <Button
                       type="button"
@@ -574,7 +631,7 @@ export function AllocateAssetModal({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
