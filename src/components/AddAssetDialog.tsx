@@ -66,8 +66,16 @@ const ASSET_CATEGORIES = [
 ];
 
 const getAssetFields = (category: string) => {
-  // Asset ID is always the first field for all categories
-  const baseFields = ['assetId', 'assetType', 'model', 'serviceTag', 'purchaseDate', 'cost', 'note'];
+  // Base fields for all asset types
+  const baseFields = [
+    'assetId', 
+    'assetType', 
+    'model', 
+    'serviceTag',
+    'purchaseDate', 
+    'cost', 
+    'note'
+  ];
   
   switch (category) {
     case 'Laptop':
@@ -76,6 +84,7 @@ const getAssetFields = (category: string) => {
         'assetType',
         'model',
         'serviceTag',
+        'serialNumber',
         'ram',
         'processor',
         'storage',
@@ -86,13 +95,24 @@ const getAssetFields = (category: string) => {
         'note',
       ];
     case 'Bags':
-      return ['assetId', 'assetType', 'brand', 'serviceTag', 'purchaseDate', 'cost', 'bagAttachment', 'note'];
+      return [
+        'assetId',
+        'assetType',
+        'brand',
+        'serviceTag',
+        'serialNumber',
+        'purchaseDate',
+        'cost',
+        'bagAttachment',
+        'note'
+      ];
     case 'Monitor':
       return [
         'assetId',
         'assetType',
         'model',
         'serviceTag',
+        'serialNumber',
         'screenSize',
         'resolution',
         'refreshRate',
@@ -103,11 +123,52 @@ const getAssetFields = (category: string) => {
         'note',
       ];
     case 'Headphones':
-      return ['assetId', 'assetType', 'model', 'serviceTag', 'connectivity', 'purchaseDate', 'cost', 'note'];
+      return [
+        'assetId',
+        'assetType',
+        'model',
+        'serviceTag',
+        'serialNumber',
+        'connectivity',
+        'purchaseDate',
+        'cost',
+        'note'
+      ];
     case 'TV':
-      return ['assetId', 'assetType', 'model', 'serviceTag', 'screenSize', 'smartTV', 'purchaseDate', 'cost', 'note'];
+      return [
+        'assetId',
+        'assetType',
+        'model',
+        'serviceTag',
+        'serialNumber',
+        'screenSize',
+        'smartTV',
+        'purchaseDate',
+        'cost',
+        'note'
+      ];
     case 'Pendrives':
-      return ['assetId', 'assetType', 'size', 'serialNumber', 'purchaseDate', 'cost', 'note'];
+      return [
+        'assetId',
+        'assetType',
+        'size',
+        'serialNumber',
+        'purchaseDate',
+        'cost',
+        'note'
+      ];
+    case 'Software':
+      return [
+        'softwareName',
+        'version',
+        'licenseType',
+        'renewalDate',
+        'purchaseDate',
+        'cost',
+        'note',
+        'assetType',  // Adding assetType for Software as well
+        'serialNumber'  // Adding serialNumber for Software
+      ];
     default:
       return baseFields;
   }
@@ -119,6 +180,7 @@ const getFieldLabel = (field: string) => {
     assetType: 'Asset Type',
     model: 'Model',
     serviceTag: 'Service Tag',
+    serialNumber: 'Serial No',
     ram: 'RAM',
     processor: 'Processor',
     organizationId: 'Organization ID',
@@ -137,6 +199,10 @@ const getFieldLabel = (field: string) => {
     refreshRate: 'Refresh Rate',
     connectivity: 'Connectivity',
     smartTV: 'Smart TV',
+    softwareName: 'Software Name',
+    version: 'Version',
+    licenseType: 'License Type',
+    renewalDate: 'Renewal/Expiry Date',
   };
   return labels[field] || field;
 };
@@ -377,6 +443,30 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess, editAsset }: Add
       );
     }
 
+    if (field === 'licenseType') {
+      return (
+        <div key={field} className="space-y-2">
+          <Label htmlFor="licenseType">
+            {getFieldLabel(field)} <span className="text-destructive ml-1">*</span>
+          </Label>
+          <Select
+            value={formData.licenseType || ''}
+            onValueChange={(value) => handleInputChange('licenseType', value)}
+            required
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select license type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Standalone">Standalone</SelectItem>
+              <SelectItem value="Network">Network</SelectItem>
+              <SelectItem value="Common License">Common License</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      );
+    }
+
     if (field === 'note') {
       return (
         <div key={field} className="space-y-2 md:col-span-2">
@@ -402,11 +492,11 @@ export const AddAssetDialog = ({ open, onOpenChange, onSuccess, editAsset }: Add
         </Label>
         <Input
           id={field}
-          type={field === 'purchaseDate' ? 'date' : field === 'cost' ? 'text' : 'text'}
+          type={field === 'purchaseDate' || field === 'renewalDate' ? 'date' : field === 'cost' ? 'number' : 'text'}
           value={formData[field] || ''}
           onChange={(e) => handleInputChange(field, e.target.value)}
           placeholder={`Enter ${getFieldLabel(field).toLowerCase()}`}
-          required={['assetId', 'brand', 'model', 'serviceTag', 'serialNumber', 'cost'].includes(field)}
+          required={['assetId', 'brand', 'model', 'serviceTag', 'serialNumber', 'cost', 'softwareName', 'version', 'licenseType'].includes(field)}
           disabled={editAsset && field === 'assetId'}
         />
       </div>
